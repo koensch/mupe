@@ -1,0 +1,29 @@
+{
+  "serial": {
+    "port": "/dev/ttyUSB0",
+    "baudrate": 9600,
+    "databits": 8,
+    "stopbits": 2,
+    "parity": "odd"
+  },
+  "ethernet": {
+    "device": "eth0",
+    "protocol": "tcp",
+    "remote_ip": "192.168.0.10",
+    "remote_port": 12345,
+    "local_port": 1957
+  },
+  "nmea2000": {
+    "can_interface": "can0"
+  },
+  "timer": {
+    "interval_ms": 10
+  },
+  "webserver": {
+    "port": 8080
+  },
+  "logging": {
+    "file": "marine_gateway.log",
+    "level": "debug"
+  }
+}
