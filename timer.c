@@ -10,7 +10,8 @@ void *timer_thread(void *arg)
     Config *cfg = (Config *)arg;
     unsigned char readbuf[1024];
     char asciibuf[2048];
-    int readbuflen;
+    int readbuflen = 0;
+    int counter = 0;
 
     while (g_running) {
         pthread_mutex_lock(&g_data_mutex);
@@ -30,13 +31,14 @@ void *timer_thread(void *arg)
             if (g_serial_data_counter>SerialCounter_Bottom) {
                 g_serial_data_counter--;
             }
+            counter = g_serial_data_counter;
         }
         pthread_mutex_unlock(&g_data_mutex);
 
         // show what we got
         if (readbuflen>0) {
             byte2ascii(asciibuf, sizeof(asciibuf), readbuf, readbuflen, BYTE2ASCII_PLAIN);
-            log_debug("Timer %d ms: serial data -> %s", g_serial_data_counter, asciibuf);
+            log_debug("Timer %d ms: serial data -> %s", counter, asciibuf);
         }
         readbuflen=0;
 

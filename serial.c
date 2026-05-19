@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <termios.h>
+//#include <asm/termios.h>
 #include <string.h>
 #include <errno.h>
 
@@ -17,27 +18,27 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
         return -1;
     }
 
-    cfmakeraw(&tty);
+    cfmakeraw(&tty); // set to default
 
-    speed_t baud;
-    int iCustomBaud=0;
+    speed_t baud = 0;
     switch (speed) {
         case 9600: baud = B9600; break;
         case 19200: baud = B19200; break;
         case 38400: baud = B38400; break;
         case 57600: baud = B57600; break;
         case 115200: baud = B115200; break;
-        default:
-            iCustomBaud=1;
-            break;
+        default: break;
     }
-    #define BOTHER 0x0010000
-    if (iCustomBaud>0) {
+    //#define BOTHER 0x000010000
+    #define XCBAUD   0x0000100F
+    #define XBOTHER  0x00001000
+    if (baud==0) {
         // custom baudrates
-        tty.c_cflag &= ~CBAUD; // clear CBAUD bits
-        tty.c_cflag |= ~BOTHER; // set 'other' bit
+        tty.c_cflag &= ~XCBAUD; // clear CBAUD bits
+        tty.c_cflag |= XBOTHER; // set 'other' bit
         tty.c_ispeed = speed;
         tty.c_ospeed = speed; 
+        log_info("Serial: setting custom baudrate: %d", speed);
     } else {
         // standard baudrates
         cfsetispeed(&tty, baud);
@@ -68,13 +69,12 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
     }
 
     tty.c_cflag |= CLOCAL | CREAD;
-    tty.c_cc[VMIN]  = 0;
-    tty.c_cc[VTIME] = 1;
 
     if (tcsetattr(fd, TCSANOW, &tty) != 0) {
         log_error("tcsetattr: %s", strerror(errno));
         return -1;
     }
+    log_debug("Serial: c_cflag = %X", tty.c_cflag);
 
     return 0;
 }
@@ -100,8 +100,6 @@ void *serial_thread(void *arg)
     fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
     unsigned char rawbuf[256];
-    char asciibuf[1024];
-    int counter = 0;
     ssize_t n = 0;
 
     // this serial handler is part of a reverse-engineering project. At the start, the dynamic behaviour is
@@ -138,19 +136,10 @@ void *serial_thread(void *arg)
             } else {
                 // if any input received; append to buffer
                 pthread_mutex_lock(&g_data_mutex);
-                if (g_serial_data_len > SerialCounter_Reset) {
-                    // we are appending to previous data
-                } else {
-                    // new frame, preserve counter value for logging
-                    counter = g_serial_data_counter;
-                }
                 memcpy(&g_last_serial_data[g_serial_data_len], rawbuf, n);
                 g_serial_data_len = g_serial_data_len + n;
                 g_serial_data_counter = SerialCounter_Set;
                 pthread_mutex_unlock(&g_data_mutex);
-
-                byte2ascii(asciibuf, sizeof(asciibuf), rawbuf, n, BYTE2ASCII_PLAIN);
-                log_debug("Serial read: Counter= %d, received: %s", counter, asciibuf);
             }
         } else if (n < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)

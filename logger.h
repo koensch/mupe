@@ -19,6 +19,6 @@ void log_debug(const char *fmt, ...);
 #define BYTE2ASCII_PLAIN    0   // continous string:        00010203 .... FEFF
 #define BYTE2ASCII_SPACED   1   // space between bytes:     00 01 02 03 .... FE FF 
 #define BYTE2ASCII_HEXED    2   // every byte preceeded by  0x00 0x01 0x02 0x03 .... 0xFE 0xFF
-size_t byte2ascii(char*, size_t, unsigned char*, size_t, int);
+char* byte2ascii(char*, size_t, unsigned char*, size_t, int);
 
 #endif
