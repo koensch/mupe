@@ -3,48 +3,43 @@
 #include "logger.h"
 
 #include <stdio.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <termios.h>
-//#include <asm/termios.h>
+//#include <termios.h>
 #include <string.h>
 #include <errno.h>
+#include "/usr/include/asm-generic/termbits.h"
+#include "/usr/include/asm-generic/ioctls.h"
 
 static int set_interface_attribs(int fd, int speed, int databits, int stopbits, const char *parity)
 {
-    struct termios tty;
-    if (tcgetattr(fd, &tty) != 0) {
-        log_error("tcgetattr: %s", strerror(errno));
+    struct termios2 tty;
+    int r;
+
+    // get existing Terminal Control block
+    r = ioctl(fd, TCGETS2, &tty);
+    if (r == 0) {
+    } else {
+        log_error("Serial settings: ioctl error %d", r);
         return -1;
     }
 
-    cfmakeraw(&tty); // set to default
+    tty.c_iflag &= ~IGNBRK;                 // disable break processing
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY); // disable xon/xoff control
+    tty.c_lflag = 0;                        // no signalling characters, no echo
+    tty.c_oflag = 0;                        // no remapping, no delays
+    tty.c_cc[VMIN] = 0;                     // read doesn't block
+    tty.c_cc[VTIME] = 1;                   // 0.1 sec read timeout
 
-    speed_t baud = 0;
-    switch (speed) {
-        case 9600: baud = B9600; break;
-        case 19200: baud = B19200; break;
-        case 38400: baud = B38400; break;
-        case 57600: baud = B57600; break;
-        case 115200: baud = B115200; break;
-        default: break;
-    }
-    //#define BOTHER 0x000010000
-    #define XCBAUD   0x0000100F
-    #define XBOTHER  0x00001000
-    if (baud==0) {
-        // custom baudrates
-        tty.c_cflag &= ~XCBAUD; // clear CBAUD bits
-        tty.c_cflag |= XBOTHER; // set 'other' bit
-        tty.c_ispeed = speed;
-        tty.c_ospeed = speed; 
-        log_info("Serial: setting custom baudrate: %d", speed);
-    } else {
-        // standard baudrates
-        cfsetispeed(&tty, baud);
-        cfsetospeed(&tty, baud);
-    }
+    tty.c_cflag |= (CLOCAL | CREAD);  // ignore modem status, enable receiver
+    // custom baudrate
+    tty.c_cflag &= ~CBAUD; // clear CBAUD bits
+    tty.c_cflag |= BOTHER; // set 'other' bit
+    tty.c_ispeed = speed;
+    tty.c_ospeed = speed;
 
+    // set 'databits'
     tty.c_cflag &= ~CSIZE;
     switch (databits) {
         case 5: tty.c_cflag |= CS5; break;
@@ -54,11 +49,13 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
         default: tty.c_cflag |= CS8; break;
     }
 
+    // set 'stopbits'
     if (stopbits == 2)
         tty.c_cflag |= CSTOPB;  // set stopbit bit = 2 stopbits
     else
         tty.c_cflag &= ~CSTOPB; // reset stopbit bit = 1 stopbit
 
+    // set parity
     tty.c_cflag &= ~(PARENB | PARODD);
     if (parity && strcmp(parity, "none") != 0) {
         if (strcmp(parity, "even") == 0) {
@@ -68,13 +65,13 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
         }
     }
 
-    tty.c_cflag |= CLOCAL | CREAD;
-
-    if (tcsetattr(fd, TCSANOW, &tty) != 0) {
-        log_error("tcsetattr: %s", strerror(errno));
+    r = ioctl(fd, TCSETS2, &tty);
+    if (r == 0) {
+        log_info("Serial settings: %d baud, %d databits, %d stopbits, %s parity", speed, databits, stopbits, parity);
+    } else {
+        log_error("Serial settings: ioctl error %d", r);
         return -1;
     }
-    log_debug("Serial: c_cflag = %X", tty.c_cflag);
 
     return 0;
 }
@@ -83,15 +80,16 @@ void *serial_thread(void *arg)
 {
     Config *cfg = (Config *)arg;
 
-    log_info("Serial opening %s baud=%d", cfg->serial_port, cfg->baudrate);
+    log_info("Serial opening %s", cfg->serial_port);
 
     int fd = open(cfg->serial_port, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd < 0) {
-        log_error("open serial: %s", strerror(errno));
+        log_error("Serial: open(): %s", strerror(errno));
         return NULL;
     }
 
     if (set_interface_attribs(fd, cfg->baudrate, cfg->databits,cfg->stopbits, cfg->parity) != 0) {
+        log_error("Serial: set_interface_attribs(): %s", strerror(errno));
         close(fd);
         return NULL;
     }

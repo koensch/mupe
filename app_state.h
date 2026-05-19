@@ -18,7 +18,7 @@ extern char g_last_signalk_delta[1024];
 /* Serial Protocol timing */
 extern int  g_serial_data_available;
 #define SerialCounter_Reset 0
-#define SerialCounter_Set   100
+#define SerialCounter_Set   10
 #define SerialCounter_Bottom -99999
 extern int  g_serial_data_len;      // number of bytes in serial buffer
 extern int  g_serial_data_counter;  // receive counter 

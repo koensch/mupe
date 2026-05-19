@@ -37,7 +37,7 @@ void *timer_thread(void *arg)
 
         // show what we got
         if (readbuflen>0) {
-            byte2ascii(asciibuf, sizeof(asciibuf), readbuf, readbuflen, BYTE2ASCII_PLAIN);
+            byte2ascii(asciibuf, sizeof(asciibuf), readbuf, readbuflen, BYTE2ASCII_SPACED);
             log_debug("Timer %d ms: serial data -> %s", counter, asciibuf);
         }
         readbuflen=0;
