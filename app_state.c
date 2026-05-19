@@ -4,10 +4,13 @@
 volatile int g_running = 1;
 
 pthread_mutex_t g_data_mutex;
-char g_last_serial_data[256];
+char g_last_serial_data[1024];
 char g_last_ethernet_data[1024];
 char g_last_signalk_delta[1024];
 int  g_serial_data_available = 0;
+int  g_serial_data_len=0;
+int  g_serial_data_counter=SerialCounter_Reset;
+
 
 double g_lat = 0.0;
 double g_lon = 0.0;

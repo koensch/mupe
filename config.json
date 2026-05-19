@@ -17,6 +17,7 @@
     "can_interface": "can0"
   },
   "timer": {
+    "comment": "serial counter interval",
     "interval_ms": 10
   },
   "webserver": {

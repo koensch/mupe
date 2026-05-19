@@ -211,8 +211,8 @@ void *nmea2000_thread(void *arg)
             case 130306: parse_pgn_130306(&frame); break;
             default: break;
         }
+        usleep(MSEC1);
     }
-
     close(s);
     log_info("NMEA2000 thread exiting");
     return NULL;

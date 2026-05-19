@@ -14,11 +14,20 @@ SRC = main.c \
       webserver.c \
       nmea2000.c
 
+H = config.h \
+	logger.h \
+	app_state.h \
+	serial.h \
+	ethernet.h \
+	timer.h \
+	webserver.h \
+	nmea2000.h
+
 OBJ = $(SRC:.c=.o)
 
 all: app
 
-app: $(OBJ)
+app: $(OBJ) $(H)
 	$(CC) $(CFLAGS) -o app $(OBJ) $(LDFLAGS)
 
 clean:

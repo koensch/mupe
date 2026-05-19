@@ -151,7 +151,7 @@ static int handle_ws_handshake(int client_fd, const char *req)
 
 static void handle_api_state(int client_fd)
 {
-    char serial_copy[256];
+    char serial_copy[1024];
     char eth_copy[1024];
 
     pthread_mutex_lock(&g_data_mutex);
@@ -316,12 +316,10 @@ void *webserver_thread(void *arg)
     log_info("Web listening on http://localhost:%d", cfg->web_port);
 
     while (g_running) {
-        // expect accept to be non-blocking
         int client_fd = accept(server_fd, NULL, NULL);
         if (client_fd < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                // No pending connections — sleep a bit or continue
-                usleep(1000);  // 1 ms to avoid busy loop
+                usleep(MSEC1);
                 continue;
             }
         if (!g_running) break;
@@ -380,7 +378,7 @@ void *webserver_thread(void *arg)
         } else {
             handle_root_html(client_fd, cfg);
         }
-
+        usleep(MSEC1);
         close(client_fd);
     }
 

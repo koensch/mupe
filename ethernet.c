@@ -212,7 +212,7 @@ void *ethernet_thread(void *arg)
                 break;
             }
         }
-        usleep(1000);
+        usleep(MSEC1);
     }
     close(sockfd);
     log_info("Ethernet thread exiting");
