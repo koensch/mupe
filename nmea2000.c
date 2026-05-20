@@ -182,7 +182,7 @@ static void parse_pgn_127245(const struct can_frame *f)
     g_rudder = rudder;
     pthread_mutex_unlock(&g_data_mutex);
 
-    log_debug("N2K 127245: rudder angle=%.4f [rad] (or %d degrees)", rudder, (int)(rudder*180/M_PI));
+    log_debug("N2K 127245: rudder angle=%.4f [rad] (or %d degrees) %X", rudder, (int)(rudder*180/M_PI), rudder_raw);
 }
 
 void *nmea2000_thread(void *arg)

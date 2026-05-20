@@ -12,6 +12,8 @@
 #include "/usr/include/asm-generic/termbits.h"
 #include "/usr/include/asm-generic/ioctls.h"
 
+//#define PROTOCOL_DEBUG
+
 static int set_interface_attribs(int fd, int speed, int databits, int stopbits, const char *parity)
 {
     struct termios2 tty;
@@ -30,7 +32,7 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
     tty.c_lflag = 0;                        // no signalling characters, no echo
     tty.c_oflag = 0;                        // no remapping, no delays
     tty.c_cc[VMIN] = 0;                     // read doesn't block
-    tty.c_cc[VTIME] = 1;                   // 0.1 sec read timeout
+    tty.c_cc[VTIME] = 1;                    // 0.1 sec read timeout
 
     tty.c_cflag |= (CLOCAL | CREAD);  // ignore modem status, enable receiver
     // custom baudrate
@@ -79,6 +81,9 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
 void *serial_thread(void *arg)
 {
     Config *cfg = (Config *)arg;
+#ifdef PROTOCOL_DEBUG
+    char asciibuf[2048];
+#endif
 
     log_info("Serial opening %s", cfg->serial_port);
 
@@ -128,6 +133,11 @@ void *serial_thread(void *arg)
         // get input (if any) into our local buffer
         n = read(fd, rawbuf, sizeof(rawbuf));
         if (n > 0) {
+#ifdef PROTOCOL_DEBUG
+            // convert frame into prinatble text, byte spaced
+            byte2ascii(asciibuf, sizeof(asciibuf), rawbuf, n, BYTE2ASCII_SPACED);
+            log_debug("Serial %d msec, %d bytes: %s", g_serial_data_counter, n, asciibuf);
+#endif
             // if we receive more that we can handle, let it be known
             if (n > (ssize_t)(sizeof(rawbuf)-1)) {
                 log_debug("Serial read: possible overflow of receive buffer");
