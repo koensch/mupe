@@ -7,9 +7,8 @@ pthread_mutex_t g_data_mutex;
 char g_last_serial_data[1024];
 char g_last_ethernet_data[1024];
 char g_last_signalk_delta[1024];
-int  g_serial_data_available = 0;
-int  g_serial_data_len=0;
-int  g_serial_data_counter=SerialCounter_Reset;
+int  g_serial_data_len = 0;
+int  g_serial_data_counter = SerialCounter_Reset;
 
 
 double g_lat = 0.0;
@@ -21,6 +20,7 @@ double g_twa = 0.0;
 double g_tws = 0.0;
 double g_awa = 0.0;
 double g_aws = 0.0;
+double g_rudder = 0.0;
 
 void app_state_init(void)
 {
@@ -28,7 +28,8 @@ void app_state_init(void)
     memset(g_last_serial_data, 0, sizeof(g_last_serial_data));
     memset(g_last_ethernet_data, 0, sizeof(g_last_ethernet_data));
     memset(g_last_signalk_delta, 0, sizeof(g_last_signalk_delta));
-    g_serial_data_available = 0;
+    g_serial_data_len = 0;
+    g_serial_data_counter = SerialCounter_Reset;
 }
 
 void app_state_shutdown(void)

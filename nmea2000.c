@@ -16,9 +16,9 @@
 #include <stdio.h>
 
 /* Helpers for N2K “not available” values */
-//static int16_t n2k_i16(uint8_t lo, uint8_t hi) {
-//    return (int16_t)(lo | (hi << 8));
-//}
+static int16_t n2k_i16(uint8_t lo, uint8_t hi) {
+    return (int16_t)(lo | (hi << 8));
+}
 static uint16_t n2k_u16(uint8_t lo, uint8_t hi) {
     return (uint16_t)(lo | (hi << 8));
 }
@@ -156,6 +156,35 @@ static void parse_pgn_130306(const struct can_frame *f)
     log_debug("N2K 130306: ref=%u speed=%.2f m/s angle=%.4f rad", ref, speed, angle);
 }
 
+/* 127245 – Rudder Angle
+ * Angle: -PI (-180) to +Pi (+180) degrees, range 0-30000
+ * mechinical limits are restricted to +/-45 to +/-90 degrees
+ */
+static void parse_pgn_127245(const struct can_frame *f)
+{
+    uint8_t  rudder_instance = f->data[0]; // identify rudder, when multiple rudders or sonsors
+    uint8_t  rudder_orderdir = f->data[1]; // order direction (0= no order, 1=turn port, 2= turn starboard)
+    // byte 2 not used
+    int16_t rudder_orderpos = n2k_i16(f->data[4], f->data[3]); // angle order 0.0001 rad/bit or 0xFFFF (no order)
+    int16_t rudder_raw      = n2k_i16(f->data[6], f->data[5]); // position, 0.0001 rad/bit, += starboard, -=port
+
+    //if (rudder_raw == 0xFFFF)
+    //    return;
+
+    double rudder  = rudder_raw * 1e-4;  /* rads */
+
+    /* For now, just store position, destroy others */
+    (void) rudder_instance;
+    (void) rudder_orderdir;
+    (void) rudder_orderpos;
+
+    pthread_mutex_lock(&g_data_mutex);
+    g_rudder = rudder;
+    pthread_mutex_unlock(&g_data_mutex);
+
+    log_debug("N2K 127245: rudder angle=%.4f [rad] (or %d degrees)", rudder, (int)(rudder*180/M_PI));
+}
+
 void *nmea2000_thread(void *arg)
 {
     Config *cfg = (Config *)arg;
@@ -209,6 +238,7 @@ void *nmea2000_thread(void *arg)
             case 128259: parse_pgn_128259(&frame); break;
             case 128267: parse_pgn_128267(&frame); break;
             case 130306: parse_pgn_130306(&frame); break;
+            case 127245: parse_pgn_127245(&frame); break;
             default: break;
         }
         usleep(MSEC1);

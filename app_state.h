@@ -16,10 +16,9 @@ extern char g_last_ethernet_data[1024];
 extern char g_last_signalk_delta[1024];
 
 /* Serial Protocol timing */
-extern int  g_serial_data_available;
-#define SerialCounter_Reset 0
-#define SerialCounter_Set   10
-#define SerialCounter_Bottom -99999
+#define SerialCounter_Reset     0
+#define SerialCounter_Set       10
+#define SerialCounter_Bottom    -999
 extern int  g_serial_data_len;      // number of bytes in serial buffer
 extern int  g_serial_data_counter;  // receive counter 
 
@@ -33,6 +32,7 @@ extern double g_twa;
 extern double g_tws;
 extern double g_awa;
 extern double g_aws;
+extern double g_rudder;
 
 void app_state_init(void);
 void app_state_shutdown(void);

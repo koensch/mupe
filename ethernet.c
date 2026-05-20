@@ -153,6 +153,7 @@ void *ethernet_thread(void *arg)
             double tws   = g_tws;
             double awa   = g_awa;
             double aws   = g_aws;
+            double rudder= g_rudder;
             pthread_mutex_unlock(&g_data_mutex);
 
             char *json = build_signalk_delta(lat, lon, cog, stw, depth, twa, tws, awa, aws);

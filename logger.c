@@ -82,39 +82,31 @@ void log_debug(const char *fmt, ...) {
 // note: we place the nibbles and characters in the same order that we receive them
 //       so there should be no problem on a OS with other endianess
 char* byte2ascii(char* string, size_t size, unsigned char* input, size_t len, int option) {
-    char char1,char2;
     size_t i;
     const char hex[16]={'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
     switch (option) {
         case  BYTE2ASCII_PLAIN:
-            for (i=0;i<MIN(size/2-1,len);i++){      // leave 1 byte in the target string for the null-terminator
-                char1 = hex[(input[i]&0xF)];        // low nibble
-                char2 = hex[((input[i]>>4)&0xF)];   // high nibble
-                string[i*2+1]=char1;    // low nibble
-                string[i*2+0]=char2;    // high nibble
+            for (i=0;i<MIN(size/2-1,len);i++){              // leave 1 byte in the target string for the null-terminator
+                string[i*2+0] = hex[((input[i]>>4)&0xF)];   // high nibble
+                string[i*2+1] = hex[(input[i]&0xF)];        // low nibble
             }
             string[i*2+0] = '\0'; // null byte
             break;
         case  BYTE2ASCII_SPACED:
-            for (i=0;i<MIN(size/3-1,len);i++){      // leave 1 byte in the target string for the null-terminator
-                char1 = hex[(input[i]&0xF)];        // low nibble
-                char2 = hex[((input[i]>>4)&0xF)];   // high nibble
-                string[i*3+1]=char1;    // low nibble
-                string[i*3+0]=char2;    // high nibble
-                string[i*3+2]=' ';      // space
+            for (i=0;i<MIN(size/3-1,len);i++){              // leave 1 byte in the target string for the null-terminator
+                string[i*3+0] = hex[((input[i]>>4)&0xF)];   // high nibble
+                string[i*3+1] = hex[(input[i]&0xF)];        // low nibble
+                string[i*3+2] = ' ';
             }
             string[i*3+0] = '\0'; // null byte
             break;
         case  BYTE2ASCII_HEXED:
-            // not yet implemented
-            for (i=0;i<MIN(size/5-1,len);i++){      // leave 1 byte in the target string for the null-terminator
-                char1 = hex[(input[i]&0xF)];        // low nibble
-                char2 = hex[((input[i]>>4)&0xF)];   // high nibble
-                string[i*5+0]='0';
-                string[i*5+1]='X';
-                string[i*5+3]=char1;    // low nibble
-                string[i*5+2]=char2;    // high nibble
-                string[i*3+4]=' ';      // space
+            for (i=0;i<MIN(size/5-1,len);i++){              // leave 1 byte in the target string for the null-terminator
+                string[i*5+0] = '0';
+                string[i*5+1] = 'x';
+                string[i*5+2] = hex[((input[i]>>4)&0xF)];   // high nibble
+                string[i*5+3] = hex[(input[i]&0xF)];        // low nibble
+                string[i*5+4] = ' ';
             }
             string[i*5+0] = '\0'; // null byte
             break;

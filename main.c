@@ -16,8 +16,9 @@
 // signal handling to make a soft landing
 //  - ps ax | grep {processname} > gives you the process name and processID
 //  - kill -s SIGINT {processID} > sends <Ctrl><C> to the service
+// or press <Ctrl><C> if running from the commandline
 void handle_sigint(int sig) {
-    if (sig == SIGINT) { // received <Ctrl><C>
+    if (sig == SIGINT) {
         g_running = 0;
     }
 }
@@ -46,6 +47,7 @@ int main(void)
             pthread_create(&th_timer,  NULL, timer_thread, &cfg) != 0 ||
             pthread_create(&th_web,    NULL, webserver_thread, &cfg) != 0 ||
             pthread_create(&th_n2k,    NULL, nmea2000_thread, &cfg) != 0)) {
+        // not all threads could be started, close the ones that did start and shutdown with error
         log_error("Failed to create threads");
         g_running = 0;
         app_state_shutdown();
@@ -65,7 +67,7 @@ int main(void)
     pthread_join(th_web, NULL);
     pthread_join(th_n2k, NULL);
 
-    // close main process. bye, bye
+    // child threads are all closed, make a soft landing, bye, bye
     log_info("Exiting %s, bye-bye......", ApplicationName);
     logger_close();
     app_state_shutdown();

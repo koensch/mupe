@@ -219,26 +219,28 @@ static void handle_api_update(int client_fd, const char *body)
         return;
     }
 
-    cJSON *lat   = cJSON_GetObjectItem(root, "lat");
-    cJSON *lon   = cJSON_GetObjectItem(root, "lon");
-    cJSON *cog   = cJSON_GetObjectItem(root, "cog");
-    cJSON *stw   = cJSON_GetObjectItem(root, "stw");
-    cJSON *depth = cJSON_GetObjectItem(root, "depth");
-    cJSON *twa   = cJSON_GetObjectItem(root, "twa");
-    cJSON *tws   = cJSON_GetObjectItem(root, "tws");
-    cJSON *awa   = cJSON_GetObjectItem(root, "awa");
-    cJSON *aws   = cJSON_GetObjectItem(root, "aws");
+    cJSON *lat    = cJSON_GetObjectItem(root, "lat");
+    cJSON *lon    = cJSON_GetObjectItem(root, "lon");
+    cJSON *cog    = cJSON_GetObjectItem(root, "cog");
+    cJSON *stw    = cJSON_GetObjectItem(root, "stw");
+    cJSON *depth  = cJSON_GetObjectItem(root, "depth");
+    cJSON *twa    = cJSON_GetObjectItem(root, "twa");
+    cJSON *tws    = cJSON_GetObjectItem(root, "tws");
+    cJSON *awa    = cJSON_GetObjectItem(root, "awa");
+    cJSON *aws    = cJSON_GetObjectItem(root, "aws");
+    cJSON *rudder = cJSON_GetObjectItem(root, "rudder");
 
     pthread_mutex_lock(&g_data_mutex);
-    if (lat)   g_lat   = lat->valuedouble;
-    if (lon)   g_lon   = lon->valuedouble;
-    if (cog)   g_cog   = cog->valuedouble;
-    if (stw)   g_stw   = stw->valuedouble;
-    if (depth) g_depth = depth->valuedouble;
-    if (twa)   g_twa   = twa->valuedouble;
-    if (tws)   g_tws   = tws->valuedouble;
-    if (awa)   g_awa   = awa->valuedouble;
-    if (aws)   g_aws   = aws->valuedouble;
+    if (lat)    g_lat    = lat->valuedouble;
+    if (lon)    g_lon    = lon->valuedouble;
+    if (cog)    g_cog    = cog->valuedouble;
+    if (stw)    g_stw    = stw->valuedouble;
+    if (depth)  g_depth  = depth->valuedouble;
+    if (twa)    g_twa    = twa->valuedouble;
+    if (tws)    g_tws    = tws->valuedouble;
+    if (awa)    g_awa    = awa->valuedouble;
+    if (aws)    g_aws    = aws->valuedouble;
+    if (rudder) g_rudder = rudder->valuedouble;
     pthread_mutex_unlock(&g_data_mutex);
 
     cJSON_Delete(root);
