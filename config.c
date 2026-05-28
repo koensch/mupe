@@ -42,34 +42,27 @@ int load_config(const char *filename, Config *cfg)
     cJSON *log    = cJSON_GetObjectItem(root, "logging");
 
     if (serial) {
-        snprintf(cfg->serial_port, sizeof(cfg->serial_port),
-                 "%s", cJSON_GetObjectItem(serial, "port")->valuestring);
+        snprintf(cfg->serial_port, sizeof(cfg->serial_port), "%s", cJSON_GetObjectItem(serial, "port")->valuestring);
         cfg->baudrate = cJSON_GetObjectItem(serial, "baudrate")->valueint;
         cfg->databits = cJSON_GetObjectItem(serial, "databits")->valueint;
         cfg->stopbits = cJSON_GetObjectItem(serial, "stopbits")->valueint;
-        snprintf(cfg->parity, sizeof(cfg->parity),
-                 "%s", cJSON_GetObjectItem(serial, "parity")->valuestring);
+        snprintf(cfg->parity, sizeof(cfg->parity), "%s", cJSON_GetObjectItem(serial, "parity")->valuestring);
     }
 
     if (ether) {
-        snprintf(cfg->eth_device, sizeof(cfg->eth_device),
-                 "%s", cJSON_GetObjectItem(ether, "device")->valuestring);
-        snprintf(cfg->protocol, sizeof(cfg->protocol),
-                 "%s", cJSON_GetObjectItem(ether, "protocol")->valuestring);
-        snprintf(cfg->remote_ip, sizeof(cfg->remote_ip),
-                 "%s", cJSON_GetObjectItem(ether, "remote_ip")->valuestring);
+        snprintf(cfg->eth_device, sizeof(cfg->eth_device), "%s", cJSON_GetObjectItem(ether, "device")->valuestring);
+        snprintf(cfg->protocol, sizeof(cfg->protocol), "%s", cJSON_GetObjectItem(ether, "protocol")->valuestring);
+        snprintf(cfg->remote_ip, sizeof(cfg->remote_ip), "%s", cJSON_GetObjectItem(ether, "remote_ip")->valuestring);
         cfg->remote_port = cJSON_GetObjectItem(ether, "remote_port")->valueint;
         cfg->local_port  = cJSON_GetObjectItem(ether, "local_port")->valueint;
     }
 
     if (n2k) {
-        snprintf(cfg->can_interface, sizeof(cfg->can_interface),
-                 "%s", cJSON_GetObjectItem(n2k, "can_interface")->valuestring);
+        snprintf(cfg->can_interface, sizeof(cfg->can_interface), "%s", cJSON_GetObjectItem(n2k, "can_interface")->valuestring);
     }
 
     if (timer) {
-        cfg->timer_interval_ms =
-            cJSON_GetObjectItem(timer, "interval_ms")->valueint;
+        cfg->timer_interval_ms = cJSON_GetObjectItem(timer, "interval_ms")->valueint;
     }
 
     if (web) {
@@ -77,10 +70,8 @@ int load_config(const char *filename, Config *cfg)
     }
 
     if (log) {
-        snprintf(cfg->log_file, sizeof(cfg->log_file),
-                 "%s", cJSON_GetObjectItem(log, "file")->valuestring);
-        snprintf(cfg->log_level, sizeof(cfg->log_level),
-                 "%s", cJSON_GetObjectItem(log, "level")->valuestring);
+        snprintf(cfg->log_file, sizeof(cfg->log_file), "%s", cJSON_GetObjectItem(log, "file")->valuestring);
+        snprintf(cfg->log_level, sizeof(cfg->log_level), "%s", cJSON_GetObjectItem(log, "level")->valuestring);
     }
 
     cJSON_Delete(root);
