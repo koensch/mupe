@@ -1,9 +1,11 @@
-#include "timer.h"
-#include "app_state.h"
-#include "logger.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "timer.h"
+#include "app_state.h"
+#include "logger.h"
+#include "bgnprotocol.h"
 
 void *timer_thread(void *arg)
 {
@@ -71,7 +73,7 @@ void *timer_thread(void *arg)
             - The 'timer-thread' will trigger the 'device-processor' to make sure it also runs where there is no incoming
               messages. When the IO bus has only 'passive' units, no data is send and the heartbeat has to come from us.
             */
-
+            //handle_received_frame()
             RxBufLen=0; // dump contents of local readbuffer
         }
 

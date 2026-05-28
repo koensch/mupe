@@ -16,7 +16,7 @@ typedef struct {
     int   remote_port;
     int   local_port;
 
-    char  can_interface[16]; // don't make this bigger; you will might compiler warnings
+    char  can_interface[16]; // don't make this bigger; you might get compiler warnings, 16 bytes should be big enough.
 
     int   timer_interval_ms;
     int   web_port;

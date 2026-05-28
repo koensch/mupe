@@ -6,8 +6,10 @@
 #define ApplicationName "Marine Gateway"
 #define MSEC1           1000 // usleep 1msec
 
+// generic defines
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
+// thread control
 extern volatile int g_running;
 
 extern pthread_mutex_t g_data_mutex;

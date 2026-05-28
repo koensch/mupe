@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <malloc.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
@@ -8,6 +9,7 @@
 #include "logger.h"
 #include "app_state.h"
 #include "serial.h"
+#include "bgnprotocol.h"
 #include "ethernet.h"
 #include "timer.h"
 #include "webserver.h"
@@ -28,21 +30,66 @@ int main(void)
     // assign signal handler
     signal(SIGINT, handle_sigint);
 
+    // first we need the configuration, otherwise we cannot log errors
     Config cfg;
     if (load_config("config.json", &cfg) != 0) {
+        // this is the first and only printf we use in this application; all other
+        // console-output is send to the logfile as specified in the configuration
         fprintf(stderr, "Failed to load config.json\n");
         return 1;
     }
-
     logger_init(cfg.log_file, cfg.log_level);
     log_info("Starting %s", ApplicationName);
+
+    //allocate space for shared data
+    BGNET_CTRL* pBGNET_ctrl;
+    pBGNET_ctrl = malloc(sizeof(BGNET_CTRL));
+    if (pBGNET_ctrl == NULL) {
+        log_error("Unable to allocale memory for pBGNET_ctrl");
+        exit(1);
+    }
+    BGNET_DEV* pBGNET_dev;
+    pBGNET_dev = malloc(sizeof(BGNET_DEV)*BGNET_DEVICES);
+    if (pBGNET_dev == NULL) {
+        log_error("Unable to allocale memory for pBGNET_dev");
+        exit(1);
+    }
+    // setup pointers to the structures
+    pBGNET_ctrl->pDev = pBGNET_dev; // pointer to BGNET devices
+    pBGNET_ctrl->pCfg = &cfg; // pointer to Config structure
+
+#ifdef EXCLUDE_THIS
+    // shared data, declaration
+    BGNET_CTRL BGNET_ctrl;
+    BGNET_DEV BGNET_dev[BGNET_DEVICES] = { \
+    // ProdName     Model      ModelNr        SerialNr       Version Enable Active   DeviceType             DeviceAddress
+    //                                                                      (dynamic)                       (dynamic)
+    {"NET DEPTH",   "NET-DPDU", "610-00-021", "NDEP9410109", "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET SPEED",   "NET-SPDU", "610-00-020", "NSPDG485015", "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET WIND",    "NET-WDDU", "611-00-007", "NWINB06505",  "0000",  0,     0,       BGNET_FRAME_FROM_NETWIND, 0},\
+    {"NET GPSplus", "NET-GPDU", "615-00-021", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET LORAN",   "NET-LORAN","",           "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET CHART",   "NET-CHART","",           "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET COMPASS", "NET-CPDU", "545-00-031", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET TACK",    "NET-TADU", "610-00-086", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET PILOT",   "NET-PLDU", "610-00-010", "NPLDB06217",  "0000",  1,     0,       BGNET_FRAME_FROM_NETPILOT,0},\
+    {"NET QUAD",    "NET-QDDU", "610-00-023", "NQDUB08432",  "0000",  0,     0,       BGNET_FRAME_FROM_NETQUAD, 0},\
+    {"NET DATA",    "NET-DTDU", "610-00-024", "NDAT9417101", "0000",  0,     0,       BGNET_FRAME_FROM_NETDATA, 0},\
+    {"NET NAV",     "NET-NADU", "610-00-086", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET ENGINE",  "NET-ENGI", "610-00-132", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET QUAD-R",  "NET-QDRU", "610-00-022", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET VHF",     "NET-VHF",  "",           "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET ACP1",    "NET-ACP1", "360-00-002", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
+    {"NET ACP2",    "NET-ACP2", "545-00-035", "HACP29617101","0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0}\
+    };
+#endif
 
     app_state_init();
 
     // activate all out threads
     pthread_t th_serial, th_eth, th_timer, th_web, th_n2k;
     if (
-            (pthread_create(&th_serial, NULL, serial_thread, &cfg) != 0 ||
+           (pthread_create(&th_serial, NULL, serial_thread, &cfg) != 0 ||
             pthread_create(&th_eth,    NULL, ethernet_thread, &cfg) != 0 ||
             pthread_create(&th_timer,  NULL, timer_thread, &cfg) != 0 ||
             pthread_create(&th_web,    NULL, webserver_thread, &cfg) != 0 ||
@@ -67,6 +114,10 @@ int main(void)
     pthread_join(th_web, NULL);
     pthread_join(th_n2k, NULL);
 
+    // free allocated memory
+    free(pBGNET_ctrl);
+    free(pBGNET_dev);
+    
     // child threads are all closed, make a soft landing, bye, bye
     log_info("Exiting %s, bye-bye......", ApplicationName);
     logger_close();

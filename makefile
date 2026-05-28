@@ -1,6 +1,6 @@
 CC      = gcc
 #CFLAGS  = -Wall -Wextra -std=c11 -pthread
-CFLAGS  = -Wall -Wextra -std=gnu99 -pthread
+CFLAGS  = -Wall -Wextra -std=gnu99 -pthread 
 #LDFLAGS = -pthread -lcjson
 LDFLAGS = -pthread -lcjson -lcrypto
 
@@ -9,6 +9,7 @@ SRC = main.c \
       logger.c \
       app_state.c \
       serial.c \
+	  bgnprotocol.c \
       ethernet.c \
       timer.c \
       webserver.c \
@@ -18,6 +19,7 @@ H = config.h \
 	logger.h \
 	app_state.h \
 	serial.h \
+	bgnprotocol.h \
 	ethernet.h \
 	timer.h \
 	webserver.h \

@@ -12,6 +12,8 @@
 #include "/usr/include/asm-generic/termbits.h"
 #include "/usr/include/asm-generic/ioctls.h"
 
+#include "bgnprotocol.h"
+
 //#define PROTOCOL_DEBUG
 
 static int set_interface_attribs(int fd, int speed, int databits, int stopbits, const char *parity)
@@ -116,8 +118,8 @@ void *serial_thread(void *arg)
     //   counter to a start value of 100 and keep on adding characters, as long as there is data. Everytime
     //   we have data, we set to counter to 100.
     // - there is a timer-process (running in a different thread) that counts-down this counter, once every 1msec
-    //   when the counter is >0 we know that 10*10msec have not yet passed since the last data was received.
-    //   At this moment we think/guess that 100ms separates the frames.
+    //   when the counter is >0 we know that 100*1msec have not yet passed since the last data was received.
+    //   At this moment we think/guess that 85ms separates the frames.
     // - The timer-process will continue the count down. When a new frame is being received (and the
     //   counter set to 100) it will give us an idea how long there is between the new frame and the previous one.
     // - When the receive buffer is empty and there is data present in the output buffer, any output message

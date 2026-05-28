@@ -81,6 +81,9 @@ void log_debug(const char *fmt, ...) {
 
 // note: we place the nibbles and characters in the same order that we receive them
 //       so there should be no problem on a OS with other endianess
+// example: 
+//       byte2ascii(asciibuf, sizeof(asciibuf), rawbuf, n, BYTE2ASCII_SPACED);
+//       log_info("Received: %s (%d bytes)", asciibuf, n);
 char* byte2ascii(char* string, size_t size, unsigned char* input, size_t len, int option) {
     size_t i;
     const char hex[16]={'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};

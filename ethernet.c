@@ -72,7 +72,8 @@ static char *build_signalk_delta(
     double twa,
     double tws,
     double awa,
-    double aws
+    double aws,
+    double rudder
 ) {
     cJSON *root = cJSON_CreateObject();
     cJSON *updates = cJSON_AddArrayToObject(root, "updates");
@@ -101,6 +102,7 @@ static char *build_signalk_delta(
     ADD_VALUE("environment.wind.speedTrue", tws);
     ADD_VALUE("environment.wind.angleApparent", awa);
     ADD_VALUE("environment.wind.speedApparent", aws);
+    ADD_VALUE("vessels.self.steering.rudderAngle", rudder);
 
     #undef ADD_VALUE
 
@@ -156,7 +158,7 @@ void *ethernet_thread(void *arg)
             double rudder= g_rudder;
             pthread_mutex_unlock(&g_data_mutex);
 
-            char *json = build_signalk_delta(lat, lon, cog, stw, depth, twa, tws, awa, aws);
+            char *json = build_signalk_delta(lat, lon, cog, stw, depth, twa, tws, awa, aws, rudder);
             if (json) {
                 char line[2048];
                 snprintf(line, sizeof(line), "%s\n", json);
@@ -165,20 +167,16 @@ void *ethernet_thread(void *arg)
                 if (is_tcp) {
                     sent = send(sockfd, line, strlen(line), 0);
                 } else {
-                    sent = sendto(sockfd, line, strlen(line), 0,
-                                  (struct sockaddr *)&udp_remote, sizeof(udp_remote));
+                    sent = sendto(sockfd, line, strlen(line), 0, (struct sockaddr *)&udp_remote, sizeof(udp_remote));
                 }
-
                 if (sent < 0) {
                     log_error("Ethernet send SK: %s", strerror(errno));
                 } else {
                     log_debug("Ethernet sent SK delta: %s", json);
                     pthread_mutex_lock(&g_data_mutex);
-                    snprintf(g_last_signalk_delta, sizeof(g_last_signalk_delta),
-                             "%s", json);
+                    snprintf(g_last_signalk_delta, sizeof(g_last_signalk_delta), "%s", json);
                     pthread_mutex_unlock(&g_data_mutex);
                 }
-
                 free(json);
             }
         }
@@ -196,7 +194,6 @@ void *ethernet_thread(void *arg)
             } else {
                 n = recvfrom(sockfd, buf, sizeof(buf) - 1, 0, NULL, NULL);
             }
-
             if (n > 0) {
                 buf[n] = '\0';
 
