@@ -1,6 +1,7 @@
 #include "ethernet.h"
 #include "app_state.h"
 #include "logger.h"
+#include "bgnprotocol.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -115,7 +116,8 @@ static char *build_signalk_delta(
 
 void *ethernet_thread(void *arg)
 {
-    Config *cfg = (Config *)arg;
+    BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
+    Config *cfg = pCtrl->pCfg;
 
     log_info("Ethernet Device=%s Protocol=%s Remote=%s:%d LocalPort=%d (Signal K)",cfg->eth_device, cfg->protocol,cfg->remote_ip, cfg->remote_port, cfg->local_port);
 

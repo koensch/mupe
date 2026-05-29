@@ -9,11 +9,14 @@
 
 void *timer_thread(void *arg)
 {
-    Config *cfg = (Config *)arg;
+    BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
+    Config *cfg = pCtrl->pCfg;
+
     unsigned char RxBuf[1024]; // local read buffer
     int RxBufLen = 0;
     int RxCounter = 0;
 
+    int x;
     char asciibuf[2048]; // store ascii for logging
 
     while (g_running) {
@@ -41,7 +44,7 @@ void *timer_thread(void *arg)
         pthread_mutex_unlock(&g_data_mutex);
 
         // show what we got
-        if (RxBufLen>0) {
+        if (RxBufLen > 0) {
             // convert frame into prinatble text, byte spaced
             byte2ascii(asciibuf, sizeof(asciibuf), RxBuf, RxBufLen, BYTE2ASCII_SPACED);
             log_debug("Timer %d msec, %d bytes: %s", RxCounter, RxBufLen, asciibuf);
@@ -73,7 +76,9 @@ void *timer_thread(void *arg)
             - The 'timer-thread' will trigger the 'device-processor' to make sure it also runs where there is no incoming
               messages. When the IO bus has only 'passive' units, no data is send and the heartbeat has to come from us.
             */
-            //handle_received_frame()
+            //handle_received_frame(pCtrl, RxBuf, RxBufLen);
+            x = frame_decoder(pCtrl, RxBuf, RxBufLen);
+            log_debug("RX frame processed, %d subframes",x);
             RxBufLen=0; // dump contents of local readbuffer
         }
 

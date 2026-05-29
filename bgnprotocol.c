@@ -54,11 +54,24 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         for (i=0; i<pCtrl->iNumberOfDevices; i++) {
             // only if the device is enabled and has a valid devicetype
             if ((pCtrl->pDev[i].iEnable > 0) & (pCtrl->pDev[i].iDeviceType > BGNET_FRAME_FROM_UNKNOWN)) {
-                pCtrl->pDev[i].iActive = 0; // make it inactive
-                // we assign a device address based on devicetype. There might be multiple devices of the same type on the NETWORK and
-                // create duplicate addresses.
-                // For some devices, it's OK to have duplicate addresses, some types (like PILOT) will do some deviceaddress negotiations.
-                pCtrl->pDev[i].iDeviceAddress = pCtrl->pDev[i].iDeviceType;
+                // inilialize common parameters
+                pCtrl->BGNET_devdata[i].iKeepAliveCounter = 0; // reset keep-alive counter
+                // inilialize device-specific parameters, use the high-nibble of the devicetype
+                switch (pCtrl->pDev[i].iDeviceType & 0xF0) {
+                    case BGNET_FRAME_FROM_NETQUAD:
+                        break;
+                    case BGNET_FRAME_FROM_NETPILOT:
+                        break;
+                    case BGNET_FRAME_FROM_NETDATA:
+                        break;
+                    case BGNET_FRAME_FROM_NETWIND:
+                        break;
+                    default:
+                        log_error("Unsupported devicetype 0x0F",pCtrl->pDev[i].iDeviceType);
+                        break;
+                }
+                pCtrl->BGNET_devdata[i].iActive = 0; // reset 'active' state
+                pCtrl->BGNET_devdata[i].ucDeviceAddress = pCtrl->pDev[i].iDeviceType; // initially, the address byte equals to devicetype
             }
         }
         log_info("bgn_net_initialize: done %d (devices)\n",i);
@@ -123,7 +136,7 @@ size_t bgn_net_makemessage(unsigned char *pBuf, int iTo, int iFrom, int iCmd, un
 void bgn_net_process(BGNET_CTRL *pCtrl) {
     unsigned char tmp_buffer[256],payload[256];
     char asciibuffer[256];
-    size_t i, len;
+    int i, len;
     log_info("Device Processing Start");
     pCtrl->tx_cnt=0; // reset byte count in TX buffer
     // loop every item in the device structre
@@ -132,7 +145,7 @@ void bgn_net_process(BGNET_CTRL *pCtrl) {
             // device not enabled, skip it.
         } else {
             // device enabled, process it
-            if ((pCtrl->pDev[i].iActive>0)) {
+            if ((pCtrl->BGNET_devdata[i].iActive > 0)) {
                 // device was initialized; process it
                 // First we do some common things
 
@@ -158,7 +171,7 @@ void bgn_net_process(BGNET_CTRL *pCtrl) {
                             payload[15]=153;
                             //FE(ANCHORALARM),FC(SHALLOWALARM),C4(DEPTHM),FD(DEPTHALARM),41(SPEEDKT),65(MAXSPEEDKT),
                                          //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTANCENM),D3(DRCOURSEM)
-                            len=bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, pCtrl->pDev[i].iDeviceAddress, BGNET_FRAME_CMD_DATA, payload, 16);
+                            len=bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, pCtrl->BGNET_devdata[i].ucDeviceAddress, BGNET_FRAME_CMD_DATA, payload, 16);
                             if (len<BGNET_FRAME_HEAD) {
                                 // every message must be at least have a header; must be an error.
                             } else {
@@ -245,14 +258,14 @@ void bgn_net_process(BGNET_CTRL *pCtrl) {
                 }
             } else {
                 // device was not initialized yet, send POWERUP, use devicetype as FROM (we do not have allocated a own address)
-                len = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, pCtrl->pDev[i].iDeviceAddress, BGNET_FRAME_CMD_POWERUP, payload, 0);
+                len = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, pCtrl->BGNET_devdata[i].ucDeviceAddress, BGNET_FRAME_CMD_POWERUP, payload, 0);
                 if (len < BGNET_FRAME_HEAD) {
                     // every message must be at least have a header; must be an error.
                 } else {
                     memcpy(&pCtrl->tx_buf[pCtrl->tx_cnt], &tmp_buffer, len); // put output message in write buffer
                     pCtrl->tx_cnt = pCtrl->tx_cnt+len; // increment byte counter in TX buffer
                 }
-                pCtrl->pDev[i].iActive=1; // make this device active; POWERUP message is only send once.
+                pCtrl->BGNET_devdata[i].iActive = 1; // make this device active; POWERUP message is only send once.
                 log_info("built POWERUP message for %s, address %02X\n",pCtrl->pDev[i].sModelName,pCtrl->pDev[i].iDeviceType);
             }
         }
@@ -379,7 +392,7 @@ void fmt_encode(unsigned int *buf, unsigned int div, unsigned int size, unsigned
 char *fmt_string(unsigned char buf) {
     static char *fmtid[]={"xxxx."," xxx.","  xx.","   x.","xxx.x"," xx.x","  x.x","   .x"," xx.xx","  x.xx","  .xx","  .0x","x.xxx"," x.xx","  .xx","  .00x"};
     return(fmtid[buf>>4&0x0F]);
-
+}
 // we do not wat to handle our value as float, but as a integer with a divisor
 //char *strDecimals(unsigned char* pStr, int iV, int iS, int iD) {
 //    //convert value (2 bytes, -32766/+32767) to ascii string for display purposes
@@ -519,9 +532,9 @@ int check_message_address(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     iFROMus=0;
     iTOus=0;
     for (i=0; i<pCtrl->iNumberOfDevices; i++) {
-        if (pCtrl->pDev[i].iActive > 0) {
-            if (buffer[BGNET_FRAME_HEAD_TO] == pCtrl->pDev[i].iDeviceAddress) iTOus++;
-            if (buffer[BGNET_FRAME_HEAD_FROM] == pCtrl->pDev[i].iDeviceAddress) iFROMus++;
+        if (pCtrl->BGNET_devdata[i].iActive > 0) {
+            if (buffer[BGNET_FRAME_HEAD_TO] == pCtrl->BGNET_devdata[i].ucDeviceAddress) iTOus++;
+            if (buffer[BGNET_FRAME_HEAD_FROM] == pCtrl->BGNET_devdata[i].ucDeviceAddress) iFROMus++;
         }
     }
     if (buffer[BGNET_FRAME_HEAD_TO] == BGNET_FRAME_TO_ALL) iTOus++; // broadcast
@@ -531,36 +544,36 @@ int check_message_address(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     return(r);
 }
 
+// decode the received buffer, possibly multiple subframes 
 unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
     unsigned char cs; // checksum calculated
     unsigned char *pBuf,*pEnd; // pointer to start and end of buffer
     char asciibuffer[256];
-    int xSize,i,x,z,n;
+    int xSize,x,z,n;
     int iIsForMe;
 
     pBuf = buffer; // gets incremented as we go
     pEnd = buffer+len; // end of buffer
     z = 0; // subframe counter
-    n = 0; // number of channels processed
 
     // process multiple subframes in our buffer
     while (pBuf < pEnd) {
         // the header is fixed size
-        cs = calculate_checksum(pBuf,BGNET_FRAME_CR_HEAD,0,BGNET_FRAME_HEAD-1); // calculate the checksum over the head (without the CR)
-        log_debug("  Header Checksum: %02X (seed),%02X (received),%02X (calculated)",BGNET_FRAME_CR_HEAD,*(pBuf+BGNET_FRAME_HEAD_CS),cs);
+        cs = calculate_checksum(pBuf, BGNET_FRAME_CR_HEAD, BGNET_FRAME_HEAD_TO, BGNET_FRAME_HEAD-1); // calculate the checksum over the header (without the CR)
+        log_debug("  Header Checksum: %02X (seed),%02X (received),%02X (calculated)", BGNET_FRAME_CR_HEAD, *(pBuf+BGNET_FRAME_HEAD_CS), cs);
         if (*(pBuf+BGNET_FRAME_HEAD_CS) == cs) {
-            log_debug("                   TO: %02X",*(pBuf+BGNET_FRAME_HEAD_TO));
-            log_debug("                   FROM: %02X",*(pBuf+BGNET_FRAME_HEAD_FROM));
+            log_debug("                   TO: %02X", *(pBuf+BGNET_FRAME_HEAD_TO));
+            log_debug("                   FROM: %02X", *(pBuf+BGNET_FRAME_HEAD_FROM));
             // check if this subframe is adressed TO us and not FROM us
             iIsForMe = check_message_address(pCtrl, pBuf);
             // we do not want to exclude messages not meant for me, but i still like to see them
             if (1 < 0) {
-                log_debug("                   NOT FOR US");
-                pBuf = pEnd; // dump frame
+                log_debug("                   IGNORE (it's from myself)");
+                pBuf = pEnd; // dump whole frame, assume everything has the same FROM (otherwise they would not be joined as subframes)
             } else {
                 // The HEADER is OK, process it. Note that some CMD's do not have a body and in such case, we should skip the body & CS part.
-                if (*(pBuf+BGNET_FRAME_HEAD_SIZE)==0) {
-                    // no payload, no frame-CS
+                if (*(pBuf+BGNET_FRAME_HEAD_SIZE) == 0) {
+                    // 0 payload length, so no frame CS
                     xSize=BGNET_FRAME_HEAD;
                     byte2ascii(asciibuffer, sizeof(asciibuffer), pBuf, xSize, BYTE2ASCII_SPACED);
                     log_debug("  Header Checksum OK, CMD=%02X, number of data bytes: %d, framesize: %d, data: %s",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_SIZE), xSize, asciibuffer);
@@ -589,20 +602,20 @@ unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len)
                     }
                 } else {
                     // payload present, check frame-CR
-                    xSize = BGNET_FRAME_HEAD + *(pBuf+BGNET_FRAME_HEAD_SIZE)+BGNET_FRAME_TAIL_CS; // expected framesize = head (including CR), body, and frame CR
+                    xSize = BGNET_FRAME_HEAD + *(pBuf+BGNET_FRAME_HEAD_SIZE) + BGNET_FRAME_TAIL_CS; // expected framesize = head (including CR), body, and frame CR
                     log_debug("  Header Checksum OK, CMD=%02X, number of data bytes: %d, framesize: %d",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_SIZE), xSize);
-                    cs=calculate_checksum(pBuf,BGNET_FRAME_CR_FRAME,0,xSize-1); // calculate the checksum over the whole frame (without the CR)
+                    cs = calculate_checksum(pBuf, BGNET_FRAME_CR_FRAME, BGNET_FRAME_HEAD_TO, xSize-1); // calculate the checksum over the whole frame (including the header with CR, but without the frame CR)
                     log_debug("  Frame Checksum: %02X (seed),%02X (received),%02X (calculated)",BGNET_FRAME_CR_FRAME,*(pBuf+xSize-1),cs);
                     if (*(pBuf+xSize-1) == cs) {
-                        // dump frame
+                        // CR is good, log frame
                         byte2ascii(asciibuffer, sizeof(asciibuffer), pBuf, xSize, BYTE2ASCII_SPACED);
                         log_debug("  Frame Checksum OK, framesize: %d, data: %s", xSize, asciibuffer);
-                        // these are the commands with payload
+                        // commands with payload (otherwise we would have no CR)
                         switch(*(pBuf+BGNET_FRAME_HEAD_CMD)) {
                             case BGNET_FRAME_CMD_DATA:
                             case BGNET_FRAME_CMD_LATLON:
-                                n=process_body_DATA(pBuf);
-                                //log_debug("    Command %02X (with body), %d channels",*(pBuf+BGNET_FRAME_HEAD_CMD),n);
+                                n = process_body_DATA(pBuf);
+                                log_debug("    Command %02X (with body), %d channels",*(pBuf+BGNET_FRAME_HEAD_CMD),n);
                                 break;
                             case BGNET_FRAME_CMD_VALUES:
                                 process_body_VALUE(pBuf);
@@ -647,15 +660,6 @@ unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len)
     return(z);
 }
 
-// Here we handle a message from the receiver. Transmissions are seperated by 100ms silence. Here we receive a buffer of such transmission.
-// The sender might have packed multiple frames into 1 transmission.
-void handle_received_frame(BGNET_CTRL* pCtrl, unsigned char* pBuf, size_t len) {
-    int x;
-    // decode received data from serial port
-    x = frame_decoder(pCtrl, pBuf, len);
-    log_debug("RX frame processed, %d subframes",x);
-}
-
 // Example: build a frame to transmit (placeholder)
 // Return vale: 0-nothing to send, >0 data to send
 size_t build_tx_frame(BGNET_CTRL* pCtrl, unsigned char *pBuf, size_t maxlen) {
@@ -673,8 +677,5 @@ size_t build_tx_frame(BGNET_CTRL* pCtrl, unsigned char *pBuf, size_t maxlen) {
     pCtrl->tx_cnt = 0; // reset message byte count
     return(r); // return bytes in output message
 }
-
-}
-
 
 #endif

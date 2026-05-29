@@ -340,9 +340,7 @@ typedef struct {
     char sSerialNr[20];
     char sVersion[20];
     int iEnable;
-    int iActive;
     int iDeviceType;
-    int iDeviceAddress;
 } BGNET_DEV;
 
 #define BGNET_CHANNELS    0xFF
@@ -358,6 +356,10 @@ typedef struct BGN_CHANNELDATA{
 
 // We might need some device-specific values during processing. Please put them here so they overlap
 union BGNET_DEVDATA {
+    // here we declare all ' common' parameters (used by every device)
+    int iKeepAliveCounter; // i know only the PILOT sends the 'keepalive' command, but i still put it here
+    int iActive;
+    unsigned char ucDeviceAddress;
     struct {
         int iSendTest;
         int iSendACP;
@@ -374,8 +376,9 @@ union BGNET_DEVDATA {
     } bgn_QUAD;
 };
 
-#define BNG_DEVCTRL_INIT          1
-#define BNG_DEVCTRL_INIT_RESET    0
+#define BNG_DEVCTRL_INIT            1
+#define BNG_DEVCTRL_INIT_RESET      0
+#define BGN_DEVCTRL_TXBUFFERSIZE    1024
 typedef struct {
     int iInitialized;
     int iNumberOfDevices;
@@ -383,12 +386,11 @@ typedef struct {
     Config* pCfg; // pointer to config structure
 
     size_t tx_cnt;
-    unsigned char tx_buf[256]; // must be big enough to hold all our output messages
+    unsigned char tx_buf[BGN_DEVCTRL_TXBUFFERSIZE ]; // must be big enough to hold all our output messages
     union BGNET_DEVDATA BGNET_devdata[BGNET_DEVICES];
 } BGNET_CTRL;
 
 // prototypes
-void handle_received_frame(BGNET_CTRL*, unsigned char*, size_t);
-
+unsigned int frame_decoder(BGNET_CTRL*, unsigned char*, size_t);
 
 #endif

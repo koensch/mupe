@@ -1,6 +1,7 @@
 #include "webserver.h"
 #include "app_state.h"
 #include "logger.h"
+#include "bgnprotocol.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -280,7 +281,8 @@ static void handle_root_html(int client_fd, Config *pCfg)
 
 void *webserver_thread(void *arg)
 {
-    Config *cfg = (Config *)arg;
+    BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
+    Config *cfg = pCtrl->pCfg;
 
     // warning: server should be in non-blocking mode SOCK_NONBLOCK
     // at present, the thread will not close when the application exits

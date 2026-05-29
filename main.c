@@ -25,6 +25,28 @@ void handle_sigint(int sig) {
     }
 }
 
+// please consider this as 'constants'; do not write into this structure.
+// Use is as some kind of bookkeeping table
+BGNET_DEV BGNET_dev[BGNET_DEVICES] = { \
+// ProdName     Model      ModelNr        SerialNr       Version Enable DeviceType             
+{"NET DEPTH",   "NET-DPDU", "610-00-021", "NDEP9410109", "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET SPEED",   "NET-SPDU", "610-00-020", "NSPDG485015", "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET WIND",    "NET-WDDU", "611-00-007", "NWINB06505",  "0000",  0,    BGNET_FRAME_FROM_NETWIND},\
+{"NET GPSplus", "NET-GPDU", "615-00-021", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET LORAN",   "NET-LORAN","",           "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET CHART",   "NET-CHART","",           "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET COMPASS", "NET-CPDU", "545-00-031", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET TACK",    "NET-TADU", "610-00-086", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET PILOT",   "NET-PLDU", "610-00-010", "NPLDB06217",  "0000",  1,    BGNET_FRAME_FROM_NETPILOT},\
+{"NET QUAD",    "NET-QDDU", "610-00-023", "NQDUB08432",  "0000",  0,    BGNET_FRAME_FROM_NETQUAD},\
+{"NET DATA",    "NET-DTDU", "610-00-024", "NDAT9417101", "0000",  0,    BGNET_FRAME_FROM_NETDATA},\
+{"NET NAV",     "NET-NADU", "610-00-086", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET ENGINE",  "NET-ENGI", "610-00-132", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET QUAD-R",  "NET-QDRU", "610-00-022", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET VHF",     "NET-VHF",  "",           "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET ACP1",    "NET-ACP1", "360-00-002", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
+{"NET ACP2",    "NET-ACP2", "545-00-035", "HACP29617101","0000",  0,    BGNET_FRAME_FROM_UNKNOWN}};
+
 int main(void)
 {
     // assign signal handler
@@ -55,33 +77,13 @@ int main(void)
         exit(1);
     }
     // setup pointers to the structures
-    pBGNET_ctrl->pDev = pBGNET_dev; // pointer to BGNET devices
+    //pBGNET_ctrl->pDev = pBGNET_dev; // pointer to BGNET devices
+    pBGNET_ctrl->pDev = BGNET_dev; // pointer to BGNET devices
     pBGNET_ctrl->pCfg = &cfg; // pointer to Config structure
 
 #ifdef EXCLUDE_THIS
     // shared data, declaration
     BGNET_CTRL BGNET_ctrl;
-    BGNET_DEV BGNET_dev[BGNET_DEVICES] = { \
-    // ProdName     Model      ModelNr        SerialNr       Version Enable Active   DeviceType             DeviceAddress
-    //                                                                      (dynamic)                       (dynamic)
-    {"NET DEPTH",   "NET-DPDU", "610-00-021", "NDEP9410109", "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET SPEED",   "NET-SPDU", "610-00-020", "NSPDG485015", "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET WIND",    "NET-WDDU", "611-00-007", "NWINB06505",  "0000",  0,     0,       BGNET_FRAME_FROM_NETWIND, 0},\
-    {"NET GPSplus", "NET-GPDU", "615-00-021", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET LORAN",   "NET-LORAN","",           "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET CHART",   "NET-CHART","",           "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET COMPASS", "NET-CPDU", "545-00-031", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET TACK",    "NET-TADU", "610-00-086", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET PILOT",   "NET-PLDU", "610-00-010", "NPLDB06217",  "0000",  1,     0,       BGNET_FRAME_FROM_NETPILOT,0},\
-    {"NET QUAD",    "NET-QDDU", "610-00-023", "NQDUB08432",  "0000",  0,     0,       BGNET_FRAME_FROM_NETQUAD, 0},\
-    {"NET DATA",    "NET-DTDU", "610-00-024", "NDAT9417101", "0000",  0,     0,       BGNET_FRAME_FROM_NETDATA, 0},\
-    {"NET NAV",     "NET-NADU", "610-00-086", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET ENGINE",  "NET-ENGI", "610-00-132", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET QUAD-R",  "NET-QDRU", "610-00-022", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET VHF",     "NET-VHF",  "",           "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET ACP1",    "NET-ACP1", "360-00-002", "",            "0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0},\
-    {"NET ACP2",    "NET-ACP2", "545-00-035", "HACP29617101","0000",  0,     0,       BGNET_FRAME_FROM_UNKNOWN, 0}\
-    };
 #endif
 
     app_state_init();
@@ -89,11 +91,11 @@ int main(void)
     // activate all out threads
     pthread_t th_serial, th_eth, th_timer, th_web, th_n2k;
     if (
-           (pthread_create(&th_serial, NULL, serial_thread, &cfg) != 0 ||
-            pthread_create(&th_eth,    NULL, ethernet_thread, &cfg) != 0 ||
-            pthread_create(&th_timer,  NULL, timer_thread, &cfg) != 0 ||
-            pthread_create(&th_web,    NULL, webserver_thread, &cfg) != 0 ||
-            pthread_create(&th_n2k,    NULL, nmea2000_thread, &cfg) != 0)) {
+           (pthread_create(&th_serial, NULL, serial_thread, pBGNET_ctrl) != 0 ||
+            pthread_create(&th_eth,    NULL, ethernet_thread, pBGNET_ctrl) != 0 ||
+            pthread_create(&th_timer,  NULL, timer_thread, pBGNET_ctrl) != 0 ||
+            pthread_create(&th_web,    NULL, webserver_thread, pBGNET_ctrl) != 0 ||
+            pthread_create(&th_n2k,    NULL, nmea2000_thread, pBGNET_ctrl) != 0)) {
         // not all threads could be started, close the ones that did start and shutdown with error
         log_error("Failed to create threads");
         g_running = 0;

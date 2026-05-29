@@ -9,7 +9,7 @@ SRC = main.c \
       logger.c \
       app_state.c \
       serial.c \
-	  bgnprotocol.c \
+      bgnprotocol.c \
       ethernet.c \
       timer.c \
       webserver.c \

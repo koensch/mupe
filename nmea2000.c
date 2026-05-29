@@ -1,6 +1,7 @@
 #include "nmea2000.h"
 #include "app_state.h"
 #include "logger.h"
+#include "bgnprotocol.h"
 
 #include <linux/can.h>
 #include <linux/can/raw.h>
@@ -187,7 +188,9 @@ static void parse_pgn_127245(const struct can_frame *f)
 
 void *nmea2000_thread(void *arg)
 {
-    Config *cfg = (Config *)arg;
+    BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
+    Config *cfg = pCtrl->pCfg;
+
     struct ifreq ifr;
 
     int s = socket(PF_CAN, SOCK_RAW, CAN_RAW);

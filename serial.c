@@ -82,10 +82,11 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
 
 void *serial_thread(void *arg)
 {
-    Config *cfg = (Config *)arg;
 #ifdef PROTOCOL_DEBUG
     char asciibuf[2048];
 #endif
+    BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
+    Config *cfg = pCtrl->pCfg;
 
     log_info("Serial opening %s", cfg->serial_port);
 
