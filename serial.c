@@ -6,15 +6,15 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
+// to enable non-standard baudrates; you need other includefiles and not the standard one
+// you migh need to fiddle arount to het in working on your system. Google is your friend.
 //#include <termios.h>
-#include <string.h>
-#include <errno.h>
 #include "/usr/include/asm-generic/termbits.h"
 #include "/usr/include/asm-generic/ioctls.h"
+#include <string.h>
+#include <errno.h>
 
 #include "bgnprotocol.h"
-
-//#define PROTOCOL_DEBUG
 
 static int set_interface_attribs(int fd, int speed, int databits, int stopbits, const char *parity)
 {
@@ -37,15 +37,16 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
     tty.c_cc[VTIME] = 1;                    // 0.1 sec read timeout
 
     tty.c_cflag |= (CLOCAL | CREAD);  // ignore modem status, enable receiver
-    // custom baudrate
+
+    // set baudrate to a custom value
     tty.c_cflag &= ~CBAUD; // clear CBAUD bits
     tty.c_cflag |= BOTHER; // set 'other' bit
     tty.c_ispeed = speed;
     tty.c_ospeed = speed;
 
     // set 'databits'
-    tty.c_cflag &= ~CSIZE;
-    switch (databits) {
+    tty.c_cflag &= ~CSIZE; // clear the CS bits
+    switch (databits) {    // set the CS bits accordingly
         case 5: tty.c_cflag |= CS5; break;
         case 6: tty.c_cflag |= CS6; break;
         case 7: tty.c_cflag |= CS7; break;
@@ -82,9 +83,6 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
 
 void *serial_thread(void *arg)
 {
-#ifdef PROTOCOL_DEBUG
-    char asciibuf[2048];
-#endif
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
     Config *cfg = pCtrl->pCfg;
 
@@ -136,11 +134,6 @@ void *serial_thread(void *arg)
         // get input (if any) into our local buffer
         n = read(fd, rawbuf, sizeof(rawbuf));
         if (n > 0) {
-#ifdef PROTOCOL_DEBUG
-            // convert frame into prinatble text, byte spaced
-            byte2ascii(asciibuf, sizeof(asciibuf), rawbuf, n, BYTE2ASCII_SPACED);
-            log_debug("Serial %d msec, %d bytes: %s", g_serial_data_counter, n, asciibuf);
-#endif
             // if we receive more that we can handle, let it be known
             if (n > (ssize_t)(sizeof(rawbuf)-1)) {
                 log_debug("Serial read: possible overflow of receive buffer");

@@ -26,26 +26,26 @@ void handle_sigint(int sig) {
 }
 
 // please consider this as 'constants'; do not write into this structure.
-// Use is as some kind of bookkeeping table
+// Use is as some kind of bookkeeping table. We only 'enable' the devices we have tested.
 BGNET_DEV BGNET_dev[BGNET_DEVICES] = { \
-// ProdName     Model      ModelNr        SerialNr       Version Enable DeviceType             
-{"NET DEPTH",   "NET-DPDU", "610-00-021", "NDEP9410109", "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET SPEED",   "NET-SPDU", "610-00-020", "NSPDG485015", "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET WIND",    "NET-WDDU", "611-00-007", "NWINB06505",  "0000",  0,    BGNET_FRAME_FROM_NETWIND},\
-{"NET GPSplus", "NET-GPDU", "615-00-021", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET LORAN",   "NET-LORAN","",           "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET CHART",   "NET-CHART","",           "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET COMPASS", "NET-CPDU", "545-00-031", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET TACK",    "NET-TADU", "610-00-086", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET PILOT",   "NET-PLDU", "610-00-010", "NPLDB06217",  "0000",  1,    BGNET_FRAME_FROM_NETPILOT},\
-{"NET QUAD",    "NET-QDDU", "610-00-023", "NQDUB08432",  "0000",  0,    BGNET_FRAME_FROM_NETQUAD},\
-{"NET DATA",    "NET-DTDU", "610-00-024", "NDAT9417101", "0000",  0,    BGNET_FRAME_FROM_NETDATA},\
-{"NET NAV",     "NET-NADU", "610-00-086", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET ENGINE",  "NET-ENGI", "610-00-132", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET QUAD-R",  "NET-QDRU", "610-00-022", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET VHF",     "NET-VHF",  "",           "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET ACP1",    "NET-ACP1", "360-00-002", "",            "0000",  0,    BGNET_FRAME_FROM_UNKNOWN},\
-{"NET ACP2",    "NET-ACP2", "545-00-035", "HACP29617101","0000",  0,    BGNET_FRAME_FROM_UNKNOWN}};
+// ProdName     Model       ModelNr       SerialNr       Version Enable DeviceType             
+{"NET DEPTH",   "NET-DPDU", "610-00-021", "NDEP9410109", "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET SPEED",   "NET-SPDU", "610-00-020", "NSPDG485015", "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET WIND",    "NET-WDDU", "611-00-007", "NWINB06505",  "0000", 0,     BGNET_FRAME_FROM_NETWIND},\
+{"NET GPSplus", "NET-GPDU", "615-00-021", "",            "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET LORAN",   "NET-LORAN","",           "",            "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET CHART",   "NET-CHART","",           "CHT350327",   "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET COMPASS", "NET-CPDU", "545-00-031", "",            "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET TACK",    "NET-TADU", "610-00-086", "",            "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET PILOT",   "NET-PLDU", "610-00-010", "NPLDB06217",  "0000", 1,     BGNET_FRAME_FROM_NETPILOT},\
+{"NET QUAD",    "NET-QDDU", "610-00-023", "NQDUB08432",  "0000", 0,     BGNET_FRAME_FROM_NETQUAD},\
+{"NET DATA",    "NET-DTDU", "610-00-024", "NDAT9417101", "0000", 0,     BGNET_FRAME_FROM_NETDATA},\
+{"NET NAV",     "NET-NADU", "610-00-086", "",            "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET ENGINE",  "NET-ENGI", "610-00-132", "",            "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET QUAD-R",  "NET-QDRU", "610-00-022", "",            "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET VHF",     "NET-VHF",  "613-10-003", "",            "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET ACP1",    "NET-ACP1", "360-00-002", "NP1CB15613",  "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
+{"NET ACP2",    "NET-ACP2", "545-00-035", "HACP29617101","0000", 0,     BGNET_FRAME_FROM_UNKNOWN}};
 
 int main(void)
 {

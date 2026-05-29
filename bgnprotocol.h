@@ -186,7 +186,7 @@
 #define BGN_VALUE_DATA              2  // position where DATA starts (multiple bytes, formatted as per FMT byte)
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
-
+#define BGN_CNR_MAX                 0xFF // for sizing purposes
 #define BGN_CNR_00_NODERESET        0X00
 #define BGN_CNR_01_UNKNOWN          0X01
 #define BGN_CNR_03_UNKNOWN          0X03
@@ -343,7 +343,6 @@ typedef struct {
     int iDeviceType;
 } BGNET_DEV;
 
-#define BGNET_CHANNELS    0xFF
 typedef struct BGN_CHANNELDATA{
     unsigned char ucTO;
     unsigned char ucFROM;
@@ -351,6 +350,8 @@ typedef struct BGN_CHANNELDATA{
     unsigned char ucCHN;
     unsigned char ucFMT;
     unsigned char ucBYTES;
+    unsigned char ucRAW[16]; // raw data (for diagnostic purposes)
+    char cValue[16]; // ascii formatted value string (for display purposes)
     time_t tTimeStamp;
 } BGN_CHANNELDATA;
 
@@ -360,20 +361,26 @@ union BGNET_DEVDATA {
     int iKeepAliveCounter; // i know only the PILOT sends the 'keepalive' command, but i still put it here
     int iActive;
     unsigned char ucDeviceAddress;
+    // this is the ' consolidated' channel list. We also write the same channels to the device that send it for diagnostic reasons
+    struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
     struct {
         int iSendTest;
         int iSendACP;
         int iCounter; // number of channels received
-        struct BGN_CHANNELDATA DATA[BGNET_CHANNELS]; // Channels received
+        struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
      } bgn_NETPILOT;
     struct {
         int iCounter; // number of channels received
-        struct BGN_CHANNELDATA DATA[BGNET_CHANNELS]; // Channels received
+        struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
     } bgn_NETDATA;
     struct {
         int iCounter; // number of channels received
-        struct BGN_CHANNELDATA DATA[BGNET_CHANNELS]; // Channels received
+        struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
     } bgn_QUAD;
+    struct {
+        int iCounter; // number of channels received
+        struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
+    } bgn_WIND;
 };
 
 #define BNG_DEVCTRL_INIT            1
