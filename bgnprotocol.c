@@ -24,7 +24,7 @@ unsigned char calculate_checksum(unsigned char *buf, unsigned char init, int sta
 // get the index for the devicetype we are looking for
 int bgn_FindDeviceIndex(BGNET_CTRL* pCtrl, unsigned char cDevType) {
     int i,r;
-    r=-1; // no match is not found
+    r=0; // no match is not found
     for (i=0; i<BGNET_DEVICES; i++) {
         if (pCtrl->pDev[i].iDeviceType == cDevType) {
             r = i; // first match
@@ -422,8 +422,10 @@ char *decode_value(char* pStr, unsigned char* pBuf) {
     //int fmt_sd[]={1,10,100,1000};
     fmt_decode(pBuf[BGN_VALUE_FMT],&d,&s,&f);
     //map the FMT (00-0F) to datatype (2 or 4 bytes)
+    //in some conversions, we shuffle bytes and niblles. I have tested this
+    //on little endian CPU's. Be carefule with different endianess.
     switch (f) {
-        case 0x00://used for CMD=3/ASCII (lon/lat position information) 
+        case 0x00://used for CMD=3/ASCII (LATLON position information) 
             sprintf(pStr, "untested");
             break;
         case 0x05: //Unknown, untested
@@ -432,7 +434,7 @@ char *decode_value(char* pStr, unsigned char* pBuf) {
             sprintf(pStr, "untested");
             break;
         case 0x0A:
-            //32bits, signed (4 bytes), untested, be carefult with endianess
+            //32bits, signed (4 bytes), untested
             VU.i = (pBuf[5]|(pBuf[4]<<8)|(pBuf[3]<<16)|(pBuf[2]<<24));
             if (VU.i > INT_MAX) {
                 VU.i = VU.i-UINT_MAX-1;
@@ -454,7 +456,6 @@ char *decode_value(char* pStr, unsigned char* pBuf) {
             break;
         case 0x01: //16bits, signed (2 bytes), tested, could be negative, like rudderangle (-45/+45), windangle (-180/+180)
         case 0x08: //can not become negative, but still fits in a 16bits signed value, like speed (0-nn.nn),course (0-360)
-            //be carefult with endianess
             VU.i = (pBuf[3]|(pBuf[2]<<8));
             if (VU.i > SHRT_MAX) {
                 VU.i = VU.i-USHRT_MAX-1;
@@ -477,26 +478,28 @@ char *decode_value(char* pStr, unsigned char* pBuf) {
 }
 
 // routine to process values in the body. A body might contain multiple values
-int process_body_DATA(unsigned char *buffer) {
+int process_CMD_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     int y,z;
     unsigned int d,s,f;
     unsigned char *pBuf,*pEnd;
+    unsigned char ucCh;
     char sValue[256];
     //const char *strDiv[]={"1.0","10.0","100.0","1000.0"};
     //const char *strSiz[]={"0000","000","00","0"};
 
     pBuf = buffer+BGNET_FRAME_HEAD;
-    pEnd = buffer+BGNET_FRAME_HEAD+buffer[BGNET_FRAME_HEAD_SIZE];
+    pEnd = buffer+BGNET_FRAME_HEAD + buffer[BGNET_FRAME_HEAD_SIZE];
     z=0;
     while (pBuf < pEnd) {
-        y = value_length_DATA(*(pBuf+BGN_VALUE_CNR),*(pBuf+BGN_VALUE_FMT));
-        fmt_decode(*(pBuf+BGN_VALUE_FMT),&d,&s,&f);
+        ucCh = *(pBuf+BGN_VALUE_CNR);
+        y = value_length_DATA(ucCh, *(pBuf+BGN_VALUE_FMT));
+        fmt_decode(*(pBuf+BGN_VALUE_FMT), &d, &s, &f);
         if(y < 0) {
-            log_debug("    Ch=%02X Channel unknown, confused (size=%d),FMT=%02X (%x,%x,%x)",*(pBuf+BGN_VALUE_CNR),y,*(pBuf+BGN_VALUE_FMT),d,s,f);
+            log_debug("    Ch=%02X Channel unknown, confused (size=%d),FMT=%02X (%x,%x,%x)", ucCh, y, *(pBuf+BGN_VALUE_FMT), d, s, f);
             break;
         } else {
             decode_value(sValue,pBuf+BGN_VALUE_CNR);
-            log_debug("    Ch=%02X Channel OK (size=%2d),FMT=%02X, Value=%s (%02X, %02X)",*(pBuf+BGN_VALUE_CNR),y,f,sValue,*(pBuf+BGN_VALUE_HEAD+0),*(pBuf+BGN_VALUE_HEAD+1));
+            log_debug("    Ch=%02X Channel OK (size=%2d),FMT=%02X, Value=%s (%02X, %02X) %s", ucCh, y, f, sValue, *(pBuf+BGN_VALUE_HEAD+0), *(pBuf+BGN_VALUE_HEAD+1), pCtrl->pChl[ucCh].sLabel);
         }
         pBuf = pBuf+y;
         z++;
@@ -504,24 +507,24 @@ int process_body_DATA(unsigned char *buffer) {
     return(z); // return number of processed values
 }
 // routine to process values in the body. A body might contain multiple values
-void process_body_SUBSCRIBE(unsigned char *buffer) {
+void process_CMD_SUBSCRIBE(unsigned char *buffer) {
     // this type of frame shall have a payload of 1 byte
-    if (buffer[BGNET_FRAME_HEAD_SIZE]==1) {
-        log_debug("    Ch=%02X, Subscribed by %02X on %02X",buffer[BGNET_FRAME_HEAD+0],buffer[BGNET_FRAME_HEAD_FROM],buffer[BGNET_FRAME_HEAD_TO]);
+    if (buffer[BGNET_FRAME_HEAD_SIZE] == 1) {
+        log_debug("    Ch=%02X, Subscribed by %02X on %02X", buffer[BGNET_FRAME_HEAD+0], buffer[BGNET_FRAME_HEAD_FROM], buffer[BGNET_FRAME_HEAD_TO]);
     }
     return;
 }
 // routine to advertise values that can be subscribed
-void process_body_VALUE(unsigned char *buffer) {
+void process_CMD_VALUE(unsigned char *buffer) {
     unsigned char string[255];
     size_t len;
     // this type of frame has a variable payload: Ch#, 3 bytes data, nbytes ascii
-    if (buffer[BGNET_FRAME_HEAD_SIZE]>4) {
+    if (buffer[BGNET_FRAME_HEAD_SIZE] > 4) {
         len=buffer[BGNET_FRAME_HEAD_SIZE]-4;
-        log_debug("  1st=%02X, len= %ld",buffer[BGNET_FRAME_HEAD+4],len);
+        log_debug("  1st=%02X, len= %ld", buffer[BGNET_FRAME_HEAD+4], len);
         memcpy(string, &buffer[BGNET_FRAME_HEAD+4], len);
         string[len]=0x00;
-        log_debug("    Ch=%02X, advertised by %02X to %02X, value= %s",buffer[BGNET_FRAME_HEAD+0],buffer[BGNET_FRAME_HEAD_FROM],buffer[BGNET_FRAME_HEAD_TO], string);
+        log_debug("    Ch=%02X, advertised by %02X to %02X, value= %s", buffer[BGNET_FRAME_HEAD+0], buffer[BGNET_FRAME_HEAD_FROM], buffer[BGNET_FRAME_HEAD_TO], string);
     }
     return;
 }
@@ -544,9 +547,12 @@ int check_message_address(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     return(r);
 }
 
+//enable this to get a debug trace
+//#define FRAME_DEBUG
 // decode the received buffer, possibly multiple subframes 
 unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
     unsigned char cs; // checksum calculated
+    unsigned char ucType; // device type;
     unsigned char *pBuf,*pEnd; // pointer to start and end of buffer
     char asciibuffer[256];
     int xSize,x,z,n;
@@ -560,15 +566,19 @@ unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len)
     while (pBuf < pEnd) {
         // the header is fixed size
         cs = calculate_checksum(pBuf, BGNET_FRAME_CR_HEAD, BGNET_FRAME_HEAD_TO, BGNET_FRAME_HEAD-1); // calculate the checksum over the header (without the CR)
+#ifdef FRAME_DEBUG
         log_debug("  Header Checksum: %02X (seed),%02X (received),%02X (calculated)", BGNET_FRAME_CR_HEAD, *(pBuf+BGNET_FRAME_HEAD_CS), cs);
+#endif
         if (*(pBuf+BGNET_FRAME_HEAD_CS) == cs) {
+#ifdef FRAME_DEBUG
             log_debug("                   TO: %02X", *(pBuf+BGNET_FRAME_HEAD_TO));
             log_debug("                   FROM: %02X", *(pBuf+BGNET_FRAME_HEAD_FROM));
+#endif
             // check if this subframe is adressed TO us and not FROM us
             iIsForMe = check_message_address(pCtrl, pBuf);
             // we do not want to exclude messages not meant for me, but i still like to see them
             if (1 < 0) {
-                log_debug("                   IGNORE (it's from myself)");
+                log_info("                   IGNORE (it's from myself)");
                 pBuf = pEnd; // dump whole frame, assume everything has the same FROM (otherwise they would not be joined as subframes)
             } else {
                 // The HEADER is OK, process it. Note that some CMD's do not have a body and in such case, we should skip the body & CS part.
@@ -576,75 +586,96 @@ unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len)
                     // 0 payload length, so no frame CS
                     xSize=BGNET_FRAME_HEAD;
                     byte2ascii(asciibuffer, sizeof(asciibuffer), pBuf, xSize, BYTE2ASCII_SPACED);
+#ifdef FRAME_DEBUG
                     log_debug("  Header Checksum OK, CMD=%02X, number of data bytes: %d, framesize: %d, data: %s",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_SIZE), xSize, asciibuffer);
+#endif
                     // these are the commands without payload
+                    ucType = *(pBuf+BGNET_FRAME_HEAD_FROM)&0xF0; //mask device type using FROM address
+                    x = bgn_FindDeviceIndex(pCtrl, ucType); // lookup so we can print the device name
                     switch(*(pBuf+BGNET_FRAME_HEAD_CMD)) {
                         case BGNET_FRAME_CMD_KEEPALIVE:
-                            log_debug("    Command %02X (header only) KEEPALIVE by %02X",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM));
+                            log_info("  Command %02X (header only) KEEPALIVE by %02X",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM));
                             x = bgn_FindDeviceIndex(pCtrl, BGNET_FRAME_FROM_NETPILOT);
                             if (x < 0) {
                                 log_error("Error in FindDeviceIndex");
                             } else {
+#ifdef FRAME_DEBUG
                                 log_debug("Set ACP message request by %02X",*(pBuf+BGNET_FRAME_HEAD_FROM));
+#endif
                                 pCtrl->BGNET_devdata[x].bgn_NETPILOT.iSendACP = 1;
                             }
                             break;
                         case BGNET_FRAME_CMD_POWERUP:
-                            log_debug("    Command %02X (header only) POWERUP by %02X",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM));
+                            log_info("  Command %02X (header only) POWERUP by %02X %s",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDev[x].sModelName);
                             // reset initit state, one (or more) devices on the NETWORK expeciended a POWERUP situation.
                             if (iIsForMe > 0) {
                                 bgn_net_initialize_reset(pCtrl);
                             }
                             break;
                         default:
-                            log_debug("    Command %02X (header only) unsupported",*(pBuf+BGNET_FRAME_HEAD_CMD));
+                            log_info("  Command %02X (header only) unsupported",*(pBuf+BGNET_FRAME_HEAD_CMD));
                             break;
                     }
                 } else {
                     // payload present, check frame-CR
                     xSize = BGNET_FRAME_HEAD + *(pBuf+BGNET_FRAME_HEAD_SIZE) + BGNET_FRAME_TAIL_CS; // expected framesize = head (including CR), body, and frame CR
+#ifdef FRAME_DEBUG
                     log_debug("  Header Checksum OK, CMD=%02X, number of data bytes: %d, framesize: %d",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_SIZE), xSize);
+#endif
                     cs = calculate_checksum(pBuf, BGNET_FRAME_CR_FRAME, BGNET_FRAME_HEAD_TO, xSize-1); // calculate the checksum over the whole frame (including the header with CR, but without the frame CR)
+#ifdef FRAME_DEBUG
                     log_debug("  Frame Checksum: %02X (seed),%02X (received),%02X (calculated)",BGNET_FRAME_CR_FRAME,*(pBuf+xSize-1),cs);
+#endif
                     if (*(pBuf+xSize-1) == cs) {
                         // CR is good, log frame
                         byte2ascii(asciibuffer, sizeof(asciibuffer), pBuf, xSize, BYTE2ASCII_SPACED);
+#ifdef FRAME_DEBUG
                         log_debug("  Frame Checksum OK, framesize: %d, data: %s", xSize, asciibuffer);
+#endif
                         // commands with payload (otherwise we would have no CR)
+                        ucType = *(pBuf+BGNET_FRAME_HEAD_FROM)&0xF0; //mask device type using FROM address
+                        x = bgn_FindDeviceIndex(pCtrl, ucType); // lookup so we can print the device name
                         switch(*(pBuf+BGNET_FRAME_HEAD_CMD)) {
                             case BGNET_FRAME_CMD_DATA:
                             case BGNET_FRAME_CMD_LATLON:
-                                n = process_body_DATA(pBuf);
-                                log_debug("    Command %02X (with body), %d channels",*(pBuf+BGNET_FRAME_HEAD_CMD),n);
+                                // process DATA/LATLON message
+                                n = process_CMD_DATA(pCtrl, pBuf);
+                                log_info("  Command %02X (with body), %d channels",*(pBuf+BGNET_FRAME_HEAD_CMD), n);
                                 break;
-                            case BGNET_FRAME_CMD_VALUES:
-                                process_body_VALUE(pBuf);
-                                //log_debug("    Command %02X (with body) VALUES",*(pBuf+BGNET_FRAME_HEAD_CMD));
+                            case BGNET_FRAME_CMD_VALUE:
+                                // process message (only at startup)
+                                process_CMD_VALUE(pBuf);
+                                log_info("  Command %02X (with body) VALUES",*(pBuf+BGNET_FRAME_HEAD_CMD));
                                 break;
                             case BGNET_FRAME_CMD_SUBSCRIBE:
-                                process_body_SUBSCRIBE(pBuf);
-                                //log_debug("    Command %02X (with body) SUBSCRIBE",*(pBuf+BGNET_FRAME_HEAD_CMD));
+                                // process message (only at startup)
+                                process_CMD_SUBSCRIBE(pBuf);
+                                log_info("  Command %02X (with body) SUBSCRIBE",*(pBuf+BGNET_FRAME_HEAD_CMD));
                                 break;
                             case BGNET_FRAME_CMD_BACKLIGHT:
-                                log_debug("    Command %02X BACKLIGHT BUTTON PRESSED (BY: %02X LEVEL: %02X)",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM),*(pBuf+BGNET_FRAME_HEAD+0));
+                                log_info("  Command %02X BACKLIGHT BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDev[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0));
                                 // we use this for testing TX messages. When you press the LIGHTS button, this will also happen.
+                                if (0>1) {
                                 if (*(pBuf+BGNET_FRAME_HEAD_FROM) == BGNET_FRAME_FROM_NETDATA) {
                                     // request our PILOT to generate a test message
                                     x = bgn_FindDeviceIndex(pCtrl, BGNET_FRAME_FROM_NETPILOT);
                                     if (x < 0) {
                                         log_error("Error in FindDeviceIndex");
                                     } else {
+#ifdef FRAME_DEBUG
                                         log_debug("Set testmessage request by %02X",*(pBuf+BGNET_FRAME_HEAD_FROM));
+#endif
                                         pCtrl->BGNET_devdata[x].bgn_NETPILOT.iSendTest = 1;
                                     }
                                 }
+                                }
                                 break;
                             default:
-                                log_debug("    Command %02X (with body) unsupported",*(pBuf+BGNET_FRAME_HEAD_CMD));
+                                log_info("  Command %02X (with body) unsupported",*(pBuf+BGNET_FRAME_HEAD_CMD));
                                 break;
                         }
                     } else {
-                        log_debug("    Frame Checksum BAD, framesize: %d", xSize);
+                        log_info("    Frame Checksum BAD, framesize: %d", xSize);
                         // Bad CS, we just skip processing the body portion (header was OK and we could determine the frame length)
                     }
                 }
@@ -657,6 +688,9 @@ unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len)
         pBuf=pBuf+xSize;
         z=z+1;
     }
+#ifdef FRAME_DEBUG
+    log_debug("Rx frame processed, %d subframes", z);
+#endif
     return(z);
 }
 

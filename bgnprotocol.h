@@ -143,12 +143,12 @@
 #define BGNET_FRAME_FROM_UNKNOWN      0x00 // could this be the ACP unit on the network? (it's also connected to the tails)
 #define BGNET_FRAME_FROM_NETQUAD      0x30
 #define BGNET_FRAME_FROM_NETPILOT     0x50
-#define BGNET_FRAME_FROM_NETDATA      0x60
+#define BGNET_FRAME_FROM_NETDATA      0xD0
 #define BGNET_FRAME_FROM_NETWIND      0x70
 
 // commands (byte 3)
 #define BGNET_FRAME_CMD_DATA          0x01 //DATA broadcast, variable length, instrument readings.
-#define BGNET_FRAME_CMD_VALUES        0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
+#define BGNET_FRAME_CMD_VALUE         0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
                                          //  Ch#+3x bytes numerical+ascii string (variable length)+CS
                                          //  QUAD:  20(TEMPC),31(ECHOSNR),41(BOATSPEEDKT),42(DEPTHM),4A(DEPTHM),64(AVGSPEEDKT),65(MAXSPEEDKT),75(TIMER),81(DRDISTANCENM),
                                          //         C4(DEPTHM),CD(LOGNM),CF(TRIPNM),D3(DRCOURSEM),FC(SHALLOWALARM),FD(DEPTHALARM),FE(ANCHORALARM),FF(DEPTHCAL)
@@ -156,13 +156,14 @@
                                          //Note: Command is not send when device (QUAD/30, WIND/70) is in 'repeater' mode.
                                          //In demo mode the follwing (simulated) data is send:
                                          //  WIND:  4E(AWINDSPEEDRAW),50(AWINDSPEEDKT),51(AWINDANGLE),52(TWINDANGLERAW),8D(BATTVOLTS)
-                                         //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)                                         
+                                         //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
 #define BGNET_FRAME_CMD_LATLON        0x03 //DATA broadcast, variable length. ASCII transmission, for LAT/LON messages
 #define BGNET_FRAME_CMD_SUBSCRIBE     0x06 //at startup some stations (DATA/60) broadcast to providers (QUAD/30) a subscription request, payload= Ch#, CS
                                          // DATA/60 to QUAD/30: FE(ANCHORALARM),FC(SHALLOWALARM),C4(DEPTHM),FD(DEPTHALARM),41(SPEEDKT),65(MAXSPEEDKT),
                                          //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTANCENM),D3(DRCOURSEM)
+                                         //Note: Command is not send when device (QUAD/30) is in 'repeater' mode.
 #define BGNET_FRAME_CMD_POWERUP       0x0A //at startup all stations (QUAD/30, PILOT/51, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
-                                         //QUAD: "FF-30-00-0A-C7", PILOT: "FF-51-00-0A-A6", DATA: "FF-60-00-0A-97", WIND: "FF 70 00 0A 87"
+                                         //QUAD: "FF-30-00-0A-C7", PILOT: "FF-51-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
 #define BGNET_FRAME_CMD_0C            0x0C //unknown
 #define BGNET_FRAME_CMD_KEEPALIVE     0x0E //continously, a PILOT/50 station broadcasts (TO 0x00!) every 3-4 seconds. Message format:
                                          // PILOT: "00-51-00-0E-A1"
@@ -176,6 +177,8 @@
 #define BGNET_FRAME_CMD_POWEROFF      0xC8 //shutdown system, no payload. Does not work on NETWORK series devices "FF 70 00 C8 C9"
 #define BGNET_FRAME_CMD_BACKLIGHT     0xC9 //LIGHTS button pressed (any module) -> header+2 bytes: {0|1|2|3},0x20. Message format:
                                          // FF 70 01 C9 C7 00 AA or FF 70 01 C9 C7 00 AA
+                                         // at powerup, initializes to 0 (off), when pressed the 1st time (after power) it starts with 3, then
+                                         // down to 2,1,0 (off) and wrap back to 3
 #define BGNET_FRAME_CMD_RESET         0xFE //reset adresss modules to factory default, no data. Does not work on NETWORK series devices.
                                          // FF 70 00 FE C9
 
@@ -331,7 +334,7 @@
 // decoder/encoder, so for safely reasons we will ignore traffic from devices we could not test; hence the iEnable flag.
 // The 'iactive' flag is set when we have received data FROM that device. As per B&G recommendation we only expect
 // 1 'active' device from every type. Possible double units are to be set in 'repeater' mode and will not transmit.
-#define BGNET_DEVICES               17
+#define BGNET_DEVICES               18
 // our 'managed' devices
 typedef struct {
     char sProdName[20];
@@ -342,6 +345,11 @@ typedef struct {
     int iEnable;
     int iDeviceType;
 } BGNET_DEV;
+// channel label
+typedef struct {
+    char sLabel[20];
+    int iNMEA_ID;
+} BGNET_CHL;
 
 typedef struct BGN_CHANNELDATA{
     unsigned char ucTO;
@@ -389,9 +397,9 @@ union BGNET_DEVDATA {
 typedef struct {
     int iInitialized;
     int iNumberOfDevices;
-    BGNET_DEV* pDev; // pointer to a structure that contains status (both static and dynamic)
+    BGNET_DEV* pDev; // pointer to a structure containing device devinition
+    BGNET_CHL* pChl; // pointer to a structure containing channel definition
     Config* pCfg; // pointer to config structure
-
     size_t tx_cnt;
     unsigned char tx_buf[BGN_DEVCTRL_TXBUFFERSIZE ]; // must be big enough to hold all our output messages
     union BGNET_DEVDATA BGNET_devdata[BGNET_DEVICES];

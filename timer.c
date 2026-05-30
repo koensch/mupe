@@ -16,7 +16,6 @@ void *timer_thread(void *arg)
     int RxBufLen = 0;
     int RxCounter = 0;
 
-    int x;
     char asciibuf[2048]; // store ascii for logging
 
     while (g_running) {
@@ -77,8 +76,7 @@ void *timer_thread(void *arg)
               messages. When the IO bus has only 'passive' units, no data is send and the heartbeat has to come from us.
             */
             //handle_received_frame(pCtrl, RxBuf, RxBufLen);
-            x = frame_decoder(pCtrl, RxBuf, RxBufLen);
-            log_debug("RX frame processed, %d subframes",x);
+            frame_decoder(pCtrl, RxBuf, RxBufLen);
             RxBufLen=0; // dump contents of local readbuffer
         }
 

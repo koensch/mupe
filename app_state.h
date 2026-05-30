@@ -4,6 +4,9 @@
 #include <pthread.h>
 
 #define ApplicationName "Marine Gateway"
+// the lower the usleep, the higher the CPU load. 1000 (1 msec) works Ok, 5000 (5 msec) also works OK,
+// but 10000 (10 msec) lo longer works. Use this to tune behaviour vs resources.
+// for the time being, i'll leave it to 1000 (1 msec) 
 #define MSEC1           1000 // usleep 1msec
 
 // generic defines
