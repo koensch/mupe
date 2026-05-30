@@ -80,6 +80,24 @@ void *timer_thread(void *arg)
             RxBufLen=0; // dump contents of local readbuffer
         }
 
+        // count down device counter. note that any application can trigger an instant
+        // executionm of the device processing, by setting this counter to 0
+        if (pCtrl->iDeviceCounter > 0) {
+          pthread_mutex_lock(&g_data_mutex);
+          pCtrl->iDeviceCounter--;
+          pthread_mutex_unlock(&g_data_mutex);
+        } else {
+          // device processing. 
+          log_info("Device Processing %d", pCtrl->iDeviceRun);
+          pthread_mutex_lock(&g_data_mutex);
+          pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
+          pCtrl->iDeviceRun++;
+          if (pCtrl->iDeviceRun >= 10) {
+            pCtrl->iDeviceRun = 0;
+          }
+          pthread_mutex_unlock(&g_data_mutex);
+        }
+
         // no racing allowed
         usleep(cfg->timer_interval_ms * MSEC1);
     }

@@ -28,7 +28,7 @@ void handle_sigint(int sig) {
 // please consider this as 'constants'; do not write into this structure.
 // Use is as some kind of bookkeeping table. We only 'enable' the devices we have tested.
 // if we do a lookup and there is no match, we return 0 and pick the first one
-BGNET_DEV BGNET_dev[BGNET_DEVICES] = { \
+BGNET_DEV BGNET_dev[BGNET_DEVICE_MAX] = { \
 // ProdName     Model       ModelNr       SerialNr       Version Enable DeviceType             
 {"????",        "????",     "????",       "????",        "????", 0,     BGNET_FRAME_FROM_UNKNOWN},\
 {"NET DEPTH",   "NET-DPDU", "610-00-021", "NDEP9410109", "0000", 0,     BGNET_FRAME_FROM_UNKNOWN},\
@@ -52,7 +52,7 @@ BGNET_DEV BGNET_dev[BGNET_DEVICES] = { \
 // this lookup table allows us to obtain the channel label
 // (for display purpose) and the reference to a NMEA 2000 value
 // to allow us to link NMEA2K values and BGNET Channels
-BGNET_CHL BGNET_chl[BGN_CNR_MAX+1] = { \
+BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
     {"UNKNOWN 00", 0},\
     {"UNKNOWN 01", 0},\
     {"UNKNOWN 02", 0},\

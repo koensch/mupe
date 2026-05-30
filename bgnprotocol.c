@@ -25,7 +25,7 @@ unsigned char calculate_checksum(unsigned char *buf, unsigned char init, int sta
 int bgn_FindDeviceIndex(BGNET_CTRL* pCtrl, unsigned char cDevType) {
     int i,r;
     r=0; // no match is not found
-    for (i=0; i<BGNET_DEVICES; i++) {
+    for (i=0; i<BGNET_DEVICE_MAX; i++) {
         if (pCtrl->pDev[i].iDeviceType == cDevType) {
             r = i; // first match
             break;
@@ -38,17 +38,20 @@ int bgn_FindDeviceIndex(BGNET_CTRL* pCtrl, unsigned char cDevType) {
 // - at startup of this driver
 // - when we observe "POWERUP" message(s) from the NETWORK
 void bgn_net_initialize_reset(BGNET_CTRL *pCtrl) {
-        pCtrl->iInitialized = BNG_DEVCTRL_INIT_RESET; // reset initialized state
+        pCtrl->iInitialized = BGNET_CTRL_INIT_RESET; // reset initialized state
 }
 
 void bgn_net_initialize(BGNET_CTRL *pCtrl) {
-    int i;
-    if (pCtrl->iInitialized != BNG_DEVCTRL_INIT_RESET){
+    int i,j;
+    time_t t;
+    if (pCtrl->iInitialized != BGNET_CTRL_INIT_RESET){
         // controlblock is already initialized. This meas that this initialisation only happens if the 'initialized state' was reset
         // prior this function.
     } else {
-        pCtrl->iInitialized = BNG_DEVCTRL_INIT; // mark as initialized
-        pCtrl->iNumberOfDevices = BGNET_DEVICES; // number of devices in our controlblock
+        pCtrl->iInitialized = BGNET_CTRL_INIT; // mark as initialized
+        pCtrl->iNumberOfDevices = BGNET_DEVICE_MAX; // number of devices in our controlblock
+        pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
+        pCtrl->iDeviceRun = 0; //reset run counter (0-1000)
         pCtrl->tx_cnt = 0; // reset write buffer
         //loop through controlblock; reset every device (if enabled)
         for (i=0; i<pCtrl->iNumberOfDevices; i++) {
@@ -56,6 +59,22 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
             if ((pCtrl->pDev[i].iEnable > 0) & (pCtrl->pDev[i].iDeviceType > BGNET_FRAME_FROM_UNKNOWN)) {
                 // inilialize common parameters
                 pCtrl->BGNET_devdata[i].iKeepAliveCounter = 0; // reset keep-alive counter
+                // initialize command list
+                time(&t);
+                for (j=0; j<BGNET_COMMAND_MAX; j++) {
+                    pCtrl->BGNET_devdata->CMD[j].iCounter = 0;
+                    pCtrl->BGNET_devdata->CMD[j].tTimeStamp = t;
+                }
+                // initialize channel list
+                for (j=0; j<BGN_CHANNEL_MAX; j++) {
+                    pCtrl->BGNET_devdata->DATA[j].ucTO = 0;
+                    pCtrl->BGNET_devdata->DATA[j].ucFROM = 0;
+                    pCtrl->BGNET_devdata->DATA[j].ucFMT = 0;
+                    pCtrl->BGNET_devdata->DATA[j].ucBYTES = 0;
+                    pCtrl->BGNET_devdata->DATA[j].tTimeStamp = t;
+                    strcpy(pCtrl->BGNET_devdata->DATA[j].cValue, "");
+                    memset(pCtrl->BGNET_devdata->DATA[j].ucRAW, 0, sizeof(pCtrl->BGNET_devdata->DATA[j].ucRAW));
+                }
                 // inilialize device-specific parameters, use the high-nibble of the devicetype
                 switch (pCtrl->pDev[i].iDeviceType & 0xF0) {
                     case BGNET_FRAME_FROM_NETQUAD:
@@ -67,7 +86,7 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
                     case BGNET_FRAME_FROM_NETWIND:
                         break;
                     default:
-                        log_error("Unsupported devicetype 0x0F",pCtrl->pDev[i].iDeviceType);
+                        log_error("Unsupported devicetype 0x%02X",pCtrl->pDev[i].iDeviceType);
                         break;
                 }
                 pCtrl->BGNET_devdata[i].iActive = 0; // reset 'active' state

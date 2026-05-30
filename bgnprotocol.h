@@ -87,11 +87,7 @@
 //
 
 
-//#define MAX_PORTS       16          // max number of ports supported (lines in conf)
-//#define MAX_LINE        256         // max linelength in conf
-#define FRAME_BUF_SIZE  1024        // send/receive buffer frame length
-#define READ_BUF_SIZE   256         // max size readbuffer
-//#define SILENCE_NS      100000000L  // 100 ms
+//#define BGNET_RXFRAME_SIZE          1024   // send/receive buffer frame length
 
 // Data is send in 'frames'. A frame has a HEADER (with Checksum), and optionally a BODY (also with a checksum). The seed
 // of the 2 checksums is different. The BODY (if present) can be of variable size; the size if in the HEADER.
@@ -147,6 +143,7 @@
 #define BGNET_FRAME_FROM_NETWIND      0x70
 
 // commands (byte 3)
+#define BGNET_COMMAND_MAX             0xFF
 #define BGNET_FRAME_CMD_DATA          0x01 //DATA broadcast, variable length, instrument readings.
 #define BGNET_FRAME_CMD_VALUE         0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
                                          //  Ch#+3x bytes numerical+ascii string (variable length)+CS
@@ -189,7 +186,7 @@
 #define BGN_VALUE_DATA              2  // position where DATA starts (multiple bytes, formatted as per FMT byte)
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
-#define BGN_CNR_MAX                 0xFF // for sizing purposes
+#define BGN_CHANNEL_MAX                 0xFF // for sizing purposes
 #define BGN_CNR_00_NODERESET        0X00
 #define BGN_CNR_01_UNKNOWN          0X01
 #define BGN_CNR_03_UNKNOWN          0X03
@@ -334,7 +331,7 @@
 // decoder/encoder, so for safely reasons we will ignore traffic from devices we could not test; hence the iEnable flag.
 // The 'iactive' flag is set when we have received data FROM that device. As per B&G recommendation we only expect
 // 1 'active' device from every type. Possible double units are to be set in 'repeater' mode and will not transmit.
-#define BGNET_DEVICES               18
+#define BGNET_DEVICE_MAX            18
 // our 'managed' devices
 typedef struct {
     char sProdName[20];
@@ -351,17 +348,22 @@ typedef struct {
     int iNMEA_ID;
 } BGNET_CHL;
 
-typedef struct BGN_CHANNELDATA{
+typedef struct {
     unsigned char ucTO;
     unsigned char ucFROM;
-    unsigned char ucCMD;
-    unsigned char ucCHN;
     unsigned char ucFMT;
     unsigned char ucBYTES;
     unsigned char ucRAW[16]; // raw data (for diagnostic purposes)
     char cValue[16]; // ascii formatted value string (for display purposes)
     time_t tTimeStamp;
 } BGN_CHANNELDATA;
+
+// in this structure we count how many times we have encountred
+// this command
+typedef struct {
+    int iCounter;
+    time_t tTimeStamp;
+} BGN_COMMAND;
 
 // We might need some device-specific values during processing. Please put them here so they overlap
 union BGNET_DEVDATA {
@@ -370,39 +372,44 @@ union BGNET_DEVDATA {
     int iActive;
     unsigned char ucDeviceAddress;
     // this is the ' consolidated' channel list. We also write the same channels to the device that send it for diagnostic reasons
-    struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
+    BGN_CHANNELDATA DATA[BGN_CHANNEL_MAX]; // Channels received
+    BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // Commands received
     struct {
         int iSendTest;
         int iSendACP;
         int iCounter; // number of channels received
-        struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
      } bgn_NETPILOT;
     struct {
         int iCounter; // number of channels received
-        struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
     } bgn_NETDATA;
     struct {
         int iCounter; // number of channels received
-        struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
-    } bgn_QUAD;
+    } bgn_NETQUAD;
     struct {
         int iCounter; // number of channels received
-        struct BGN_CHANNELDATA DATA[BGN_CNR_MAX]; // Channels received
-    } bgn_WIND;
+    } bgn_NETWIND;
 };
 
-#define BNG_DEVCTRL_INIT            1
-#define BNG_DEVCTRL_INIT_RESET      0
-#define BGN_DEVCTRL_TXBUFFERSIZE    1024
+#define BGNET_CTRL_INIT            1
+#define BGNET_CTRL_INIT_RESET      0
+#define BGNET_CTRL_TXBUFFERSIZE    1024
+#define BGNET_CTRL_DEVCNTR_INIT    1000
 typedef struct {
     int iInitialized;
     int iNumberOfDevices;
-    BGNET_DEV* pDev; // pointer to a structure containing device devinition
-    BGNET_CHL* pChl; // pointer to a structure containing channel definition
-    Config* pCfg; // pointer to config structure
+    // the timer service decrements this value to zero (and stops); if zero the 'device processing' takes place
+    int iDeviceCounter; // count down by timer
+    int iDeviceRun; // number of runs (0-1000) with wrap-around
+    //
+    BGNET_DEV* pDev; // pointer to a structure containing device definition (all static, program shal not write here)
+    BGNET_CHL* pChl; // pointer to a structure containing channel definition (all static, program shal not write here)
+    Config* pCfg; // pointer to config structure (all static, program shal not write here)
+
+    // this is where the device processor puts the Tx messages
     size_t tx_cnt;
-    unsigned char tx_buf[BGN_DEVCTRL_TXBUFFERSIZE ]; // must be big enough to hold all our output messages
-    union BGNET_DEVDATA BGNET_devdata[BGNET_DEVICES];
+    unsigned char tx_buf[BGNET_CTRL_TXBUFFERSIZE]; // must be big enough to hold all our output messages
+    // here is where a dynamic 'device data' is stored
+    union BGNET_DEVDATA BGNET_devdata[BGNET_DEVICE_MAX];
 } BGNET_CTRL;
 
 // prototypes
