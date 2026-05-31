@@ -172,7 +172,7 @@ static void parse_pgn_127245(const struct can_frame *f)
     //if (rudder_raw == 0xFFFF)
     //    return;
 
-    double rudder  = rudder_raw * 1e-4;  /* rads */
+    double rudder_rad  = rudder_raw * 1e-4;  /* devide by 1000 to get rads */
 
     /* For now, just store position, destroy others */
     (void) rudder_instance;
@@ -180,10 +180,10 @@ static void parse_pgn_127245(const struct can_frame *f)
     (void) rudder_orderpos;
 
     pthread_mutex_lock(&g_data_mutex);
-    g_rudder = rudder;
+    g_rudder = rudder_rad;
     pthread_mutex_unlock(&g_data_mutex);
 
-    log_debug("N2K 127245: rudder angle=%.4f [rad] (or %d degrees) %X", rudder, (int)(rudder*180/M_PI), rudder_raw);
+    log_debug("N2K 127245: rudder angle=%.4f [rad] (or %d degrees) %X", rudder_rad, (int)(rudder_rad*180/M_PI), rudder_raw);
 }
 
 void *nmea2000_thread(void *arg)
