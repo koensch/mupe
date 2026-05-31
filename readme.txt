@@ -1,3 +1,14 @@
+- install C developemnt tools (if not already present on your linux machine)
+- use your account on github
+- check that your github is authorized on the computer you are using:   ssh -T git@github.com
+- select the directory where you want the MarineGateway to be:          cd ~/workspace/ 
+- install MarineGateway project (clone from github):                    git clone ......
+- observe that the directory ~/workspace/MarineGateway exist            ls -l
+- install cJSON project :                                               sudo apt-get -y install libcjson-dev
+- install SSL development tools:                                        sudo apt-get install libssl-dev
+- compile MarineGateway project:                                        make -B
+- observe executable 'app' to be created:                               ls -l
+
 project/
 ├── Makefile
 ├── config.json

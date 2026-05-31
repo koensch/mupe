@@ -64,7 +64,7 @@ BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
     {"UNKNOWN 08", 0},\
     {"UNKNOWN 09", 0},\
     {"UNKNOWN 0A", 0},\
-    {"RUDDERANGLE", 0},\
+    {"RUDDERANGLE %", 0},\
     {"UNKNOWN 0C", 0},\
     {"UNKNOWN 0D", 0},\
     {"UNKNOWN 0E", 0},\

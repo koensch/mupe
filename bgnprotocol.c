@@ -69,8 +69,9 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
                 for (j=0; j<BGN_CHANNEL_MAX; j++) {
                     pCtrl->BGNET_devdata->DATA[j].ucTO = 0;
                     pCtrl->BGNET_devdata->DATA[j].ucFROM = 0;
-                    pCtrl->BGNET_devdata->DATA[j].ucFMT = 0;
                     pCtrl->BGNET_devdata->DATA[j].ucBYTES = 0;
+                    pCtrl->BGNET_devdata->DATA[j].ucCHN = 0;
+                    pCtrl->BGNET_devdata->DATA[j].ucFMT = 0;
                     pCtrl->BGNET_devdata->DATA[j].tTimeStamp = t;
                     strcpy(pCtrl->BGNET_devdata->DATA[j].cValue, "");
                     memset(pCtrl->BGNET_devdata->DATA[j].ucRAW, 0, sizeof(pCtrl->BGNET_devdata->DATA[j].ucRAW));
@@ -347,13 +348,13 @@ static int value_length_DATA(unsigned char cnr, unsigned char fmt) {
         case BGN_CNR_B5_AP_MODE:
         case BGN_CNR_C1_DEPTHM:
         case BGN_CNR_C2_DEPTHFT:
-        case BGN_CNR_C3_DEPTHF:
+        case BGN_CNR_C3_DEPTHFM:
         case BGN_CNR_D3_DR_COURSE:
         case BGN_CNR_E9_COGTRUE:
         case BGN_CNR_EA_COGMAG:
         case BGN_CNR_CF_TRIPLOGNM:
         case BGN_CNR_DE_UNKNOWN:
-        case BGN_CNR_EB_SOG:
+        case BGN_CNR_EB_SOGKT:
         case BGN_CNR_FC_SHALLOWALARM:
         case BGN_CNR_FF_DEPTH_CAL:
             r=4;
@@ -447,13 +448,12 @@ char *decode_value(char* pStr, unsigned char* pBuf) {
         case 0x00://used for CMD=3/ASCII (LATLON position information) 
             sprintf(pStr, "untested");
             break;
-        case 0x05: //Unknown, untested
-        case 0x06:
+        case 0x05: //time 0-99, untested
+        case 0x06: //raw LCD segments
         case 0x07:
             sprintf(pStr, "untested");
             break;
-        case 0x0A:
-            //32bits, signed (4 bytes), untested
+        case 0x0A: //signed integer (32bits, 4 bytes), untested
             VU.i = (pBuf[5]|(pBuf[4]<<8)|(pBuf[3]<<16)|(pBuf[2]<<24));
             if (VU.i > INT_MAX) {
                 VU.i = VU.i-UINT_MAX-1;
@@ -465,16 +465,16 @@ char *decode_value(char* pStr, unsigned char* pBuf) {
             sprintf(pStr,"%d",VU.i);
             break;
         case 0x03: //timer value (5 bytes), tested
-            sprintf(pStr,"%02d:%02d:%02d", pBuf[2], pBuf[3], pBuf[4]);        
+            sprintf(pStr,"%02d:%02d:%02d", pBuf[2], pBuf[3], pBuf[4]); // includes the null-terminator    
             break;
-        case 0x04: //3 ASCII characters, tested
+        case 0x04: //1 spare byte (any value) + 3 ASCII characters, tested
             pStr[0] = pBuf[3];
             pStr[1] = pBuf[4];
             pStr[2] = pBuf[5];
             pStr[3] = 0x00; // string terminator
             break;
-        case 0x01: //16bits, signed (2 bytes), tested, could be negative, like rudderangle (-45/+45), windangle (-180/+180)
-        case 0x08: //can not become negative, but still fits in a 16bits signed value, like speed (0-nn.nn),course (0-360)
+        case 0x01: //signed integer (-9999/+9999), used for rudderangle (-45/+45), windangle (-180/+180)
+        case 0x08: //unsigned integer (0-511), used for speed (0-nn.nn), course (0-360)
             VU.i = (pBuf[3]|(pBuf[2]<<8));
             if (VU.i > SHRT_MAX) {
                 VU.i = VU.i-USHRT_MAX-1;
@@ -661,10 +661,10 @@ unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len)
                                 n = process_CMD_DATA(pCtrl, pBuf);
                                 log_info("  Command %02X (with body), %d channels",*(pBuf+BGNET_FRAME_HEAD_CMD), n);
                                 break;
-                            case BGNET_FRAME_CMD_VALUE:
+                            case BGNET_FRAME_CMD_LABEL:
                                 // process message (only at startup)
                                 process_CMD_VALUE(pBuf);
-                                log_info("  Command %02X (with body) VALUES",*(pBuf+BGNET_FRAME_HEAD_CMD));
+                                log_info("  Command %02X (with body) LABEL",*(pBuf+BGNET_FRAME_HEAD_CMD));
                                 break;
                             case BGNET_FRAME_CMD_SUBSCRIBE:
                                 // process message (only at startup)
