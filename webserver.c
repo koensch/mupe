@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "webserver.h"
 #include "app_state.h"
 #include "logger.h"
