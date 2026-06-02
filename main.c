@@ -131,11 +131,11 @@ BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
     {"UNKNOWN 4B", 0},\
     {"UNKNOWN 4C", 0},\
     {"UNKNOWN 4D", 0},\
-    {"UNKNOWN 4E", 0},\
+    {"AWS RAW", 0},\
     {"UNKNOWN 4F", 0},\
-    {"UNKNOWN 50", 0},\
+    {"AWS KT", 0},\
     {"AWINDANGLE", 0},\
-    {"UNKNOWN 52", 0},\
+    {"AWA RAW", 0},\
     {"TARGET TWA", 0},\
     {"UNKNOWN 54", 0},\
     {"UNKNOWN 55", 0},\
@@ -194,7 +194,7 @@ BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
     {"UNKNOWN 8A", 0},\
     {"UNKNOWN 8B", 0},\
     {"UNKNOWN 8C", 0},\
-    {"UNKNOWN 8D", 0},\
+    {"BATTERY VOLT", 0},\
     {"UNKNOWN 8E", 0},\
     {"UNKNOWN 8F", 0},\
     {"UNKNOWN 90", 0},\

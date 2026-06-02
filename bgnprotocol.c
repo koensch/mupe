@@ -420,31 +420,84 @@ char *fmt_string(unsigned char buf) {
 //    return(pStr);
 //}
 
-// insert a 'divisor' (".") in the string
-char* insertDivisor(char* strC, char* string, int pos) {
-    int n;
-    n=strlen(string)-pos;
-    strncpy(strC,string,n); // copy the first portion of string1
-    strC[n] = '\0'; // append NULL character
-    strcat(strC,"."); // append "."
-    strcat(strC,string+n); // append remainder of string1
+
+// copy substring in cSource at pos to cTarget for len characters
+char* substring(char* pTarget, char* pSource, int pos, int len) {
+    memcpy(pTarget, pSource+pos, len);
+    *(pTarget+len) = '\0';
+    return(pTarget);
+}
+
+// insert a 'divisor' (".") in the string. Realize that we could have a case where "0" should
+// be represented as "0.000"
+// our tactic:
+// - we use "00000" and append our value string
+// - we use a table/index to insert a '.' on the right place
+// - we use a table/index to pick the starting point in the string
+// - we use a table/index to pick the number of characters from the string 
+char* insertDivisor(char* strC, char* string, unsigned char ucFMT) {
+    // bit 7,6 = divisor (0=1, 1=10, 2=100, 3=1000)
+    // bit 5,4 = size/characters (0=1, 1=2, 2=3, 3=4)
+    // we do not want to do arithemetic because of rounding errors, so we do "charachter shifting"
+
+    // we shift it right and get an index 0-F we can use to lookup the maniplation
+    // this is how it is supposed to look for each of the possible values/format:
+    //      "x.","xx.","xxx.","xxxx.","0.x","x.x","xx.x","xxx.x","0.0x","0.xx","x.xx","xx.xx","0.00x","0.0xx","0.xxx","x.xxx"};
+    // - we append our value-string "1", "12", "123" or "1234" to "0.0000", resulting in:
+    //          "0.0000x",     "0.0000xx",     "0.0000xxx"   or   "0.0000xxxx" (depending on the string length, 1-4 positions)
+    // - we append "0000", so we get someting like:
+    //          "0.0000x0000", "0.0000xx0000", "0.0000xxx0000" or "00000x.xxx0000"
+    // we move the decimal point into position (shift-right, 0=do not shift)
+    //                    div=0       l+0        l+0         l+0            l+0
+    //                    div=1       l+3        l+3         l+3            l+3
+    //                    div=2       l+2        l+2         l+2            l+2
+    //                    div=3       l+1        l+1         l+1            l+1
+    // we take the substring (start/length):
+    //                    div=0       7/l+0      7/l+0       7/l+0          7/l+0        
+    //                    div=1       5/l+2      6/l+1       6/l+1          6/l+1
+    //                    div=2       4/l+4      5/l+4       6/l+1          6/l+1
+    //                    div=3       3/l+4      4/l+3       5/l+2          6/l+1                   
+    //                           
+    // realise that the string passed (containing the value) does not have the same
+    // length as the 'size' specification in the FMT byte.
+
+    unsigned char shift[16] = {0,0,0,0, 3,3,3,3, 2,2,2,2, 1,1,1,1};
+    unsigned char start[16] = {7,7,7,7, 5,6,6,6, 4,5,6,6, 3,4,5,6};
+    unsigned char size [16] = {0,0,0,0, 2,1,1,1, 4,4,1,1, 4,3,2,1};
+    int i,x;
+    // mask the high nibble (divisor & padding), shift it right, range 0x00-0x0F
+    int n = (ucFMT & BGN_FMT_DIVPAD)>>4;
+    int l = strlen(string);
+    char cWork[255], cTmp;
+    strcpy(cWork, "0.0000"); // fill it with leading zero's
+    strcat(cWork, string); // append our value-string
+    strcat(cWork, "0000"); // append traling zero's
+    x = shift[n];
+    log_debug("sValue %s (len=%d, index=%d) -> step 1 = %s, shift= %d", string, l, n, cWork, x);
+    if (x > 0) {
+        // move decimal point to the right, only when non-zero
+        // decimal point is at 1, shift it right
+        for (i=0; i<x+l; i++) {
+            cTmp = cWork[i+1]; // save it
+            cWork[i+1] = cWork[i+2]; // move it right
+            cWork[i+2] = cTmp; // put back saved character
+        }
+    }
+    substring(strC, cWork, start[n], l+size[n]);
+    log_debug("right-shift %s, substring %s, n= %d, start= %d, size= %d", cWork, strC, n, start[n], size[n]);
     return(strC);
 }
 
 // convert the channel data to ASCII for display purposes
 char *decode_value(char* pStr, unsigned char* pBuf) {
-    unsigned int d, s, f;
+    //unsigned int d, s, f;
     char sWork[256];
     union ValueUnion {
         int i;
         char c[8];
     } VU;
-    //int fmt_sd[]={1,10,100,1000};
-    fmt_decode(pBuf[BGN_VALUE_FMT],&d,&s,&f);
-    //map the FMT (00-0F) to datatype (2 or 4 bytes)
-    //in some conversions, we shuffle bytes and niblles. I have tested this
-    //on little endian CPU's. Be carefule with different endianess.
-    switch (f) {
+    // mask the low nibble (conversion factor, bits 3-0)
+    switch (pBuf[BGN_VALUE_FMT] & BGN_FMT_CON) {
         case 0x00://used for CMD=3/ASCII (LATLON position information) 
             sprintf(pStr, "untested");
             break;
@@ -485,14 +538,14 @@ char *decode_value(char* pStr, unsigned char* pBuf) {
             sprintf(pStr, "??????");
             break;
     }
-    switch (d) {
-        case 0: // no decimals, leave like it is
-            break;
-        default:
-            insertDivisor(sWork, pStr, d); // move a "." inside the value string
+    //switch (d) {
+    //    case 0: // no decimals, leave like it is
+    //        break;
+    //    default:
+            insertDivisor(sWork, pStr, pBuf[BGN_VALUE_FMT]);
             strcpy(pStr, sWork); // return it
-            break;
-    }
+    //        break;
+    //}
     return(pStr);
 }
 
@@ -503,8 +556,6 @@ int process_CMD_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     unsigned char *pBuf,*pEnd;
     unsigned char ucCh;
     char sValue[256];
-    //const char *strDiv[]={"1.0","10.0","100.0","1000.0"};
-    //const char *strSiz[]={"0000","000","00","0"};
 
     pBuf = buffer+BGNET_FRAME_HEAD;
     pEnd = buffer+BGNET_FRAME_HEAD + buffer[BGNET_FRAME_HEAD_SIZE];
@@ -518,7 +569,8 @@ int process_CMD_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
             break;
         } else {
             decode_value(sValue,pBuf+BGN_VALUE_CNR);
-            log_debug("    Ch=%02X Channel OK (size=%2d),FMT=%02X, Value=%s (%02X, %02X) %s", ucCh, y, f, sValue, *(pBuf+BGN_VALUE_HEAD+0), *(pBuf+BGN_VALUE_HEAD+1), pCtrl->pChl[ucCh].sLabel);
+            log_debug("    Ch=%02X Channel OK (size=%2d),FMT=%02X, Value= %s (%02X, %02X) %s", ucCh, y, f, sValue, *(pBuf+BGN_VALUE_HEAD+0), *(pBuf+BGN_VALUE_HEAD+1), pCtrl->pChl[ucCh].sLabel);
+            //
         }
         pBuf = pBuf+y;
         z++;

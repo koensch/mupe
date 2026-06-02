@@ -25,7 +25,7 @@
 //   modern devices. I'm going for the propriatry bus, decode/encode data stream and inject what we can. 
 // - NET TACK: displays the magnified wind angle, Gets it's data from WIND and SPEED/QUAD via the bus
 // - NET WIND: only one should have a windsensors, up to 3 other units can be setup as 'repeater'.
-// - NET WIND: has a 'demo mode' (td)
+// - NET WIND: has a 'demo mode' (td). When in demo mode, only APP data is displayed (TRUE wind data is not displayed)
 // - NET WIND: has a 'repeater mode' (tr)
 // - NET QUAD: has a 'repeater mode' (tYPEr)
 // - NET QUAD-R: does have NMEA output capabilities that the QUAD module has not. You can configure a QUAD as
@@ -114,10 +114,10 @@
 // FROM/TO adresses
 
 // TO 'group' broadcast adresses (byte 0)
-#define BGNET_FRAME_TO_NONE           0x00 // this TO address is observed with PILOT, sending KEEPALIVE command.
+#define BGNET_FRAME_TO_ACP            0x00 // PILOT uses this to send KEEPALIVE command, possibly this is the ACP
 #define BGNET_FRAME_TO_2020           0xFA
 #define BGNET_FRAME_TO_FFDHALYCON     0xFB
-#define BGNET_FRAME_TO_FFDPILOT       0xFC
+#define BGNET_FRAME_TO_FFDPILOT       0xFC // NETWORK PILOT unit does NOT accepts this as TO (uses it's 0x5? and 0xFF only)
 #define BGNET_FRAME_TO_PROCNODE       0xFD
 #define BGNET_FRAME_TO_FFD            0xFE
 #define BGNET_FRAME_TO_ALL            0xFF
@@ -135,7 +135,7 @@
 #define BGNET_FRAME_FROM_GYROACPPILOT 0x12
 
 // FROM address range (0x?0-0x?F)
-#define BGNET_FRAME_FROM_UNKNOWN    0x00 // could this be the ACP unit on the network? (it's also connected to the tails)
+#define BGNET_FRAME_FROM_ACP        0x00 // could this be the ACP unit on the network? (it's also connected to the tails)
 #define BGNET_FRAME_FROM_FFD        0x20
 #define BGNET_FRAME_FROM_NETQUAD    0x30 // Halcon FFD's
 #define BGNET_FRAME_FROM_NETPILOT   0x50 // PILOT FFD's
@@ -166,13 +166,15 @@
 #define BGNET_FRAME_CMD_0C          0x0C //unknown
 #define BGNET_FRAME_CMD_KEEPALIVE   0x0E //continously, a PILOT/50 station broadcasts (TO 0x00!) every 3-4 seconds. Message format:
                                          // PILOT: "00 51 00 0E A1"
-#define BGNET_FRAME_CMD_ACP_STATUS  0x8E //ACP response (to be confirmed):
+                                         // Copilot came up with this suggestion for a ACP response. This turns out to be not applicable for
+                                         // the NETWORK series:
                                          // ACP:   "51 00 07 8E XX 01 07 2C FF D8 00 00 5A"
                                          //                        01 = MODE = Auto {STBY|AUTO|TRACK|WIND}
                                          //                           07 2C = Heading = 185.6 (actual, 0-360), 1/10th of a degree
                                          //                                 FF D8 = Rudder = -4.0 (-45/+45), 1/10th of a degree
                                          //                                       00 = Alarms = No {off-course|drive fail|compass fail}
                                          //                                          00 = Drive = Idle {port|starboard|idle}
+                                         // i leave this info here, possibly for more modern equipment this might be applicable.
 #define BGNET_FRAME_CMD_POWEROFF    0xC8 //shutdown system, no payload. Does not work on NETWORK series devices "FF 70 00 C8 C9"
 #define BGNET_FRAME_CMD_BACKLIGHT   0xC9 //LIGHTS button pressed (any module) -> header+2 bytes: {0|1|2|3},0x20. Message format:
                                          // FF 70 01 C9 C7 00 AA
@@ -190,9 +192,14 @@
 #define BGN_VALUE_HEAD              2   // number of bytes in VALUE header
 #define BGN_VALUE_CNR               0   // position of channel byte
 #define BGN_VALUE_FMT               1   // position of FMT byte
-                                        // MSB, bits 7,6 divisor (1, 10, 100, 1000)
+                                        // MSB, bits 7,6 divisor (0=1, 1=10, 2=100, 3=1000)
                                         //      bits 5,4 size/pad (xxxx, xxx, xx, x)
                                         // LSB  bits 3,2,1,0 formatting specifier, see decode_value()
+    #define BGN_FMT_DIVPAD      0xF0    // bits 7,6,5,4 divisor & padding BGN_FMT_
+    #define BGN_FMT_DIVPAD_DIV  0xC0    // bits 7,6
+    #define BGN_FMT_DIVPAD_PAD  0x30    // bits 5,4
+    #define BGN_FMT_CON         0x0F    // bits 3,2,1,0 data conversion
+
 #define BGN_VALUE_DATA              2   // position where DATA starts (multiple bytes, formatted as per FMT byte, variable length depending on CNR/FMT)
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
@@ -246,8 +253,10 @@
 #define BGN_CNR_4D_AWINDSPEEDKTS    0x4D
 #define BGN_CNR_4E_AWINDSPEEDRAW    0x4E
 #define BGN_CNR_4F_AWINDSPEEDMS     0x4F
-#define BGN_CNR_50_AWINDSPEEDKT     0x50
-#define BGN_CNR_51_AWINDANGLE       0x51
+#define BGN_CNR_50_AWINDSPEEDKT     0x50 // displayed by WIND (small display, when APP selected)
+                                         // displayed by DATA (when WIND button is pressed)
+#define BGN_CNR_51_AWINDANGLE       0x51 // displayed by WIND (dial, when APP selected)
+                                         // displayed by PILOT (when in VANE mode)
 #define BGN_CNR_52_AWINDANGLERAW    0x52
 #define BGN_CNR_53_TARGET_TWA       0x53 // send by PILOT upon change/button pressed, Target True Wind Angle
 #define BGN_CNR_55_TWINDSPEEDKT     0x55
@@ -273,7 +282,7 @@
 #define BGN_CNR_7D_TARGETBOATSPEED  0x7D
 #define BGN_CNR_7F_VMGKT            0x7F
 #define BGN_CNR_80_UNKNOWN          0x80
-#define BGN_CNR_81_DR_DIST          0x81 //shown on SPEED and DATA, reset via QUAD
+#define BGN_CNR_81_DR_DIST          0x81 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_82_LEEWAY           0x82
 #define BGN_CNR_83_TIDALDRIFT       0x83
 #define BGN_CNR_84_TIDALSET         0x84
@@ -281,7 +290,8 @@
 #define BGN_CNR_86_BAROTREND        0x86
 #define BGN_CNR_87_BARORAW          0x87
 #define BGN_CNR_8A_UNKNOWN          0x8A
-#define BGN_CNR_8D_BATTVOLTS        0x8D
+#define BGN_CNR_8D_BATTVOLTS        0x8D // displayed by WIND (if 'VOLTS' button pressed)
+                                         // displayed by DATA (if 'OPTIONS' button is pressed)
 #define BGN_CNR_9A_HEADINGNEXTTACK  0x9A
 #define BGN_CNR_9B_FOREAFTTRIM      0x9B
 #define BGN_CNR_9C_MASTANGLE        0x9C
@@ -304,7 +314,7 @@
 #define BGN_CNR_C4_DEPTHM           0xC4 // shows some "---" or ?
 #define BGN_CNR_CD_STORLOGNM        0xCD
 #define BGN_CNR_CF_TRIPLOGNM        0xCF
-#define BGN_CNR_D3_DR_COURSE        0xD3 //shown on SPEED and DATA, reset via QUAD
+#define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_DC_LOCALTIME        0xDC
 #define BGN_CNR_DD_UTCTIME          0xDD
 #define BGN_CNR_DE_UNKNOWN          0xDE
