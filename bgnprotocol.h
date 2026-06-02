@@ -135,12 +135,20 @@
 #define BGNET_FRAME_FROM_GYROACPPILOT 0x12
 
 // FROM address range (0x?0-0x?F)
-#define BGNET_FRAME_FROM_ACP        0x00 // could this be the ACP unit on the network? (it's also connected to the tails)
+#define BGNET_DEVICETYPE_MASK       0xF0 // mask the device type from the address
+#define BGNET_FRAME_FROM_NETACP     0x00 // could this be the ACP unit on the network? (it's also connected to the tails)
 #define BGNET_FRAME_FROM_FFD        0x20
 #define BGNET_FRAME_FROM_NETQUAD    0x30 // Halcon FFD's
 #define BGNET_FRAME_FROM_NETPILOT   0x50 // PILOT FFD's
 #define BGNET_FRAME_FROM_NETDATA    0xD0
 #define BGNET_FRAME_FROM_NETWIND    0x70
+
+// OK, i have a dilemma.....
+// when we want to send some data onto the net IO, i must have a FROM adrress (and implicit a 'devicetype'). I don't want to
+// conflict with real-world device adresses and devicetype.
+// i have decided to impersonate a ACP module with address 0F. I don't know if this is going to hurt myself in the end. It's
+// just a educated guess. Nobody will have an installation where the 16th ACP unit negotiates address 0x0F, so i think i'm safe.
+#define BGNET_ADDRESS_ME            0x0F
 
 // command (byte 3)
 #define BGNET_COMMAND_MAX           0xFF
@@ -195,10 +203,10 @@
                                         // MSB, bits 7,6 divisor (0=1, 1=10, 2=100, 3=1000)
                                         //      bits 5,4 size/pad (xxxx, xxx, xx, x)
                                         // LSB  bits 3,2,1,0 formatting specifier, see decode_value()
-    #define BGN_FMT_DIVPAD      0xF0    // bits 7,6,5,4 divisor & padding BGN_FMT_
-    #define BGN_FMT_DIVPAD_DIV  0xC0    // bits 7,6
-    #define BGN_FMT_DIVPAD_PAD  0x30    // bits 5,4
-    #define BGN_FMT_CON         0x0F    // bits 3,2,1,0 data conversion
+    #define BGN_FMT_MASK_DIVPAD      0xF0    // bits 7,6,5,4 divisor & padding BGN_FMT_
+    #define BGN_FMT_MASK_DIVPAD_DIV  0xC0    // bits 7,6
+    #define BGN_FMT_MASK_DIVPAD_PAD  0x30    // bits 5,4
+    #define BGN_FMT_MASK_CON         0x0F    // bits 3,2,1,0 data conversion
 
 #define BGN_VALUE_DATA              2   // position where DATA starts (multiple bytes, formatted as per FMT byte, variable length depending on CNR/FMT)
 
@@ -357,7 +365,7 @@
 // decoder/encoder, so for safely reasons we will ignore traffic from devices we could not test; hence the iEnable flag.
 // The 'iactive' flag is set when we have received data FROM that device. As per B&G recommendation we only expect
 // 1 'active' device from every type. Possible double units are to be set in 'repeater' mode and will not transmit.
-#define BGNET_DEVICE_MAX            18
+#define BGNET_DEVICE_MAX            16
 // our 'managed' devices
 typedef struct {
     char sProdName[20];
@@ -401,7 +409,6 @@ typedef struct {
 // We might need some device-specific values during processing. Please put them here so they overlap
 union BGNET_DEVDATA {
     // here we declare all ' common' parameters (used by every device)
-    int iKeepAliveCounter; // i know only the PILOT sends the 'keepalive' command, but i still put it here
     int iActive;
     unsigned char ucDeviceAddress;
     // this is the ' consolidated' channel list. We also write the same channels to the device that send it for diagnostic reasons

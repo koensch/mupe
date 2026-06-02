@@ -43,6 +43,7 @@ void bgn_net_initialize_reset(BGNET_CTRL *pCtrl) {
 
 void bgn_net_initialize(BGNET_CTRL *pCtrl) {
     int i,j;
+    unsigned char ucTmp;
     time_t t;
     if (pCtrl->iInitialized != BGNET_CTRL_INIT_RESET){
         // controlblock is already initialized. This meas that this initialisation only happens if the 'initialized state' was reset
@@ -55,12 +56,12 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->tx_cnt = 0; // reset write buffer
         //loop through controlblock; reset every device (if enabled)
         for (i=0; i<pCtrl->iNumberOfDevices; i++) {
-            // only if the device is enabled and has a valid devicetype
-            if ((pCtrl->pDev[i].iEnable > 0) & (pCtrl->pDev[i].iDeviceType > BGNET_FRAME_FROM_UNKNOWN)) {
-                // inilialize common parameters
-                pCtrl->BGNET_devdata[i].iKeepAliveCounter = 0; // reset keep-alive counter
+            // only if the device is enabled; non-enabled devices are ignored.
+            if (pCtrl->pDev[i].iEnable > 0) {
                 // initialize command list
+                pCtrl->BGNET_devdata[i].iActive = 0; // make it inactive; if we received data for it, we'll make it active
                 time(&t);
+                // initialize CMD array
                 for (j=0; j<BGNET_COMMAND_MAX; j++) {
                     pCtrl->BGNET_devdata->CMD[j].iCounter = 0;
                     pCtrl->BGNET_devdata->CMD[j].tTimeStamp = t;
@@ -76,8 +77,9 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
                     strcpy(pCtrl->BGNET_devdata->DATA[j].cValue, "");
                     memset(pCtrl->BGNET_devdata->DATA[j].ucRAW, 0, sizeof(pCtrl->BGNET_devdata->DATA[j].ucRAW));
                 }
-                // inilialize device-specific parameters, use the high-nibble of the devicetype
-                switch (pCtrl->pDev[i].iDeviceType & 0xF0) {
+                // inilialize device-specific parameters, erase the low nibble of the address to get the devicetype
+                ucTmp = pCtrl->pDev[i].iDeviceType & BGNET_DEVICETYPE_MASK;
+                switch (ucTmp) {
                     case BGNET_FRAME_FROM_NETQUAD:
                         break;
                     case BGNET_FRAME_FROM_NETPILOT:
@@ -90,8 +92,7 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
                         log_error("Unsupported devicetype 0x%02X",pCtrl->pDev[i].iDeviceType);
                         break;
                 }
-                pCtrl->BGNET_devdata[i].iActive = 0; // reset 'active' state
-                pCtrl->BGNET_devdata[i].ucDeviceAddress = pCtrl->pDev[i].iDeviceType; // initially, the address byte equals to devicetype
+                pCtrl->BGNET_devdata[i].ucDeviceAddress = ucTmp; // initially, the address byte equals to devicetype
             }
         }
         log_info("bgn_net_initialize: done %d (devices)\n",i);
@@ -466,7 +467,7 @@ char* insertDivisor(char* strC, char* string, unsigned char ucFMT) {
     unsigned char size [16] = {0,0,0,0, 2,1,1,1, 4,4,1,1, 4,3,2,1};
     int i,x;
     // mask the high nibble (divisor & padding), shift it right, range 0x00-0x0F
-    int n = (ucFMT & BGN_FMT_DIVPAD)>>4;
+    int n = (ucFMT & BGN_FMT_MASK_DIVPAD)>>4;
     int l = strlen(string);
     char cWork[255], cTmp;
     strcpy(cWork, "0.0000"); // fill it with leading zero's
@@ -497,7 +498,7 @@ char *decode_value(char* pStr, unsigned char* pBuf) {
         char c[8];
     } VU;
     // mask the low nibble (conversion factor, bits 3-0)
-    switch (pBuf[BGN_VALUE_FMT] & BGN_FMT_CON) {
+    switch (pBuf[BGN_VALUE_FMT] & BGN_FMT_MASK_CON) {
         case 0x00://used for CMD=3/ASCII (LATLON position information) 
             sprintf(pStr, "untested");
             break;
@@ -594,32 +595,29 @@ void process_CMD_VALUE(unsigned char *buffer) {
         len=buffer[BGNET_FRAME_HEAD_SIZE]-4;
         log_debug("  1st=%02X, len= %ld", buffer[BGNET_FRAME_HEAD+4], len);
         memcpy(string, &buffer[BGNET_FRAME_HEAD+4], len);
-        string[len]=0x00;
+        string[len] = 0x00;
         log_debug("    Ch=%02X, advertised by %02X to %02X, value= %s", buffer[BGNET_FRAME_HEAD+0], buffer[BGNET_FRAME_HEAD_FROM], buffer[BGNET_FRAME_HEAD_TO], string);
     }
     return;
 }
 
-// returns >0 when this message is for us to process (TO us and not FROM us)
-int check_message_address(BGNET_CTRL* pCtrl, unsigned char *buffer) {
-    int i,iFROMus,iTOus,r;
-    iFROMus=0;
-    iTOus=0;
-    for (i=0; i<pCtrl->iNumberOfDevices; i++) {
-        if (pCtrl->BGNET_devdata[i].iActive > 0) {
-            if (buffer[BGNET_FRAME_HEAD_TO] == pCtrl->BGNET_devdata[i].ucDeviceAddress) iTOus++;
-            if (buffer[BGNET_FRAME_HEAD_FROM] == pCtrl->BGNET_devdata[i].ucDeviceAddress) iFROMus++;
+// returns >0 when this message is for me to process
+int check_message_address(unsigned char *pBuf) {
+    int r = 0;
+    if (pBuf[BGNET_FRAME_HEAD_FROM] == BGNET_ADDRESS_ME) {
+        // do not process this message
+    } else {
+        if ((pBuf[BGNET_FRAME_HEAD_TO] == BGNET_FRAME_TO_ALL) | (pBuf[BGNET_FRAME_HEAD_TO] == BGNET_ADDRESS_ME)) {
+            // yes, it's for me
+            r++;
         }
     }
-    if (buffer[BGNET_FRAME_HEAD_TO] == BGNET_FRAME_TO_ALL) iTOus++; // broadcast
-    if (buffer[BGNET_FRAME_HEAD_TO] == BGNET_FRAME_TO_NONE) iTOus++; // KEEPALIVE command by PILOT
-    r = 0;
-    if ((iFROMus == 0) & (iTOus > 0)) r = 1;
     return(r);
 }
 
 //enable this to get a debug trace
 //#define FRAME_DEBUG
+
 // decode the received buffer, possibly multiple subframes 
 unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
     unsigned char cs; // checksum calculated
@@ -646,9 +644,12 @@ unsigned int frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len)
             log_debug("                   FROM: %02X", *(pBuf+BGNET_FRAME_HEAD_FROM));
 #endif
             // check if this subframe is adressed TO us and not FROM us
-            iIsForMe = check_message_address(pCtrl, pBuf);
-            // we do not want to exclude messages not meant for me, but i still like to see them
-            if (1 < 0) {
+            iIsForMe = check_message_address(pBuf);
+            // we do not want to exclude messages not meant for me, but i still like to see them, so i change the condition to  "(1>0)"
+            // for the time being.
+            // Realize that every device is 'not active' initially. Untill we get some traffic we know that we have an 'active' device
+            // on the bus (a device sending data; we do not care about devices that are present, but do not send).
+            if (iIsForMe < 1) {
                 log_info("                   IGNORE (it's from myself)");
                 pBuf = pEnd; // dump whole frame, assume everything has the same FROM (otherwise they would not be joined as subframes)
             } else {
