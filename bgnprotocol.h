@@ -26,26 +26,38 @@
 // - NET TACK: displays the magnified wind angle, Gets it's data from WIND and SPEED/QUAD via the bus
 // - NET WIND: only one should have a windsensors, up to 3 other units can be setup as 'repeater'.
 // - NET WIND: has a 'demo mode' (td). When in demo mode, only APP data is displayed (TRUE wind data is not displayed)
-// - NET WIND: has a 'repeater mode' (tr)
+// - NET WIND: has a 'repeater mode' (tr) and a 'demo mode' (td)
 // - NET QUAD: has a 'repeater mode' (tYPEr)
 // - NET QUAD-R: does have NMEA output capabilities that the QUAD module has not. You can configure a QUAD as
 //   a repeater, but that does not give it the NMEA capability.
-// - NET PILOT: has a 'demo mode' (d)
+// - NET PILOT: has a 'demo mode' (TYPE D)
 // - NET PILOT: has a connector at the back for NMEA0183 input. Could be a 2-pin connector (use cable 612-OA-014)
-//   or a 3-pin connector (use cable 612-OA-053)
+//   or a 3-pin connector (use cable 612-OA-053). Cables are no longer produced.
 //    - 2-pin cable: pin ?/blue = NMEA In-, pin 2/red = NMEA In+ (no info)
 //    - 3-pin cable: pin 1/blue = NMEA In-, pin 3/red = NMEA In+
-//   A limited set of NMEA messages are supported, see user manual.
+//   A limited set of NMEA messages are supported, see user manual, that are outdated by now. Interconnectivity with modern
+//   equipment is not possible.
 // - NET PILOT: Needs a connection with a ACP to work, unless it's in 'demo mode'
-// - NET PILOT: appears to use the address range 0x50-0x5F and may be different in other situations
+// - NET PILOT: appears to use the address range 0x50-0x5F (at least the NETWORK series)
 // - NET PILOT: when it observes a duplicate address it immediately increments its own address (0x50-0x5F) and
 //   continues as normal
 // - NET PILOT:
 //    - normally sends 4 channels: 49 (Heading, 0/360), 0B (Rudder angle, -45/+45), 51 (AW angle, -180/+180), 41 (Speed KT, 0/99.9)
 //    - when any button is pressed (except SPEED or SETUP) it transmits 4 channels, appearently to synchronize with the ACP and other
 //      PILOT modules on the network: B5 (AP mode), 53 (Target TWA), A6 (AP Target Course), A7 (AP WP Bearing)
-// - NET PILOT: at startup without a ACP, the message "No Pilot" is displayed and it only sends a KEEPALIVE command (0x0E) TO 0x00. We
-//   have no idea what return message from ACP to PILOT makes the PILOT module go into normal service.
+// - NET PILOT: at startup (without ACP), the message "No Pilot" is displayed and it only sends a KEEPALIVE command (0x0E) TO 0x00. This is
+//   repeated every 3.8sec. If a reply is not received (within 5sec), "No Pilot" is displayed.
+//   If the PILOT recives the B5 (AP mode), 53 (Target TWA), A6 (AP Target Course), A7 (AP WP Bearing), same as transmitted in 'demo', the 
+//   message "No Pilot" disappears. Possibly the "WND OFF" message is displayed. Place your WIND unit in demo mode and PILOT comes in
+//   normal service.
+// - NET PILOT sends a CMD (3x) when a button is pressed:
+//    - AUTO or OFF button:   TO FROM 05 D3 CS 00 B5 01 00 00 CS
+//    - MODE button:          TO FROM 05 D4 CS 00 A6 01 00 01 CS
+//    - <10,>10,<1,>1 button: TO FROM 02 DC CS 00 A6 CS
+//   if no response message is received, PILOT starts to beep. What the response message should be is unclear.
+//   The 2nd byte of the payload appears to be a channel number.
+// - NET ACP: supports a joystick, directly connected to the ACP, engage/disengaged by a switch connected to the ACP. When engaged, the
+//   joystick controls the rudder directly. When engaged, the PILOT displays "JOYSTICK".
 // - after connection a message/error is displayed; press any button to resume
 // - a network shall contain at least 2 devices. A solo device starts beeping after 5-10 seconds
 // - the voltage level on the IO bus seems 5V, this means you can use TTL type interface and some RS232
@@ -199,7 +211,8 @@
 // layout of the VALUE (1 or more in a BODY, dynamic length)
 #define BGN_VALUE_HEAD              2   // number of bytes in VALUE header
 #define BGN_VALUE_CNR               0   // position of channel byte
-#define BGN_VALUE_FMT               1   // position of FMT byte
+#define BGN_VALUE_FMT        #define BGN_CNR_BA_UNKNOWN          0xBA
+       1   // position of FMT byte
                                         // MSB, bits 7,6 divisor (0=1, 1=10, 2=100, 3=1000)
                                         //      bits 5,4 size/pad (xxxx, xxx, xx, x)
                                         // LSB  bits 3,2,1,0 formatting specifier, see decode_value()
@@ -266,7 +279,7 @@
 #define BGN_CNR_51_AWINDANGLE       0x51 // displayed by WIND (dial, when APP selected)
                                          // displayed by PILOT (when in VANE mode)
 #define BGN_CNR_52_AWINDANGLERAW    0x52
-#define BGN_CNR_53_TARGET_TWA       0x53 // send by PILOT upon change/button pressed, Target True Wind Angle
+#define BGN_CNR_53_TARGET_TWA       0x53 // send by PILOT upon change/button pressed, Target True Wind Angle, fmt=0x01
 #define BGN_CNR_55_TWINDSPEEDKT     0x55
 #define BGN_CNR_56_TWINDSPEEDMS     0x56
 #define BGN_CNR_57_TWINDSPEEDKT     0x57
@@ -298,7 +311,7 @@
 #define BGN_CNR_86_BAROTREND        0x86
 #define BGN_CNR_87_BARORAW          0x87
 #define BGN_CNR_8A_UNKNOWN          0x8A
-#define BGN_CNR_8D_BATTVOLTS        0x8D // displayed by WIND (if 'VOLTS' button pressed)
+#define BGN_CNR_8D_BATTVOLTS        0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
                                          // displayed by DATA (if 'OPTIONS' button is pressed)
 #define BGN_CNR_9A_HEADINGNEXTTACK  0x9A
 #define BGN_CNR_9B_FOREAFTTRIM      0x9B
@@ -307,12 +320,19 @@
 #define BGN_CNR_9E_PITCHRATE        0x9E
 #define BGN_CNR_A3_DBOARDPOS        0xA3
 #define BGN_CNR_A4_BOOMPOS          0xA4
-#define BGN_CNR_A6_AP_CTARGET       0xA6 // send by PILOT upon change/button pressed, Target Course (in AUTO or memory when STBY)
-#define BGN_CNR_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing
+#define BGN_CNR_A6_AP_CTARGET       0xA6 // send by PILOT upon change/button pressed, Target Course (in AUTO or memory when STBY), fmt=0x08
+#define BGN_CNR_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
 #define BGN_CNR_AF_AP_OFFCOURSE     0xAF
 #define BGN_CNR_B3_COMPASSCAL       0xB3
 #define BGN_CNR_B4_UNKNOWN          0xB4
-#define BGN_CNR_B5_AP_MODE          0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV)
+#define BGN_CNR_B5_AP_MODE          0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
+    #define BGN_AP_MODE1_MASK_STATE 0x01 // DATA1 - 0=STBY, 1=AUTO
+    #define BGN_AP_MODE1_MASK_INIT  0x04 //         1=Change to AUTO (copy stored course to target)
+    #define BGN_AP_MODE2_MASK_MODE  0x07 // DATA2 - 1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK
+    #define BGN_AP_MODE2_COMP       0x01
+    #define BGN_AP_MODE2_NAV        0x03
+    #define BGN_AP_MODE2_VANE       0x04
+    #define BGN_AP_MODE2_JOYSTICK   0x07
 #define BGN_CNR_BA_UNKNOWN          0xBA
 #define BGN_CNR_BB_LATITUDE         0xBB
 #define BGN_CNR_BC_LONGITUDE        0xBC
