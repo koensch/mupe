@@ -16,7 +16,8 @@
 extern volatile int g_running;
 
 extern pthread_mutex_t g_data_mutex;
-extern char g_last_serial_data[1024];
+extern char g_last_serial_dataRx[1024];
+extern char g_last_serial_dataTx[1024];
 extern char g_last_ethernet_data[1024];
 extern char g_last_signalk_delta[1024];
 
@@ -24,7 +25,8 @@ extern char g_last_signalk_delta[1024];
 #define SerialCounter_Reset     0
 #define SerialCounter_Set       10
 #define SerialCounter_Bottom    -999
-extern int  g_serial_data_len;      // number of bytes in serial buffer
+extern int  g_serial_data_lenRx;      // number of bytes in serial buffer
+extern int  g_serial_data_lenTx;      // number of bytes in serial buffer
 extern int  g_serial_data_counter;  // receive counter 
 
 /* NMEA2000-derived values */

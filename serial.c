@@ -107,8 +107,10 @@ void *serial_thread(void *arg)
     int flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
-    unsigned char rawbuf[BGNET_RXRAW_SIZE];
-    ssize_t n = 0;
+    unsigned char RxBuf[BGNET_RXRAW_SIZE];
+    unsigned char TxBuf[BGNET_RXRAW_SIZE];
+    ssize_t nRx = 0;
+    ssize_t nTx = 0, w;
 
     // this serial handler is part of a reverse-engineering project. At the start, the dynamic behaviour is
     // undefined. To get a understanding how it works and be able to adjust the process without knowing everything
@@ -130,26 +132,26 @@ void *serial_thread(void *arg)
 
     // initialize for a clean start
     pthread_mutex_lock(&g_data_mutex);
-    g_serial_data_len = 0;
+    g_serial_data_lenRx = 0;
     g_serial_data_counter = SerialCounter_Reset;
     pthread_mutex_unlock(&g_data_mutex);
     
     while (g_running) {
         // get input (if any) into our local buffer
-        n = read(fd, rawbuf, sizeof(rawbuf));
-        if (n > 0) {
+        nRx = read(fd, RxBuf, sizeof(RxBuf));
+        if (nRx > 0) {
             // if we receive more that we can handle, let it be known
-            if (n > (ssize_t)(sizeof(rawbuf)-1)) {
+            if (nRx > (ssize_t)(sizeof(RxBuf)-1)) {
                 log_debug("Serial read: possible overflow of receive buffer");
             } else {
                 // if any input received; append to buffer
                 pthread_mutex_lock(&g_data_mutex);
-                memcpy(&g_last_serial_data[g_serial_data_len], rawbuf, n);
-                g_serial_data_len = g_serial_data_len + n;
+                memcpy(&g_last_serial_dataRx[g_serial_data_lenRx], RxBuf, nRx);
+                g_serial_data_lenRx = g_serial_data_lenRx + nRx;
                 g_serial_data_counter = SerialCounter_Set;
                 pthread_mutex_unlock(&g_data_mutex);
             }
-        } else if (n < 0) {
+        } else if (nRx < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 continue;
             log_error("serial read: %s", strerror(errno));
@@ -157,15 +159,27 @@ void *serial_thread(void *arg)
         } else {
             // if there is no input (n=0) and the counter is quiet, we may send someting
             // realise that when we send someting, this is echoed back into our read (Tx
-            // and Rx signals are together. That means we have to write 'blocking'
+            // and Rx signals are connected). That means we have to write 'blocking'
             if (g_serial_data_counter > SerialCounter_Reset) {
                 // someting is still going on
             } else {
-                // do not write (yet)
-                //ssize_t w = write(fd, buf, n);
-                //if (w < 0) {
-                //    log_error("serial write: %s", strerror(errno));
-                //}
+                if (g_serial_data_lenTx > 0) {
+                    // get message from common storage into local storage
+                    pthread_mutex_lock(&g_data_mutex);
+                    memcpy(&TxBuf, &g_last_serial_dataTx, g_serial_data_lenTx);
+                    nTx = g_serial_data_lenTx;
+                    g_serial_data_lenTx = 0;
+                    pthread_mutex_unlock(&g_data_mutex);
+
+                    // write content
+                    w = write(fd, TxBuf, nTx);
+                    if (w == nTx) {
+                        // nothing wrong here
+                        log_error("serial write: %d bytes output)", w);
+                    } else {
+                        log_error("serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), nTx, w);
+                    }
+                }
             }
         }
         usleep(MSEC1);

@@ -12,24 +12,24 @@ void *timer_thread(void *arg)
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
     Config *cfg = pCtrl->pCfg;
 
-    unsigned char RxBuf[1024]; // local read buffer
-    int RxBufLen = 0;
+    unsigned char RxBuf[1024], TxBuf[1024]; // local read buffer
+    size_t RxBufLen = 0, TxBufLen = 0;
     int RxCounter = 0;
 
     char asciibuf[2048]; // store ascii for logging
 
     while (g_running) {
         pthread_mutex_lock(&g_data_mutex);
-        if (g_serial_data_len>0) {
+        if (g_serial_data_lenRx>0) {
             // data is present, wait for frame completion
             if (g_serial_data_counter>SerialCounter_Reset) {
                 // wait for more, decrement counter
                 g_serial_data_counter--;
             } else {
                 // timeout, end of frame, get data into local buffer
-                memcpy(RxBuf,g_last_serial_data,g_serial_data_len);
-                RxBufLen = g_serial_data_len;
-                g_serial_data_len = 0; // reset receiving buffer (so serial port can handle the next frame)
+                memcpy(RxBuf,g_last_serial_dataRx,g_serial_data_lenRx);
+                RxBufLen = g_serial_data_lenRx;
+                g_serial_data_lenRx = 0; // reset receiving buffer (so serial port can handle the next frame)
             }
         } else {
             // no data present, count down to the bottom (prevent underflow)
@@ -76,25 +76,40 @@ void *timer_thread(void *arg)
               messages. When the IO bus has only 'passive' units, no data is send and the heartbeat has to come from us.
             */
             //handle_received_frame(pCtrl, RxBuf, RxBufLen);
+            // warning: frame decoder does not lock other threads, because is works on a copy
+            // of a completely received frame
             frame_decoder(pCtrl, RxBuf, RxBufLen);
-            RxBufLen=0; // dump contents of local readbuffer
+            RxBufLen=0; // dump contents of local readbuffer, all data is processed
         }
 
-        // count down device counter. note that any application can trigger an instant
+        // we do not wat to execute this logic every msec. transmisson will also take some count down device counter. note that any application can trigger an instant
         // executionm of the device processing, by setting this counter to 0
         if (pCtrl->iDeviceCounter > 0) {
           pthread_mutex_lock(&g_data_mutex);
           pCtrl->iDeviceCounter--;
           pthread_mutex_unlock(&g_data_mutex);
         } else {
-          // device processing. 
           log_info("Device Processing %d", pCtrl->iDeviceRun);
           pthread_mutex_lock(&g_data_mutex);
+
+          // device processing
+          TxBufLen = bgn_net_process(pCtrl, TxBuf);
           pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
+
+          // copy any output frame into the Txbuffer. I do not 'append' to any existing
+          // contents, but overwrite what there might be. The reason is that i do not want
+          // to take the risk of writing outside by buffer.
+          if (TxBufLen > 0) {
+            memcpy(g_last_serial_dataTx, &TxBuf, TxBufLen);
+            g_serial_data_lenTx = TxBufLen;
+          }
+
+          // increment a run counter, wrap around to avoid overruns
           pCtrl->iDeviceRun++;
           if (pCtrl->iDeviceRun >= 10) {
             pCtrl->iDeviceRun = 0;
           }
+
           pthread_mutex_unlock(&g_data_mutex);
         }
 

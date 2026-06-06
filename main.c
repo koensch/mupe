@@ -29,7 +29,8 @@ void handle_sigint(int sig) {
 // Use is as some kind of bookkeeping table. We only 'enable' the devices we have tested.
 // if we do a lookup and there is no match, we return 0 and pick the first one (the ACP)
 BGNET_DEV BGNET_dev[BGNET_DEVICE_MAX] = { \
-// ProdName     Model       ModelNr       SerialNr       Version Enable DeviceType             
+// ProdName     Model       ModelNr       SerialNr       Version Enable DeviceType
+{"??????",      "??????",   "??????",     "??????",      "????", 0,     0xFF},\
 {"NET ACP1",    "NET-ACP1", "360-00-002", "NP1CB15613",  "0000", 0,     BGNET_FRAME_FROM_NETACP},\
 {"NET DEPTH",   "NET-DPDU", "610-00-021", "NDEP9410109", "0000", 0,     BGNET_FRAME_FROM_NETACP},\
 {"NET SPEED",   "NET-SPDU", "610-00-020", "NSPDG485015", "0000", 0,     BGNET_FRAME_FROM_NETACP},\

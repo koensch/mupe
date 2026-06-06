@@ -158,7 +158,7 @@ static void handle_api_state(int client_fd)
     char eth_copy[1024];
 
     pthread_mutex_lock(&g_data_mutex);
-    snprintf(serial_copy, sizeof(serial_copy), "%s", g_last_serial_data);
+    snprintf(serial_copy, sizeof(serial_copy), "%s", g_last_serial_dataRx);
     snprintf(eth_copy, sizeof(eth_copy), "%s", g_last_ethernet_data);
     pthread_mutex_unlock(&g_data_mutex);
 
