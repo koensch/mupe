@@ -200,12 +200,13 @@
                                          // FF 70 01 C9 C7 00 AA
                                          // at powerup, initializes to 0 (off), when pressed the 1st time (after power) it starts with 3, then
                                          // down to 2,1,0 (off) and wrap back to 3
-#define BGNET_FRAME_CMD_ALARMOFF    0xE7 //alarm silence, 2 byte payload (sequence ID, alarming channel)
-#define BGNET_FRAME_CMD_ALARMTGL    0xE8 //alarm toggle, 2 byte payload (sequence ID, alarming channel)
-#define BGNET_FRAME_CMD_PAGECHANGE  0xF6 //1 byte payload, pagenumber
-#define BGNET_FRAME_CMD_PAGECONFIG  0xF7 //variable length payload
-#define BGNET_FRAME_CMD_PAGESAVE    0xF8 //save page configuration
-#define BGNET_FRAME_CMD_RESET       0xFE //reset adresss modules to factory default, no data. Does not work on NETWORK series devices.
+#define BGNET_FRAME_CMD_PILOT_AM    0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: 0=AUTO, 1=STBY, reply with B5
+#define BGNET_FRAME_CMD_ALARMOFF    0xE7 // alarm silence, 2 byte payload (sequence ID, alarming channel)
+#define BGNET_FRAME_CMD_ALARMTGL    0xE8 // alarm toggle, 2 byte payload (sequence ID, alarming channel)
+#define BGNET_FRAME_CMD_PAGECHANGE  0xF6 // 1 byte payload, pagenumber
+#define BGNET_FRAME_CMD_PAGECONFIG  0xF7 // variable length payload
+#define BGNET_FRAME_CMD_PAGESAVE    0xF8 // save page configuration
+#define BGNET_FRAME_CMD_RESET       0xFE // reset adresss modules to factory default, no data. Does not work on NETWORK series devices.
                                          // FF 70 00 FE C9
 
 // layout of the VALUE (1 or more in a BODY, dynamic length)
@@ -410,7 +411,7 @@ typedef struct {
     unsigned char ucFMT;
     unsigned char ucRAW[16]; // raw data (for diagnostic purposes)
     char cValue[16]; // ascii formatted value string (for display purposes)
-    int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum)
+    int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
     int iNewChannel; // some new channel data was received
     time_t tTimeStamp; // timestamp of last update
     time_t tReset; // when ww wrap-around the counter
@@ -424,7 +425,7 @@ typedef struct {
     int iNewCommand; // come new command was received
     time_t tTimestamp; // timestamp of last update
     time_t tReset; // when ww wrap-around the counter
-    char cFrame[BGN_ASCIIFRAME_SIZE]; // frame stored as ASCII
+    char cFrame[BGN_ASCIIFRAME_SIZE]; // frame stored as ASCII (for display puposes)
 } BGN_COMMAND;
 
 // We might need some device-specific values during processing. Please put them here so they overlap
@@ -452,10 +453,6 @@ typedef struct {
     BGNET_CHL* pChl; // channel definition
     Config* pCfg;    // config structure
 
-    // this is where the device processor puts the Tx messages
-    size_t tx_cnt;
-    unsigned char tx_buf[BGNET_CTRL_TXBUFFERSIZE]; // must be big enough to hold a complete output messages (possibly multiple sub-frames)
-
     int iNewDevice; // some new was received
     BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // Commands received
     BGN_CHANNELDATA DATA[BGN_CHANNEL_MAX]; // Channels received (DATA & LATLON CMD only)
@@ -464,5 +461,6 @@ typedef struct {
 // prototypes
 size_t frame_decoder(BGNET_CTRL*, unsigned char*, size_t);
 size_t bgn_net_process(BGNET_CTRL *, unsigned char*);
+void bgn_net_initialize(BGNET_CTRL *);
 
 #endif

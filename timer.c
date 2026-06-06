@@ -20,6 +20,10 @@ void *timer_thread(void *arg)
 
     while (g_running) {
         pthread_mutex_lock(&g_data_mutex);
+        
+        // initialize (if required)
+        bgn_net_initialize(pCtrl);
+
         if (g_serial_data_lenRx>0) {
             // data is present, wait for frame completion
             if (g_serial_data_counter>SerialCounter_Reset) {
