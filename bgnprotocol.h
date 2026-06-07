@@ -472,8 +472,9 @@ typedef struct {
 
 // prototypes
 size_t frame_decoder(BGNET_CTRL*, unsigned char*, size_t);
-size_t bgn_net_process(BGNET_CTRL *, unsigned char*);
-void bgn_net_initialize_reset(BGNET_CTRL *);
-void bgn_net_initialize(BGNET_CTRL *);
+size_t bgn_net_process(BGNET_CTRL*, unsigned char*);
+void bgn_net_initialize_reset(BGNET_CTRL*);
+void bgn_net_initialize(BGNET_CTRL*);
+int bgn_FindDeviceIndex(BGNET_CTRL*, unsigned char);
 
 #endif

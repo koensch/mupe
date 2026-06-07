@@ -326,6 +326,7 @@ BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
 
 int main(void)
 {
+    int i;
     // assign signal handler
     signal(SIGINT, handle_sigint);
 
@@ -389,20 +390,28 @@ int main(void)
 
     // print report
     log_info("Statistics report");
-    log_info("CMD      Counter");
-    for (int i=0; i<BGNET_COMMAND_MAX; i++) {
+    log_info("   FROM     Counter    DeviceType");
+    for (i=0; i<BGNET_DEVICE_MAX; i++) {
+        if (pBGNET_ctrl->DEV[i].iCounter < 1) {
+            // it was never touched
+        } else {
+            log_info("  0x%02X        %4d     %s", i, pBGNET_ctrl->DEV[i].iCounter, pBGNET_ctrl->pType[bgn_FindDeviceIndex(pBGNET_ctrl, i)].sProdName);
+        }
+    }
+    log_info("    CMD     Counter");
+    for (i=0; i<BGNET_COMMAND_MAX; i++) {
         if (pBGNET_ctrl->CMD[i].iCounter < 1) {
             // it was never touched
         } else {
-            log_info(" 0x%02X        %4d",i,pBGNET_ctrl->CMD[i].iCounter);
+            log_info("  0x%02X        %4d", i, pBGNET_ctrl->CMD[i].iCounter);
         }
     }
-    log_info("Channel  Counter    Label");
-    for (int i=0; i<BGN_CHANNEL_MAX; i++) {
+    log_info("Channel     Counter    Label");
+    for (i=0; i<BGN_CHANNEL_MAX; i++) {
         if (pBGNET_ctrl->DATA[i].iCounter < 1) {
             // it was never touched
         } else {
-            log_info(" 0x%02X        %4d     %s",i,pBGNET_ctrl->DATA[i].iCounter, pBGNET_ctrl->pChl[i].cLabel);
+            log_info("  0x%02X        %4d     %s", i, pBGNET_ctrl->DATA[i].iCounter, pBGNET_ctrl->pChl[i].cLabel);
         }
     }
     log_info("End of report");

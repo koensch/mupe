@@ -577,7 +577,7 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
     char asciibuffer[BGN_ASCIIFRAME_SIZE];
     int xSize,x,z,n;
     int iIsForMe, iIsValid;
-    unsigned char ucCmd;
+    unsigned char ucCMD, ucFROM;
     time_t t;
 
     pBuf = buffer; // gets incremented as we go
@@ -596,6 +596,16 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
             log_debug("                   TO: %02X", *(pBuf+BGNET_FRAME_HEAD_TO));
             log_debug("                   FROM: %02X", *(pBuf+BGNET_FRAME_HEAD_FROM));
 #endif
+            // update DEVICE structure
+            ucFROM = pBuf[BGNET_FRAME_HEAD_FROM];
+            if (pCtrl->DEV[ucFROM].iCounter < SHRT_MAX) {
+                pCtrl->DEV[ucFROM].iCounter++;
+            } else {
+                pCtrl->DEV[ucFROM].iCounter = 1;
+                pCtrl->DEV[ucFROM].tCounterReset = t;
+            }
+            pCtrl->DEV[ucFROM].tTimestamp = t;
+
             // check if this subframe is adressed TO us and not FROM us
             iIsForMe = IsMessageForMe(pBuf);
             // we do not want to exclude messages not meant for me, but i still like to see them, so i change the condition to  "(1>0)"
@@ -621,9 +631,9 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                     log_debug("  Header Checksum OK, CMD=%02X, number of data bytes: %d, framesize: %d, data: %s",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_SIZE), xSize, asciibuffer);
 #endif
                     // these are the commands without payload (no channel data)
-                    ucCmd = *(pBuf+BGNET_FRAME_HEAD_CMD);
+                    ucCMD = *(pBuf+BGNET_FRAME_HEAD_CMD);
                     iIsValid = 0;
-                    switch(ucCmd) {
+                    switch(ucCMD) {
                         case BGNET_FRAME_CMD_KEEPALIVE:
                             iIsValid = 1;
                             log_info("  Command %02X (header only) KEEPALIVE by %02X %s",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName);
@@ -639,16 +649,16 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                     if (iIsValid > 0) {
                         // update CMD structure
                         pCtrl->iNewDevice = 1; // signal this device
-                        pCtrl->CMD[ucCmd].iNewCommand = 1; // signal this command
-                        if (pCtrl->CMD[ucCmd].iCounter < SHRT_MAX) {
-                            pCtrl->CMD[ucCmd].iCounter++;
+                        pCtrl->CMD[ucCMD].iNewCommand = 1; // signal this command
+                        if (pCtrl->CMD[ucCMD].iCounter < SHRT_MAX) {
+                            pCtrl->CMD[ucCMD].iCounter++;
                         } else {
-                            pCtrl->CMD[ucCmd].iCounter = 1;
-                            pCtrl->CMD[ucCmd].tCounterReset = t;
+                            pCtrl->CMD[ucCMD].iCounter = 1;
+                            pCtrl->CMD[ucCMD].tCounterReset = t;
                         }
-                        pCtrl->CMD[ucCmd].tTimestamp = t;
-                        strcpy(pCtrl->CMD[ucCmd].cFrame, asciibuffer);
-                        memcpy(pCtrl->CMD[ucCmd].ucFrame, pBuf, xSize);
+                        pCtrl->CMD[ucCMD].tTimestamp = t;
+                        strcpy(pCtrl->CMD[ucCMD].cFrame, asciibuffer);
+                        memcpy(pCtrl->CMD[ucCMD].ucFrame, pBuf, xSize);
                     }
                 } else {
                     // payload present, check frame-CR
@@ -667,9 +677,9 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                         log_debug("  Frame Checksum OK, framesize: %d, data: %s", xSize, asciibuffer);
 #endif
                         // commands with payload (otherwise we would have no CR)
-                        ucCmd = *(pBuf+BGNET_FRAME_HEAD_CMD);
+                        ucCMD = *(pBuf+BGNET_FRAME_HEAD_CMD);
                         iIsValid = 0;
-                        switch(ucCmd) {
+                        switch(ucCMD) {
                             case BGNET_FRAME_CMD_DATA:
                             case BGNET_FRAME_CMD_LATLON:
                                 iIsValid = 1;
@@ -704,16 +714,16 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                         if (iIsValid > 0) {
                             // update CMD structure
                             pCtrl->iNewDevice = 1; // signal this device
-                            pCtrl->CMD[ucCmd].iNewCommand = 1; // signal this command
-                            if (pCtrl->CMD[ucCmd].iCounter < SHRT_MAX) {
-                                pCtrl->CMD[ucCmd].iCounter++;
+                            pCtrl->CMD[ucCMD].iNewCommand = 1; // signal this command
+                            if (pCtrl->CMD[ucCMD].iCounter < SHRT_MAX) {
+                                pCtrl->CMD[ucCMD].iCounter++;
                             } else {
-                                pCtrl->CMD[ucCmd].iCounter = 1;
-                                pCtrl->CMD[ucCmd].tCounterReset = t;
+                                pCtrl->CMD[ucCMD].iCounter = 1;
+                                pCtrl->CMD[ucCMD].tCounterReset = t;
                             }
-                            pCtrl->CMD[ucCmd].tTimestamp = t;
-                            strcpy(pCtrl->CMD[ucCmd].cFrame, asciibuffer);
-                            memcpy(pCtrl->CMD[ucCmd].ucFrame, pBuf, xSize);
+                            pCtrl->CMD[ucCMD].tTimestamp = t;
+                            strcpy(pCtrl->CMD[ucCMD].cFrame, asciibuffer);
+                            memcpy(pCtrl->CMD[ucCMD].ucFrame, pBuf, xSize);
                         }   
                     } else {
                         // CS is bad (only skip this sub-frame, the length is known)
