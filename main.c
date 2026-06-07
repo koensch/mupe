@@ -28,7 +28,7 @@ void handle_sigint(int sig) {
 // please consider this as 'constants'; do not write into this structure.
 // Use is as some kind of bookkeeping table. We only 'enable' the devices we have tested.
 // if we do a lookup and there is no match, we return 0 and pick the first one (the ACP)
-BGNET_DEV BGNET_dev[BGNET_DEVICE_MAX] = { \
+BGNET_TYPE BGNET_type[BGNET_TYPE_MAX] = { \
 // ProdName     Model       ModelNr       SerialNr       Version Enable DeviceType
 {"??????",      "??????",   "??????",     "??????",      "????", 0,     0xFF},\
 {"NET ACP1",    "NET-ACP1", "360-00-002", "NP1CB15613",  "0000", 0,     BGNET_FRAME_FROM_NETACP},\
@@ -48,266 +48,280 @@ BGNET_DEV BGNET_dev[BGNET_DEVICE_MAX] = { \
 {"NET QUAD-R",  "NET-QDRU", "610-00-022", "",            "0000", 0,     BGNET_FRAME_FROM_NETACP},\
 {"NET VHF",     "NET-VHF",  "613-10-003", "",            "0000", 0,     BGNET_FRAME_FROM_NETACP}};
 
-// this lookup table allows us to obtain the channel label
-// (for display purpose) and the reference to a NMEA 2000 value
-// to allow us to link NMEA2K values and BGNET Channels
+
+// divisor may be used to scale the value to more digits
+#define BGN_FMT_01      0x01
+#define BGN_FMT_08      0x08
+#define BGN_FMT_48      0x48
+
+// allow import/export definitions for NMEA & Signal K
+#define BGN_CNR_IMPEXP_NONE 0
+#define BGN_CNR_IMPEXP_PGN  1
+#define BGN_CNR_IMPEXP_SK   2
+
+// this lookup table allows us:
+// - to lookup the channel label
+// - to obtain the format specifier (when making a output message
+// - import/export data to/from NMEA of Signal K interface
+// - get the NMEA PGN for import/export (if enabled)
+// i would prefer this to do in some kind of ini-file, but that might be done later
 BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
-    {"UNKNOWN 00", 0},\
-    {"UNKNOWN 01", 0},\
-    {"UNKNOWN 02", 0},\
-    {"UNKNOWN 03", 0},\
-    {"UNKNOWN 04", 0},\
-    {"UNKNOWN 05", 0},\
-    {"UNKNOWN 06", 0},\
-    {"UNKNOWN 07", 0},\
-    {"UNKNOWN 08", 0},\
-    {"UNKNOWN 09", 0},\
-    {"UNKNOWN 0A", 0},\
-    {"RUDDERANGLE %", 0},\
-    {"UNKNOWN 0C", 0},\
-    {"UNKNOWN 0D", 0},\
-    {"UNKNOWN 0E", 0},\
-    {"UNKNOWN 0F", 0},\
-    {"UNKNOWN 10", 0},\
-    {"UNKNOWN 11", 0},\
-    {"UNKNOWN 12", 0},\
-    {"UNKNOWN 13", 0},\
-    {"UNKNOWN 14", 0},\
-    {"UNKNOWN 15", 0},\
-    {"UNKNOWN 16", 0},\
-    {"UNKNOWN 17", 0},\
-    {"UNKNOWN 18", 0},\
-    {"UNKNOWN 19", 0},\
-    {"UNKNOWN 1A", 0},\
-    {"UNKNOWN 1B", 0},\
-    {"UNKNOWN 1C", 0},\
-    {"UNKNOWN 1D", 0},\
-    {"UNKNOWN 1E", 0},\
-    {"UNKNOWN 1F", 0},\
-    {"UNKNOWN 20", 0},\
-    {"UNKNOWN 21", 0},\
-    {"UNKNOWN 22", 0},\
-    {"UNKNOWN 23", 0},\
-    {"UNKNOWN 24", 0},\
-    {"UNKNOWN 25", 0},\
-    {"UNKNOWN 26", 0},\
-    {"UNKNOWN 27", 0},\
-    {"UNKNOWN 28", 0},\
-    {"UNKNOWN 29", 0},\
-    {"UNKNOWN 2A", 0},\
-    {"UNKNOWN 2B", 0},\
-    {"UNKNOWN 2C", 0},\
-    {"UNKNOWN 2D", 0},\
-    {"UNKNOWN 2E", 0},\
-    {"UNKNOWN 2F", 0},\
-    {"UNKNOWN 30", 0},\
-    {"UNKNOWN 31", 0},\
-    {"UNKNOWN 32", 0},\
-    {"UNKNOWN 33", 0},\
-    {"UNKNOWN 34", 0},\
-    {"UNKNOWN 35", 0},\
-    {"UNKNOWN 36", 0},\
-    {"UNKNOWN 37", 0},\
-    {"UNKNOWN 38", 0},\
-    {"UNKNOWN 39", 0},\
-    {"UNKNOWN 3A", 0},\
-    {"UNKNOWN 3B", 0},\
-    {"UNKNOWN 3C", 0},\
-    {"UNKNOWN 3D", 0},\
-    {"UNKNOWN 3E", 0},\
-    {"UNKNOWN 3F", 0},\
-    {"UNKNOWN 40", 0},\
-    {"BOATSPEED KT", 0},\
-    {"UNKNOWN 42", 0},\
-    {"UNKNOWN 43", 0},\
-    {"UNKNOWN 44", 0},\
-    {"UNKNOWN 45", 0},\
-    {"UNKNOWN 46", 0},\
-    {"UNKNOWN 47", 0},\
-    {"UNKNOWN 48", 0},\
-    {"HEADING", 0},\
-    {"UNKNOWN 4A", 0},\
-    {"UNKNOWN 4B", 0},\
-    {"UNKNOWN 4C", 0},\
-    {"UNKNOWN 4D", 0},\
-    {"AWS RAW", 0},\
-    {"UNKNOWN 4F", 0},\
-    {"AWS KT", 0},\
-    {"AWINDANGLE", 0},\
-    {"AWA RAW", 0},\
-    {"TARGET TWA", 0},\
-    {"UNKNOWN 54", 0},\
-    {"UNKNOWN 55", 0},\
-    {"UNKNOWN 56", 0},\
-    {"UNKNOWN 57", 0},\
-    {"UNKNOWN 58", 0},\
-    {"UNKNOWN 59", 0},\
-    {"UNKNOWN 5A", 0},\
-    {"UNKNOWN 5B", 0},\
-    {"UNKNOWN 5C", 0},\
-    {"UNKNOWN 5D", 0},\
-    {"UNKNOWN 5E", 0},\
-    {"UNKNOWN 5F", 0},\
-    {"UNKNOWN 60", 0},\
-    {"UNKNOWN 61", 0},\
-    {"UNKNOWN 62", 0},\
-    {"UNKNOWN 63", 0},\
-    {"UNKNOWN 64", 0},\
-    {"UNKNOWN 65", 0},\
-    {"UNKNOWN 66", 0},\
-    {"UNKNOWN 67", 0},\
-    {"UNKNOWN 68", 0},\
-    {"UNKNOWN 69", 0},\
-    {"UNKNOWN 6A", 0},\
-    {"UNKNOWN 6B", 0},\
-    {"UNKNOWN 6C", 0},\
-    {"UNKNOWN 6D", 0},\
-    {"UNKNOWN 6E", 0},\
-    {"UNKNOWN 6F", 0},\
-    {"UNKNOWN 70", 0},\
-    {"UNKNOWN 71", 0},\
-    {"UNKNOWN 72", 0},\
-    {"UNKNOWN 73", 0},\
-    {"UNKNOWN 74", 0},\
-    {"UNKNOWN 75", 0},\
-    {"UNKNOWN 76", 0},\
-    {"UNKNOWN 77", 0},\
-    {"UNKNOWN 78", 0},\
-    {"UNKNOWN 79", 0},\
-    {"UNKNOWN 7A", 0},\
-    {"UNKNOWN 7B", 0},\
-    {"UNKNOWN 7C", 0},\
-    {"UNKNOWN 7D", 0},\
-    {"UNKNOWN 7E", 0},\
-    {"UNKNOWN 7F", 0},\
-    {"UNKNOWN 80", 0},\
-    {"UNKNOWN 81", 0},\
-    {"UNKNOWN 82", 0},\
-    {"UNKNOWN 83", 0},\
-    {"UNKNOWN 84", 0},\
-    {"UNKNOWN 85", 0},\
-    {"UNKNOWN 86", 0},\
-    {"UNKNOWN 87", 0},\
-    {"UNKNOWN 88", 0},\
-    {"UNKNOWN 89", 0},\
-    {"UNKNOWN 8A", 0},\
-    {"UNKNOWN 8B", 0},\
-    {"UNKNOWN 8C", 0},\
-    {"BATTERY VOLT", 0},\
-    {"UNKNOWN 8E", 0},\
-    {"UNKNOWN 8F", 0},\
-    {"UNKNOWN 90", 0},\
-    {"UNKNOWN 91", 0},\
-    {"UNKNOWN 92", 0},\
-    {"UNKNOWN 93", 0},\
-    {"UNKNOWN 94", 0},\
-    {"UNKNOWN 95", 0},\
-    {"UNKNOWN 96", 0},\
-    {"UNKNOWN 97", 0},\
-    {"UNKNOWN 98", 0},\
-    {"UNKNOWN 99", 0},\
-    {"UNKNOWN 9A", 0},\
-    {"UNKNOWN 9B", 0},\
-    {"UNKNOWN 9C", 0},\
-    {"UNKNOWN 9D", 0},\
-    {"UNKNOWN 9E", 0},\
-    {"UNKNOWN 9F", 0},\
-    {"UNKNOWN A0", 0},\
-    {"UNKNOWN A1", 0},\
-    {"UNKNOWN A2", 0},\
-    {"UNKNOWN A3", 0},\
-    {"UNKNOWN A4", 0},\
-    {"UNKNOWN A5", 0},\
-    {"AP COURSETARGET", 0},\
-    {"AP WP BEARING", 0},\
-    {"UNKNOWN A8", 0},\
-    {"UNKNOWN A9", 0},\
-    {"UNKNOWN AA", 0},\
-    {"UNKNOWN AB", 0},\
-    {"UNKNOWN AC", 0},\
-    {"UNKNOWN AD", 0},\
-    {"UNKNOWN AE", 0},\
-    {"UNKNOWN AF", 0},\
-    {"UNKNOWN B0", 0},\
-    {"UNKNOWN B1", 0},\
-    {"UNKNOWN B2", 0},\
-    {"UNKNOWN B3", 0},\
-    {"UNKNOWN B4", 0},\
-    {"AP MODE", 0},\
-    {"UNKNOWN B6", 0},\
-    {"UNKNOWN B7", 0},\
-    {"UNKNOWN B8", 0},\
-    {"UNKNOWN B9", 0},\
-    {"UNKNOWN BA", 0},\
-    {"UNKNOWN BB", 0},\
-    {"UNKNOWN BC", 0},\
-    {"UNKNOWN BD", 0},\
-    {"UNKNOWN BE", 0},\
-    {"UNKNOWN BF", 0},\
-    {"UNKNOWN C0", 0},\
-    {"UNKNOWN C1", 0},\
-    {"UNKNOWN C2", 0},\
-    {"UNKNOWN C3", 0},\
-    {"UNKNOWN C4", 0},\
-    {"UNKNOWN C5", 0},\
-    {"UNKNOWN C6", 0},\
-    {"UNKNOWN C7", 0},\
-    {"UNKNOWN C8", 0},\
-    {"UNKNOWN C9", 0},\
-    {"UNKNOWN CA", 0},\
-    {"UNKNOWN CB", 0},\
-    {"UNKNOWN CC", 0},\
-    {"UNKNOWN CD", 0},\
-    {"UNKNOWN CE", 0},\
-    {"UNKNOWN CF", 0},\
-    {"UNKNOWN D0", 0},\
-    {"UNKNOWN D1", 0},\
-    {"UNKNOWN D2", 0},\
-    {"UNKNOWN D3", 0},\
-    {"UNKNOWN D4", 0},\
-    {"UNKNOWN D5", 0},\
-    {"UNKNOWN D6", 0},\
-    {"UNKNOWN D7", 0},\
-    {"UNKNOWN D8", 0},\
-    {"UNKNOWN D9", 0},\
-    {"UNKNOWN DA", 0},\
-    {"UNKNOWN DB", 0},\
-    {"UNKNOWN DC", 0},\
-    {"UNKNOWN DD", 0},\
-    {"UNKNOWN DE", 0},\
-    {"UNKNOWN DF", 0},\
-    {"UNKNOWN E0", 0},\
-    {"UNKNOWN E1", 0},\
-    {"UNKNOWN E2", 0},\
-    {"UNKNOWN E3", 0},\
-    {"UNKNOWN E4", 0},\
-    {"UNKNOWN E5", 0},\
-    {"UNKNOWN E6", 0},\
-    {"UNKNOWN E7", 0},\
-    {"UNKNOWN E8", 0},\
-    {"UNKNOWN E9", 0},\
-    {"UNKNOWN EA", 0},\
-    {"UNKNOWN EB", 0},\
-    {"UNKNOWN EC", 0},\
-    {"UNKNOWN ED", 0},\
-    {"UNKNOWN EE", 0},\
-    {"UNKNOWN EF", 0},\
-    {"UNKNOWN F0", 0},\
-    {"UNKNOWN F1", 0},\
-    {"UNKNOWN F2", 0},\
-    {"UNKNOWN F3", 0},\
-    {"UNKNOWN F4", 0},\
-    {"UNKNOWN F5", 0},\
-    {"UNKNOWN F6", 0},\
-    {"UNKNOWN F7", 0},\
-    {"UNKNOWN F8", 0},\
-    {"UNKNOWN F9", 0},\
-    {"UNKNOWN FA", 0},\
-    {"UNKNOWN FB", 0},\
-    {"UNKNOWN FC", 0},\
-    {"UNKNOWN FD", 0},\
-    {"UNKNOWN FE", 0},\
-    {"UNKNOWN FF", 0}\
+    {"UNKNOWN 00",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 01",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 02",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 03",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 04",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 05",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 06",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 07",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 08",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 09",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 0A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"RUDDERANGLE %",   BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 0C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 0D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 0E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 0F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 10",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 11",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 12",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 13",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 14",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 15",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 16",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 17",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 18",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 19",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 1A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 1B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 1C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 1D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 1E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 1F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 20",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 21",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 22",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 23",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 24",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 25",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 26",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 27",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 28",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 29",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 2A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 2B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 2C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 2D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 2E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 2F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 30",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 31",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 32",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 33",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 34",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 35",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 36",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 37",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 38",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 39",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 3A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 3B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 3C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 3D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 3E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 3F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 40",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"BOATSPEEDKT",     BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 42",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 43",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 44",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 45",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 46",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 47",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 48",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"HEADING",         BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 4A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 4B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 4C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 4D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AWS RAW",         0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 4F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AWS KT",          BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AWINDANGLE",      BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AWA RAW",         BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"TARGET TWA",      BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 54",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 55",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 56",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 57",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 58",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 59",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 5A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 5B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 5C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 5D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 5E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 5F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 60",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 61",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 62",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 63",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 64",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 65",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 66",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 67",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 68",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 69",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 6A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 6B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 6C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 6D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 6E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 6F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 70",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 71",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 72",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 73",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 74",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 75",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 76",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 77",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 78",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 79",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 7A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 7B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 7C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 7D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 7E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 7F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 80",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 81",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 82",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 83",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 84",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 85",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 86",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 87",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 88",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 89",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 8A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 8B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 8C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"BATTERY VOLT",    BGN_FMT_48, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 8E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 8F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 90",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 91",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 92",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 93",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 94",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 95",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 96",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 97",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 98",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 99",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 9A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 9B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 9C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 9D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 9E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN 9F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN A0",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN A1",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN A2",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN A3",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN A4",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN A5",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AP COURSETARGET", BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AP WP BEARING",   BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN A8",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN A9",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN AA",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN AB",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN AC",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN AD",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN AE",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN AF",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN B0",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN B1",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN B2",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN B3",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN B4",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AP MODE",         BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN B6",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN B7",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN B8",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN B9",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN BA",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN BB",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN BC",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN BD",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN BE",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN BF",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C0",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C1",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C2",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C3",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C4",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C5",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C6",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C7",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C8",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN C9",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN CA",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN CB",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN CC",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN CD",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN CE",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN CF",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D0",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D1",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D2",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D3",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D4",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D5",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D6",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D7",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D8",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN D9",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN DA",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN DB",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN DC",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN DD",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN DE",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN DF",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E0",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E1",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E2",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E3",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E4",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E5",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E6",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E7",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E8",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN E9",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN EA",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN EB",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN EC",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN ED",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN EE",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN EF",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F0",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F1",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F2",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F3",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F4",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F5",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F6",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F7",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F8",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN F9",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN FA",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN FB",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN FC",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN FD",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN FE",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"UNKNOWN FF",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0}\
 };
 
 int main(void)
@@ -333,9 +347,12 @@ int main(void)
         log_error("Unable to allocale memory for pBGNET_ctrl");
         exit(1);
     }
-    pBGNET_ctrl->pDev = BGNET_dev; // pointer to BGNET device definition
+    // setup pointers to definition structures
+    pBGNET_ctrl->pType = BGNET_type; // pointer to BGNET device definition
     pBGNET_ctrl->pChl = BGNET_chl; // pointer to BGNET channel definition
     pBGNET_ctrl->pCfg = &cfg; // pointer to Config structure
+    bgn_net_initialize_reset(pBGNET_ctrl);
+    bgn_net_initialize(pBGNET_ctrl);
 
     app_state_init();
 
@@ -357,7 +374,10 @@ int main(void)
 
     // Run forever. If needed, we can do some bookkeeping now and then. Loop exit via signal handler
     while(g_running) {
-        sleep(10);
+        sleep(1);
+        pthread_mutex_lock(&g_data_mutex);
+        //bgn_net_initialize(pBGNET_ctrl);
+        pthread_mutex_unlock(&g_data_mutex);
     }
 
     // deactivate threads
@@ -367,9 +387,28 @@ int main(void)
     pthread_join(th_web, NULL);
     pthread_join(th_n2k, NULL);
 
+    // print report
+    log_info("Statistics report");
+    log_info("CMD      Counter");
+    for (int i=0; i<BGNET_COMMAND_MAX; i++) {
+        if (pBGNET_ctrl->CMD[i].iCounter < 1) {
+            // it was never touched
+        } else {
+            log_info(" 0x%02X        %4d",i,pBGNET_ctrl->CMD[i].iCounter);
+        }
+    }
+    log_info("Channel  Counter    Label");
+    for (int i=0; i<BGN_CHANNEL_MAX; i++) {
+        if (pBGNET_ctrl->DATA[i].iCounter < 1) {
+            // it was never touched
+        } else {
+            log_info(" 0x%02X        %4d     %s",i,pBGNET_ctrl->DATA[i].iCounter, pBGNET_ctrl->pChl[i].cLabel);
+        }
+    }
+    log_info("End of report");
+
     // free allocated memory
     free(pBGNET_ctrl);
-    //free(pBGNET_dev);
     
     // child threads are all closed, make a soft landing, bye, bye
     log_info("Exiting %s, bye-bye......", ApplicationName);

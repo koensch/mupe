@@ -11,6 +11,7 @@ typedef struct {
     int   databits;
     int   stopbits;
     char  parity[16];
+    char  mode[16];
 
     char  eth_device[64];
     char  protocol[8];      /* "tcp" or "udp" */

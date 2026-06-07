@@ -47,6 +47,7 @@ int load_config(const char *filename, Config *cfg)
         cfg->databits = cJSON_GetObjectItem(serial, "databits")->valueint;
         cfg->stopbits = cJSON_GetObjectItem(serial, "stopbits")->valueint;
         snprintf(cfg->parity, sizeof(cfg->parity), "%s", cJSON_GetObjectItem(serial, "parity")->valuestring);
+        snprintf(cfg->mode, sizeof(cfg->mode), "%s", cJSON_GetObjectItem(serial, "mode")->valuestring);
     }
 
     if (ether) {

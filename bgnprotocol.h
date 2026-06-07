@@ -124,6 +124,7 @@
 #define BGNET_FRAME_TAIL_CS           1   //bytes in the TAIL (checksum)
 
 // FROM/TO adresses
+#define BGNET_DEVICE_MAX              0xFF
 
 // TO 'group' broadcast adresses (byte 0)
 #define BGNET_FRAME_TO_ACP            0x00 // PILOT uses this to send KEEPALIVE command, possibly this is the ACP
@@ -385,7 +386,7 @@
 // decoder/encoder, so for safely reasons we will ignore traffic from devices we could not test; hence the iEnable flag.
 // The 'iactive' flag is set when we have received data FROM that device. As per B&G recommendation we only expect
 // 1 'active' device from every type. Possible double units are to be set in 'repeater' mode and will not transmit.
-#define BGNET_DEVICE_MAX            17
+#define BGNET_TYPE_MAX            17
 // our 'managed' devices
 typedef struct {
     char sProdName[20];
@@ -395,13 +396,34 @@ typedef struct {
     char sVersion[20];
     int iEnable;
     int iDeviceType;
-} BGNET_DEV;
+} BGNET_TYPE;
 
 // channel label
 typedef struct {
-    char sLabel[20];
-    int iNMEA_ID;
+    char cLabel[20];
+    unsigned  char ucFMT;
+    int iImportFrom;
+    int iExportTo;
+    int iNMEA_PGN;
 } BGNET_CHL;
+
+// register device statistics
+typedef struct {
+    int iCounter;
+    time_t tTimestamp;
+    time_t tCounterReset;
+} BGN_DEVICE;
+
+#define BGN_ASCIIFRAME_SIZE    256
+// register Command statistics
+typedef struct {
+    int iCounter; // everytime we receive this command, we increment this (with wrap-around)
+    int iNewCommand; // come new command was received
+    time_t tTimestamp; // timestamp of last update
+    time_t tCounterReset; // when ww wrap-around the counter
+    char cFrame[BGN_ASCIIFRAME_SIZE]; // frame stored as ASCII (for display puposes)
+    char ucFrame[BGN_ASCIIFRAME_SIZE]; // frame in binary
+} BGN_COMMAND;
 
 typedef struct {
     unsigned char ucTO;
@@ -413,20 +435,9 @@ typedef struct {
     char cValue[16]; // ascii formatted value string (for display purposes)
     int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
     int iNewChannel; // some new channel data was received
-    time_t tTimeStamp; // timestamp of last update
-    time_t tReset; // when ww wrap-around the counter
-} BGN_CHANNELDATA;
-
-// in this structure we count how many times we have encountred
-// this command
-#define BGN_ASCIIFRAME_SIZE    256
-typedef struct {
-    int iCounter; // everytime we receive this command, we increment this (with wrap-around)
-    int iNewCommand; // come new command was received
     time_t tTimestamp; // timestamp of last update
-    time_t tReset; // when ww wrap-around the counter
-    char cFrame[BGN_ASCIIFRAME_SIZE]; // frame stored as ASCII (for display puposes)
-} BGN_COMMAND;
+    time_t tCounterReset; // when ww wrap-around the counter
+} BGN_CHANNEL;
 
 // We might need some device-specific values during processing. Please put them here so they overlap
 union BGNET_DEVDATA {
@@ -449,18 +460,20 @@ typedef struct {
     int iDeviceRun; // number of runs (0-1000) with wrap-around
 
     // pointers for control structures. Do not write into
-    BGNET_DEV* pDev; // device definitions
+    BGNET_TYPE* pType; // device definitions
     BGNET_CHL* pChl; // channel definition
     Config* pCfg;    // config structure
 
     int iNewDevice; // some new was received
-    BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // Commands received
-    BGN_CHANNELDATA DATA[BGN_CHANNEL_MAX]; // Channels received (DATA & LATLON CMD only)
+    BGN_DEVICE DEV[BGNET_DEVICE_MAX]; // device statistics
+    BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // commands statistics
+    BGN_CHANNEL DATA[BGN_CHANNEL_MAX]; // channels statistics
 } BGNET_CTRL;
 
 // prototypes
 size_t frame_decoder(BGNET_CTRL*, unsigned char*, size_t);
 size_t bgn_net_process(BGNET_CTRL *, unsigned char*);
+void bgn_net_initialize_reset(BGNET_CTRL *);
 void bgn_net_initialize(BGNET_CTRL *);
 
 #endif

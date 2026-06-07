@@ -27,7 +27,10 @@ extern char g_last_signalk_delta[1024];
 #define SerialCounter_Bottom    -999
 extern int  g_serial_data_lenRx;      // number of bytes in serial buffer
 extern int  g_serial_data_lenTx;      // number of bytes in serial buffer
-extern int  g_serial_data_counter;  // receive counter 
+extern int  g_serial_data_counter;  // receive counter
+#define BGN_SERIAL_MODE_RO      0
+#define BGN_SERIAL_MODE_RW      1
+extern int  g_serial_mode;
 
 /* NMEA2000-derived values */
 extern double g_lat;

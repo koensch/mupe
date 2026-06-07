@@ -72,7 +72,7 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
 
     r = ioctl(fd, TCSETS2, &tty);
     if (r == 0) {
-        log_info("Serial settings: %d baud, %d databits, %d stopbits, %s parity", speed, databits, stopbits, parity);
+        log_info("Serial settings: %d baud, %d databits, %d stopbits, %s parity, %s mode", speed, databits, stopbits, parity);
     } else {
         log_error("Serial settings: ioctl error %d", r);
         return -1;
@@ -102,6 +102,13 @@ void *serial_thread(void *arg)
         log_error("Serial: set_interface_attribs(): %s", strerror(errno));
         close(fd);
         return NULL;
+    }
+
+    // we allow readonly or readwrite on this communication. This allows us to be a 'monitor-only' application
+    if (strcmp(cfg->mode, "readwrite") == 0) {
+        g_serial_mode = BGN_SERIAL_MODE_RW;
+    } else {
+        g_serial_mode = BGN_SERIAL_MODE_RO;
     }
 
     int flags = fcntl(fd, F_GETFL, 0);
@@ -163,22 +170,30 @@ void *serial_thread(void *arg)
             if (g_serial_data_counter > SerialCounter_Reset) {
                 // someting is still going on
             } else {
-                if (g_serial_data_lenTx > 0) {
-                    // get message from common storage into local storage
+                if (g_serial_mode == BGN_SERIAL_MODE_RW) {
+                    if (g_serial_data_lenTx > 0) {
+                        
+                        // get message from common storage into local storage
+                        pthread_mutex_lock(&g_data_mutex);
+                        memcpy(&TxBuf, &g_last_serial_dataTx, g_serial_data_lenTx);
+                        nTx = g_serial_data_lenTx;
+                        g_serial_data_lenTx = 0;
+                        pthread_mutex_unlock(&g_data_mutex);
+
+                        // write content
+                        w = write(fd, TxBuf, nTx);
+                        if (w == nTx) {
+                            // nothing wrong here
+                            log_error("serial write: %d bytes output)", w);
+                        } else {
+                            log_error("serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), nTx, w);
+                        }
+                    }
+                } else {
+                    // write is not enabled, dump output
                     pthread_mutex_lock(&g_data_mutex);
-                    memcpy(&TxBuf, &g_last_serial_dataTx, g_serial_data_lenTx);
-                    nTx = g_serial_data_lenTx;
                     g_serial_data_lenTx = 0;
                     pthread_mutex_unlock(&g_data_mutex);
-
-                    // write content
-                    w = write(fd, TxBuf, nTx);
-                    if (w == nTx) {
-                        // nothing wrong here
-                        log_error("serial write: %d bytes output)", w);
-                    } else {
-                        log_error("serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), nTx, w);
-                    }
                 }
             }
         }

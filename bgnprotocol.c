@@ -26,9 +26,9 @@ unsigned char calculate_checksum(unsigned char *buf, unsigned char init, int sta
 int bgn_FindDeviceIndex(BGNET_CTRL* pCtrl, unsigned char ucDevAddr) {
     int i,r;
     r=0; // no match is not found (return index 0, first device. Lookup is done from index 1)
-    for (i=1; i<BGNET_DEVICE_MAX; i++) {
+    for (i=1; i<BGNET_TYPE_MAX; i++) {
         // devicetype in table first match with deviceaddress/type
-        if ((pCtrl->pDev[i].iDeviceType & BGNET_DEVICETYPE_MASK) == (ucDevAddr & BGNET_DEVICETYPE_MASK)) {
+        if ((pCtrl->pType[i].iDeviceType & BGNET_DEVICETYPE_MASK) == (ucDevAddr & BGNET_DEVICETYPE_MASK)) {
             r = i; // first match
             break;
         }
@@ -41,9 +41,9 @@ int bgn_FindDeviceIndex(BGNET_CTRL* pCtrl, unsigned char ucDevAddr) {
 // - at startup of this driver
 // - when we observe "POWERUP" message(s) from the NETWORK
 void bgn_net_initialize_reset(BGNET_CTRL *pCtrl) {
-    pthread_mutex_lock(&g_data_mutex);
+    //pthread_mutex_lock(&g_data_mutex);
     pCtrl->iInitialized = BGNET_CTRL_INIT_RESET; // reset initialized state
-    pthread_mutex_unlock(&g_data_mutex);
+    //pthread_mutex_unlock(&g_data_mutex);
 }
 
 void bgn_net_initialize(BGNET_CTRL *pCtrl) {
@@ -54,33 +54,49 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         // controlblock is already initialized. This means that this initialisation only happens if the 'initialized state' was reset
         // prior this function.
     } else {
+        // note: we do NOT iniliaize the pointers to the data structures. These are set upon start and never change
+
+        // note: the counters are initialized at 0, when roll-over set to 1. This way
+        // we keep track of devices/commands/channels that were never set; these remain
+        // at 0. I know that we are in error with the exact count, but i do not mind.
+        log_debug("bgn_net_initialize: Start");
 
         time(&t); // save timestamp to we use same timestamp everywhere
         pCtrl->iInitialized = BGNET_CTRL_INIT; // mark as initialized
         pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
         pCtrl->iDeviceRun = 0; //reset run counter (0-1000)
 
-        // stage 1  -initialize command list
+        // stage 1 - initialize device list
         pCtrl->iNewDevice = 0; // no new data available
-        // initialize CMD array
-        for (i=0; i<BGNET_COMMAND_MAX; i++) {
-            pCtrl->CMD[i].iCounter = 0;
-            pCtrl->CMD[i].tTimestamp = t;
+        for (i=0; i<BGNET_DEVICE_MAX; i++) {
+            pCtrl->DEV[i].iCounter = 0;
+            pCtrl->DEV[i].tTimestamp = t;
+            pCtrl->DEV[i].tCounterReset = t;
         }
 
-        // stage 2 - initialize channel list
+        // stage 2 - initialize command list
+        for (i=0; i<BGNET_COMMAND_MAX; i++) {
+            pCtrl->CMD[i].iNewCommand = 0;
+            pCtrl->CMD[i].iCounter = 0;
+            pCtrl->CMD[i].tTimestamp = t;
+            pCtrl->CMD[i].tCounterReset = t;
+        }
+
+        // stage 3 - initialize channel list
         for (i=0; i<BGN_CHANNEL_MAX; i++) {
+            pCtrl->DATA[i].iNewChannel = 0;
             pCtrl->DATA[i].ucTO = 0;
             pCtrl->DATA[i].ucFROM = 0;
             pCtrl->DATA[i].ucBYTES = 0;
             pCtrl->DATA[i].ucCHN = i;
             pCtrl->DATA[i].ucFMT = 0;
-            pCtrl->DATA[i].iCounter = -1;
-            pCtrl->DATA[i].tTimeStamp = t;
+            pCtrl->DATA[i].iCounter = 0;
+            pCtrl->DATA[i].tTimestamp = t;
+            pCtrl->DATA[i].tCounterReset = t;
             strcpy(pCtrl->DATA[i].cValue, "");
             memset(pCtrl->DATA[i].ucRAW, 0, sizeof(pCtrl->DATA[i].ucRAW));
         }
-        log_info("bgn_net_initialize: done");
+        log_debug("bgn_net_initialize: Done");
     }
 };
 
@@ -134,29 +150,29 @@ size_t bgn_net_makemessage(unsigned char *pBuf, int iTo, int iFrom, int iCmd, un
 }
 
 // a paylod for ACP response contains 4 channels (53, A6, A7, B5) + a bonus to verify that the message is received
-int makeACPresponse(unsigned char* payload) {
+int makeACPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     int len;
     len = 0;
-    payload[0]=BGN_CNR_53_TARGET_TWA;
-    payload[1]=0x01;
-    payload[2]=0xFF;
-    payload[3]=0xF6; // 0xFFF6 = -9
-    payload[4]=BGN_CNR_A6_AP_CTARGET;
-    payload[5]=0x08;
-    payload[6]=0x01;
-    payload[7]=0x61; // 0161 = 353 degrees
-    payload[8]=BGN_CNR_A7_AP_WPB;
-    payload[9]=0x08;
-    payload[10]=0x01;
-    payload[11]=0x67; // 0167 = 359
-    payload[12]=BGN_CNR_B5_AP_MODE;
-    payload[13]=0x08; // must be 0x08!
-    payload[14]=0x00; // 01 = AUTO/353 (CH A6) 00 = STBY         01 = AUTO/353 00 = STBY
-    payload[15]=0x01; // 03 = NAV/XTE>032      04 = VANE/WND OFF 01 = COMP     06 = JOYSTICK
-    payload[16]=BGN_CNR_8D_BATTVOLTS;
-    payload[17]=0x48;
-    payload[18]=0x00;
-    payload[19]=0x80; // 80 = 128 = 12.8
+    payload[0]  = BGN_CNR_53_TARGET_TWA;
+    payload[1]  = pCtrl->pChl[BGN_CNR_53_TARGET_TWA].ucFMT;
+    payload[2]  = 0xFF;
+    payload[3]  = 0xF6; // 0xFFF6 = -9
+    payload[4]  = BGN_CNR_A6_AP_CTARGET;
+    payload[5]  = pCtrl->pChl[BGN_CNR_A6_AP_CTARGET].ucFMT;;
+    payload[6]  = 0x01;
+    payload[7]  = 0x61; // 0161 = 353 degrees
+    payload[8]  = BGN_CNR_A7_AP_WPB;
+    payload[9]  = pCtrl->pChl[BGN_CNR_A7_AP_WPB].ucFMT;;
+    payload[10] = 0x01;
+    payload[11] = 0x67; // 0167 = 359
+    payload[12] = BGN_CNR_B5_AP_MODE;
+    payload[13] = pCtrl->pChl[BGN_CNR_B5_AP_MODE].ucFMT;; // must be 0x08!
+    payload[14] = 0x00; // 01 = AUTO/353 (CH A6) 00 = STBY         01 = AUTO/353 00 = STBY
+    payload[15] = 0x01; // 03 = NAV/XTE>032      04 = VANE/WND OFF 01 = COMP     06 = JOYSTICK
+    payload[16] = BGN_CNR_8D_BATTVOLTS;
+    payload[17] = pCtrl->pChl[BGN_CNR_8D_BATTVOLTS].ucFMT;;
+    payload[18] = 0x00;
+    payload[19] = 0x80; // 80 = 128 = 12.8
     len = 20;
     return (len);
 }
@@ -179,6 +195,7 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
         // nothing to do
     } else {
         // Stage 1 - check for new commands
+        log_debug("bgn_net_process: Stage1");
         for (i=0; i<BGNET_COMMAND_MAX; i++) {
             if (pCtrl->CMD[i].iNewCommand < 1) {
                 // no new commands
@@ -188,42 +205,48 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
                     case BGNET_FRAME_CMD_KEEPALIVE:
                         // we received a KEEPALIVE signal (only by PILOT).
                         // generate a ACP response message
-                        len_pl = makeACPresponse(payload);
+                        len_pl = makeACPresponse(pCtrl, payload);
                         len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                         memcpy(&buffer[r],&tmp_buffer,len_msg); // put output message in write buffer
                         r = r + len_msg; // increment byte counter in TX buffer
                         break;
                     case BGNET_FRAME_CMD_POWERUP:
                         // we received a powerup from the network. This happens when the network did a POWERUP while we are running
-                        // to synchronize what we are doing, set the init request.
+                        // to synchronize what we are doing, set the init request. The actual reset is done the next "device" run.
                         bgn_net_initialize_reset(pCtrl);
+                        // no reply message required
                         break;
                     case BGNET_FRAME_CMD_LATLON:
                     case BGNET_FRAME_CMD_DATA:
-                        // these 2 commands send channel data; data was placed into the DATA structure, no response required
+                        // these 2 commands send channel data; data was placed into the DATA structure by the "frame decoder".
+                        // no response required
                         break;
                 }
                 pCtrl->CMD[i].iNewCommand = 0; // reset new data flag for this command
             }
         }
 
+        log_debug("bgn_net_process: Stage2");
         // stage 2 - check for new channel data
         for (i=0; i<BGN_CHANNEL_MAX; i++) {
             if (pCtrl->DATA[i].iNewChannel < 1) {
                 // nothing to do
             } else {
-                // , size_tprocess new channel data
+                // process new channel data
                 pCtrl->DATA[i].iNewChannel = 0; // reset newdata flag
             }
         }
-        pCtrl->iNewDevice = 0; // reset new data flag for this device
+
+        // / reset new data flag
+        pCtrl->iNewDevice = 0;
     }
+    
     // if we produced some response, show it here
     if (r > 0) {
         byte2ascii(asciibuffer, sizeof(asciibuffer), buffer, r, BYTE2ASCII_SPACED);
         log_info("bgn_net_process: output: %s (%ld bytes)", asciibuffer, r);
     }
-    log_info("bgn_net_process: Done, return= %d", r);
+    log_debug("bgn_net_process: Done, return= %d", r);
     return(r);
 };
 
@@ -498,7 +521,7 @@ int process_CMD_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
             break;
         } else {
             decode_value(sValue,pBuf+BGN_VALUE_CNR);
-            log_debug("    Ch=%02X Channel OK (size=%2d),FMT=%02X, Value= %s (%02X, %02X) %s", ucCh, y, f, sValue, *(pBuf+BGN_VALUE_HEAD+0), *(pBuf+BGN_VALUE_HEAD+1), pCtrl->pChl[ucCh].sLabel);
+            log_debug("    Ch=%02X Channel OK (size=%2d),FMT=%02X, Value= %s (%02X, %02X) %s", ucCh, y, f, sValue, *(pBuf+BGN_VALUE_HEAD+0), *(pBuf+BGN_VALUE_HEAD+1), pCtrl->pChl[ucCh].cLabel);
             //
         }
         pBuf = pBuf+y;
@@ -535,9 +558,7 @@ int IsMessageForMe(unsigned char *pBuf) {
     if (pBuf[BGNET_FRAME_HEAD_FROM] == BGNET_ADDRESS_ME) {
         // do not process this message (also to ALL)
     } else {
-        // adressed to ALL
-        // adressed to ME
-        // adressed to MYTYPE
+        // adressed to ALL, ME or MY-TYPE
         if ((pBuf[BGNET_FRAME_HEAD_TO] == BGNET_FRAME_TO_ALL) | (pBuf[BGNET_FRAME_HEAD_TO] == BGNET_ADDRESS_ME) | ((pBuf[BGNET_FRAME_HEAD_TO] & BGNET_DEVICETYPE_MASK) == (BGNET_ADDRESS_ME & BGNET_DEVICETYPE_MASK))) {
             // yes, it's for me
             r++;
@@ -555,7 +576,7 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
     unsigned char *pBuf,*pEnd; // pointer to start and end of buffer
     char asciibuffer[BGN_ASCIIFRAME_SIZE];
     int xSize,x,z,n;
-    int iIsForMe;
+    int iIsForMe, iIsValid;
     unsigned char ucCmd;
     time_t t;
 
@@ -583,7 +604,8 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
             // on the bus (a device sending data; we do not care about devices that are present, but do not send).
             if (iIsForMe < 1) {
                 log_info("                   IGNORE (it's from myself)");
-                pBuf = pEnd; // dump whole frame, assume everything has the same FROM (otherwise they would not be joined as subframes)
+                //pBuf = pEnd; // dump whole frame, assume everything has the same FROM (otherwise they would not be joined as subframes)
+                xSize = pEnd - pBuf;
             } else {
                 // The HEADER is OK, process it. Note that some CMD's do not have a body and in such case, we should skip the body & CS part.
 
@@ -600,26 +622,33 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
 #endif
                     // these are the commands without payload (no channel data)
                     ucCmd = *(pBuf+BGNET_FRAME_HEAD_CMD);
+                    iIsValid = 0;
                     switch(ucCmd) {
                         case BGNET_FRAME_CMD_KEEPALIVE:
-                            log_info("  Command %02X (header only) KEEPALIVE by %02X %s",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDev[x].sModelName);
-                            pCtrl->iNewDevice = 1; // signal this device
-                            pCtrl->CMD[ucCmd].iNewCommand = 1; // signal this command
-                            pCtrl->CMD[ucCmd].iCounter++;
-                            pCtrl->CMD[ucCmd].tTimestamp = t;
-                            strcpy(pCtrl->CMD[ucCmd].cFrame, asciibuffer);
+                            iIsValid = 1;
+                            log_info("  Command %02X (header only) KEEPALIVE by %02X %s",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName);
                             break;
                         case BGNET_FRAME_CMD_POWERUP:
-                            log_info("  Command %02X (header only) POWERUP by %02X %s",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDev[x].sModelName);
-                            pCtrl->iNewDevice = 1; // signal this device
-                            pCtrl->CMD[ucCmd].iNewCommand = 1; // signal this command
-                            pCtrl->CMD[ucCmd].iCounter++;
-                            pCtrl->CMD[ucCmd].tTimestamp = t;
-                            strcpy(pCtrl->CMD[ucCmd].cFrame, asciibuffer);
+                            iIsValid = 1;
+                            log_info("  Command %02X (header only) POWERUP by %02X %s",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName);
                             break;
                         default:
-                            log_info("  Command %02X (header only) IGNORED from %02X %s)",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDev[x].sModelName);
+                            log_info("  Command %02X (header only) IGNORED from %02X %s)",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName);
                             break;
+                    }
+                    if (iIsValid > 0) {
+                        // update CMD structure
+                        pCtrl->iNewDevice = 1; // signal this device
+                        pCtrl->CMD[ucCmd].iNewCommand = 1; // signal this command
+                        if (pCtrl->CMD[ucCmd].iCounter < SHRT_MAX) {
+                            pCtrl->CMD[ucCmd].iCounter++;
+                        } else {
+                            pCtrl->CMD[ucCmd].iCounter = 1;
+                            pCtrl->CMD[ucCmd].tCounterReset = t;
+                        }
+                        pCtrl->CMD[ucCmd].tTimestamp = t;
+                        strcpy(pCtrl->CMD[ucCmd].cFrame, asciibuffer);
+                        memcpy(pCtrl->CMD[ucCmd].ucFrame, pBuf, xSize);
                     }
                 } else {
                     // payload present, check frame-CR
@@ -639,43 +668,53 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
 #endif
                         // commands with payload (otherwise we would have no CR)
                         ucCmd = *(pBuf+BGNET_FRAME_HEAD_CMD);
+                        iIsValid = 0;
                         switch(ucCmd) {
                             case BGNET_FRAME_CMD_DATA:
                             case BGNET_FRAME_CMD_LATLON:
+                                iIsValid = 1;
                                 // process DATA/LATLON message
                                 n = process_CMD_DATA(pCtrl, pBuf);
                                 log_info("  Command %02X (with body), %d channels",*(pBuf+BGNET_FRAME_HEAD_CMD), n);
                                 break;
                             case BGNET_FRAME_CMD_LABEL:
+                                iIsValid = 1;
                                 // process message (only at startup)
                                 process_CMD_VALUE(pBuf);
                                 log_info("  Command %02X (with body) LABEL",*(pBuf+BGNET_FRAME_HEAD_CMD));
                                 break;
                             case BGNET_FRAME_CMD_SUBSCRIBE:
+                                iIsValid = 1;
                                 // process message (only at startup)
                                 process_CMD_SUBSCRIBE(pBuf);
                                 log_info("  Command %02X (with body) SUBSCRIBE",*(pBuf+BGNET_FRAME_HEAD_CMD));
                                 break;
                             case BGNET_FRAME_CMD_BACKLIGHT:
-                                log_info("  Command %02X BACKLIGHT BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDev[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0));
-                                pCtrl->iNewDevice = 1; // signal this device
-                                pCtrl->CMD[ucCmd].iNewCommand = 1; // signal this command
-                                pCtrl->CMD[ucCmd].iCounter++;
-                                pCtrl->CMD[ucCmd].tTimestamp = t;
-                                strcpy(pCtrl->CMD[ucCmd].cFrame, asciibuffer);
+                                iIsValid = 1;
+                                log_info("  Command %02X BACKLIGHT BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0));
                                 break;
                             case BGNET_FRAME_CMD_PILOT_AM:
-                                log_info("  Command %02X AUTO/STBY BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDev[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0));
-                                pCtrl->iNewDevice = 1; // signal this device
-                                pCtrl->CMD[ucCmd].iNewCommand = 1; // signal this command
-                                pCtrl->CMD[ucCmd].iCounter++;
-                                pCtrl->CMD[ucCmd].tTimestamp = t;
-                                strcpy(pCtrl->CMD[ucCmd].cFrame, asciibuffer);
+                                iIsValid = 1;
+                                log_info("  Command %02X AUTO/STBY BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0));
                                 break;
                             default:
-                                log_info("  Command %02X (with body) IGNORED (from %02X %s)",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDev[x].sModelName);
+                                log_info("  Command %02X (with body) IGNORED (from %02X %s)",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName);
                                 break;
                         }
+                        if (iIsValid > 0) {
+                            // update CMD structure
+                            pCtrl->iNewDevice = 1; // signal this device
+                            pCtrl->CMD[ucCmd].iNewCommand = 1; // signal this command
+                            if (pCtrl->CMD[ucCmd].iCounter < SHRT_MAX) {
+                                pCtrl->CMD[ucCmd].iCounter++;
+                            } else {
+                                pCtrl->CMD[ucCmd].iCounter = 1;
+                                pCtrl->CMD[ucCmd].tCounterReset = t;
+                            }
+                            pCtrl->CMD[ucCmd].tTimestamp = t;
+                            strcpy(pCtrl->CMD[ucCmd].cFrame, asciibuffer);
+                            memcpy(pCtrl->CMD[ucCmd].ucFrame, pBuf, xSize);
+                        }   
                     } else {
                         // CS is bad (only skip this sub-frame, the length is known)
                         log_info("    Frame Checksum BAD, framesize: %d", xSize);

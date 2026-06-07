@@ -11,7 +11,7 @@ char g_last_signalk_delta[1024];
 int  g_serial_data_lenRx = 0;
 int  g_serial_data_lenTx = 0;
 int  g_serial_data_counter = SerialCounter_Reset;
-
+int  g_serial_mode = BGN_SERIAL_MODE_RO;
 
 double g_lat = 0.0;
 double g_lon = 0.0;
