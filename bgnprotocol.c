@@ -187,7 +187,6 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
     char asciibuffer[256];
     int i,len_pl,len_msg;
 
-    log_info("bgn_net_process: Start");
     size_t r = 0;
 
     // device received new data
@@ -195,7 +194,6 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
         // nothing to do
     } else {
         // Stage 1 - check for new commands
-        log_debug("bgn_net_process: Stage1");
         for (i=0; i<BGNET_COMMAND_MAX; i++) {
             if (pCtrl->CMD[i].iNewCommand < 1) {
                 // no new commands
@@ -226,7 +224,6 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
             }
         }
 
-        log_debug("bgn_net_process: Stage2");
         // stage 2 - check for new channel data
         for (i=0; i<BGN_CHANNEL_MAX; i++) {
             if (pCtrl->DATA[i].iNewChannel < 1) {
@@ -237,7 +234,16 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
             }
         }
 
-        // / reset new data flag
+        // stage 3 - check if we are allowed to send output
+        // check if we are in RW mode; if not, destroy our output. I'd rather do it here that making the logic complexer
+        // by integrating the readonly/readwrite mode into the logic
+        if (g_serial_mode == BGN_SERIAL_MODE_RW) {
+            // leave output data
+        } else {
+            r = 0;
+        }
+
+        // / stage 4 - reset new data flag
         pCtrl->iNewDevice = 0;
     }
     
@@ -246,7 +252,6 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
         byte2ascii(asciibuffer, sizeof(asciibuffer), buffer, r, BYTE2ASCII_SPACED);
         log_info("bgn_net_process: output: %s (%ld bytes)", asciibuffer, r);
     }
-    log_debug("bgn_net_process: Done, return= %d", r);
     return(r);
 };
 

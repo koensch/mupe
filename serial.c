@@ -170,30 +170,24 @@ void *serial_thread(void *arg)
             if (g_serial_data_counter > SerialCounter_Reset) {
                 // someting is still going on
             } else {
-                if (g_serial_mode == BGN_SERIAL_MODE_RW) {
-                    if (g_serial_data_lenTx > 0) {
+                // is someting to send
+                if (g_serial_data_lenTx > 0) {
                         
-                        // get message from common storage into local storage
-                        pthread_mutex_lock(&g_data_mutex);
-                        memcpy(&TxBuf, &g_last_serial_dataTx, g_serial_data_lenTx);
-                        nTx = g_serial_data_lenTx;
-                        g_serial_data_lenTx = 0;
-                        pthread_mutex_unlock(&g_data_mutex);
-
-                        // write content
-                        w = write(fd, TxBuf, nTx);
-                        if (w == nTx) {
-                            // nothing wrong here
-                            log_error("serial write: %d bytes output)", w);
-                        } else {
-                            log_error("serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), nTx, w);
-                        }
-                    }
-                } else {
-                    // write is not enabled, dump output
+                    // get message from common storage into local storage
                     pthread_mutex_lock(&g_data_mutex);
-                    g_serial_data_lenTx = 0;
+                    memcpy(&TxBuf, &g_last_serial_dataTx, g_serial_data_lenTx);
+                    nTx = g_serial_data_lenTx;
+                    g_serial_data_lenTx = 0; // release common storage
                     pthread_mutex_unlock(&g_data_mutex);
+
+                    // write content
+                    w = write(fd, TxBuf, nTx);
+                    if (w == nTx) {
+                        // nothing wrong here
+                        log_info("serial write: %d bytes output)", w);
+                    } else {
+                        log_error("serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), nTx, w);
+                    }
                 }
             }
         }
