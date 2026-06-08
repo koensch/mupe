@@ -25,13 +25,13 @@ void handle_sigint(int sig) {
     }
 }
 
-// please consider this as 'constants'; do not write into this structure.
+// please consider this as 'constan'; do not write into this structure.
 // Use is as some kind of bookkeeping table. We only 'enable' the devices we have tested.
 // if we do a lookup and there is no match, we return 0 and pick the first one (the ACP)
 BGNET_TYPE BGNET_type[BGNET_TYPE_MAX] = { \
 // ProdName     Model       ModelNr       SerialNr       Version Enable DeviceType
 {"??????",      "??????",   "??????",     "??????",      "????", 0,     0xFF},\
-{"NET ACP1",    "NET-ACP1", "360-00-002", "NP1CB15613",  "0000", 0,     BGNET_FRAME_FROM_NETACP},\
+{"NET ACP",     "NET-ACP",  "360-00-002", "NP1CB15613",  "0000", 0,     BGNET_FRAME_FROM_NETACP},\
 {"NET DEPTH",   "NET-DPDU", "610-00-021", "NDEP9410109", "0000", 0,     BGNET_FRAME_FROM_NETACP},\
 {"NET SPEED",   "NET-SPDU", "610-00-020", "NSPDG485015", "0000", 0,     BGNET_FRAME_FROM_NETACP},\
 {"NET WIND",    "NET-WDDU", "611-00-007", "NWINB06505",  "0000", 0,     BGNET_FRAME_FROM_NETWIND},\
@@ -77,7 +77,7 @@ BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
     {"UNKNOWN 08",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 09",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 0A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
-    {"RUDDERANGLE %",   BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"RUDDERANGLE",     BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 0C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 0D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 0E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
@@ -144,18 +144,18 @@ BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
     {"UNKNOWN 4B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 4C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 4D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
-    {"AWS RAW",         0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AWSRAW",          BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 4F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
-    {"AWS KT",          BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
-    {"AWINDANGLE",      BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
-    {"AWA RAW",         BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AWSKT",           BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AWA",             BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"AWARAW",          BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"TARGET TWA",      BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 54",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 55",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 56",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
-    {"UNKNOWN 57",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"TWSKT",           BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 58",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
-    {"UNKNOWN 59",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"TWA",             BGN_FMT_01, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 5A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 5B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 5C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
@@ -193,7 +193,7 @@ BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
     {"UNKNOWN 7C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 7D",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 7E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
-    {"UNKNOWN 7F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"VMGKT",           BGN_FMT_08, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 80",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 81",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 82",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
@@ -207,7 +207,7 @@ BGNET_CHL BGNET_chl[BGN_CHANNEL_MAX+1] = { \
     {"UNKNOWN 8A",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 8B",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 8C",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
-    {"BATTERY VOLT",    BGN_FMT_48, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
+    {"BATTVOLT",        BGN_FMT_48, BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 8E",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 8F",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
     {"UNKNOWN 90",      0x00,       BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0},\
@@ -390,28 +390,28 @@ int main(void)
 
     // print report
     log_info("Statistics report");
-    log_info("   FROM     Counter    DeviceType");
+    log_info("   FROM         Counter    DeviceType");
     for (i=0; i<BGNET_DEVICE_MAX; i++) {
         if (pBGNET_ctrl->DEV[i].iCounter < 1) {
             // it was never touched
         } else {
-            log_info("  0x%02X        %4d     %s", i, pBGNET_ctrl->DEV[i].iCounter, pBGNET_ctrl->pType[bgn_FindDeviceIndex(pBGNET_ctrl, i)].sProdName);
+            log_info("  0x%02X        %8d     %s", i, pBGNET_ctrl->DEV[i].iCounter, pBGNET_ctrl->pType[bgn_FindDeviceIndex(pBGNET_ctrl, i)].sProdName);
         }
     }
-    log_info("    CMD     Counter");
+    log_info("    CMD         Counter");
     for (i=0; i<BGNET_COMMAND_MAX; i++) {
         if (pBGNET_ctrl->CMD[i].iCounter < 1) {
             // it was never touched
         } else {
-            log_info("  0x%02X        %4d", i, pBGNET_ctrl->CMD[i].iCounter);
+            log_info("  0x%02X        %8d", i, pBGNET_ctrl->CMD[i].iCounter);
         }
     }
-    log_info("Channel     Counter    Label");
+    log_info("Channel         Counter    Label");
     for (i=0; i<BGN_CHANNEL_MAX; i++) {
         if (pBGNET_ctrl->DATA[i].iCounter < 1) {
             // it was never touched
         } else {
-            log_info("  0x%02X        %4d     %s", i, pBGNET_ctrl->DATA[i].iCounter, pBGNET_ctrl->pChl[i].cLabel);
+            log_info("  0x%02X        %8d     %s", i, pBGNET_ctrl->DATA[i].iCounter, pBGNET_ctrl->pChl[i].cLabel);
         }
     }
     log_info("End of report");

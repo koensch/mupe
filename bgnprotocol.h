@@ -202,6 +202,8 @@
                                          // at powerup, initializes to 0 (off), when pressed the 1st time (after power) it starts with 3, then
                                          // down to 2,1,0 (off) and wrap back to 3
 #define BGNET_FRAME_CMD_PILOT_AM    0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: 0=AUTO, 1=STBY, reply with B5
+#define BGNET_FRAME_CMD_PILOT_MODE  0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
+
 #define BGNET_FRAME_CMD_ALARMOFF    0xE7 // alarm silence, 2 byte payload (sequence ID, alarming channel)
 #define BGNET_FRAME_CMD_ALARMTGL    0xE8 // alarm toggle, 2 byte payload (sequence ID, alarming channel)
 #define BGNET_FRAME_CMD_PAGECHANGE  0xF6 // 1 byte payload, pagenumber
@@ -225,7 +227,7 @@
 #define BGN_VALUE_DATA              2   // position where DATA starts (multiple bytes, formatted as per FMT byte, variable length depending on CNR/FMT)
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
-#define BGN_CHANNEL_MAX             0xFF // for sizing purposes
+#define BGN_CHANNEL_MAX             0xFF // for sizing purposes (range 00-FF, both including) add 1 for sizing purpose
 #define BGN_CNR_00_NODERESET        0X00
 #define BGN_CNR_01_UNKNOWN          0X01
 #define BGN_CNR_03_UNKNOWN          0X03
@@ -312,7 +314,7 @@
 #define BGN_CNR_86_BAROTREND        0x86
 #define BGN_CNR_87_BARORAW          0x87
 #define BGN_CNR_8A_UNKNOWN          0x8A
-#define BGN_CNR_8D_BATTVOLTS        0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
+#define BGN_CNR_8D_BATTVOLT         0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
                                          // displayed by DATA (if 'OPTIONS' button is pressed)
 #define BGN_CNR_9A_HEADINGNEXTTACK  0x9A
 #define BGN_CNR_9B_FOREAFTTRIM      0x9B
@@ -384,8 +386,28 @@
 // In our protocol handler, we mirror received channel data
 // In principal we could support every B&G NETWORK device, albeit we do not had them available when making this protcol
 // decoder/encoder, so for safely reasons we will ignore traffic from devices we could not test; hence the iEnable flag.
-// The 'iactive' flag is set when we have received data FROM that device. As per B&G recommendation we only expect
-// 1 'active' device from every type. Possible double units are to be set in 'repeater' mode and will not transmit.
+// As per B&G recommendation we only expect 1 'active' device from every type. Possible double units shall to be configured
+// in 'repeater' mode (and will not transmit).
+
+// Channel data can be of variable length. we need a structure/union to device. Note that some compilers may not correctly
+// align them.
+// If you have a pointer to the starting byte of the value, use the structure to decode it.
+#pragma pack(1)
+union CH {
+    uint8_t B[16]; // sufficient space for the largest one
+    struct {
+        uint8_t CH;             // channel number
+        uint8_t FMT;            // format byte
+        union CHV {
+            uint8_t uB[14];     // bytes (status, pattern)
+            uint16_t uW[7];     // unsigned 16-bits registers
+            int16_t sW[7];      // signed 16-bit registers
+        } chv;
+    } s;
+};
+#pragma pack()
+
+// 16 NETWORK devices exist, the first one (index=0) is used for devices we are unable to identify
 #define BGNET_TYPE_MAX            17
 // our 'managed' devices
 typedef struct {
@@ -426,12 +448,9 @@ typedef struct {
 } BGN_COMMAND;
 
 typedef struct {
-    unsigned char ucTO;
-    unsigned char ucFROM;
-    unsigned char ucBYTES;
-    unsigned char ucCHN;
-    unsigned char ucFMT;
+    int iRawBytes; // number of raw bytes in message
     unsigned char ucRAW[16]; // raw data (for diagnostic purposes)
+
     char cValue[16]; // ascii formatted value string (for display purposes)
     int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
     int iNewChannel; // some new channel data was received
@@ -439,15 +458,17 @@ typedef struct {
     time_t tCounterReset; // when ww wrap-around the counter
 } BGN_CHANNEL;
 
-// We might need some device-specific values during processing. Please put them here so they overlap
-union BGNET_DEVDATA {
-    // here we declare all ' common' parameters (used by every device)
-    int iActive;
-    unsigned char ucDeviceAddress;
-    // this is the ' consolidated' channel list. We also write the same channels to the device that send it for diagnostic reasons
-    int iSendACP;
-    int iSendTest;
-};
+
+
+typedef struct {
+    int iNewACP;
+    unsigned char ucPILOT; // pilot address
+    unsigned char ucSTATE; // STBY, AUTO
+    unsigned char ucMODE; // COMP, NAV, VANE, JOYSTICK
+    unsigned char ucJOYSTICK; //0=OFF, 1=ON
+    unsigned char ucLight; //0 (off), 1-3
+    uint16_t uiMemory; // value 0x0123 = 291
+} BGN_ACP;
 
 #define BGNET_CTRL_INIT            1
 #define BGNET_CTRL_INIT_RESET      0
@@ -465,6 +486,7 @@ typedef struct {
     Config* pCfg;    // config structure
 
     int iNewDevice; // some new was received
+    BGN_ACP ACP; // ACP status
     BGN_DEVICE DEV[BGNET_DEVICE_MAX]; // device statistics
     BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // commands statistics
     BGN_CHANNEL DATA[BGN_CHANNEL_MAX]; // channels statistics

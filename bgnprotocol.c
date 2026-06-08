@@ -59,14 +59,24 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         // note: the counters are initialized at 0, when roll-over set to 1. This way
         // we keep track of devices/commands/channels that were never set; these remain
         // at 0. I know that we are in error with the exact count, but i do not mind.
-        log_debug("bgn_net_initialize: Start");
 
         time(&t); // save timestamp to we use same timestamp everywhere
         pCtrl->iInitialized = BGNET_CTRL_INIT; // mark as initialized
         pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
         pCtrl->iDeviceRun = 0; //reset run counter (0-1000)
 
-        // stage 1 - initialize device list
+        // stage 1 - ACP initialize
+        pCtrl->ACP.iNewACP = 0;
+        pCtrl->ACP.ucPILOT = 0;
+        pCtrl->ACP.ucJOYSTICK = 0; // joystick takes prefecence over the PILOT
+        pCtrl->ACP.ucSTATE = 0;
+        pCtrl->ACP.ucMODE = 0;
+        pCtrl->ACP.uiMemory = 0x0123; // value 0x0123 = 291
+        pCtrl->ACP.ucLight = 0; // backlight = OFF
+        pCtrl->ACP.ucSTATE &= ~(BGN_AP_MODE1_MASK_STATE ); // reset AUTO (=STBY)
+        pCtrl->ACP.ucMODE |= BGN_AP_MODE2_COMP; // NAV mode
+
+        // stage 1 - initialize device listVA
         pCtrl->iNewDevice = 0; // no new data available
         for (i=0; i<BGNET_DEVICE_MAX; i++) {
             pCtrl->DEV[i].iCounter = 0;
@@ -85,15 +95,11 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         // stage 3 - initialize channel list
         for (i=0; i<BGN_CHANNEL_MAX; i++) {
             pCtrl->DATA[i].iNewChannel = 0;
-            pCtrl->DATA[i].ucTO = 0;
-            pCtrl->DATA[i].ucFROM = 0;
-            pCtrl->DATA[i].ucBYTES = 0;
-            pCtrl->DATA[i].ucCHN = i;
-            pCtrl->DATA[i].ucFMT = 0;
             pCtrl->DATA[i].iCounter = 0;
             pCtrl->DATA[i].tTimestamp = t;
             pCtrl->DATA[i].tCounterReset = t;
             strcpy(pCtrl->DATA[i].cValue, "");
+            pCtrl->DATA[i].iRawBytes = 0;
             memset(pCtrl->DATA[i].ucRAW, 0, sizeof(pCtrl->DATA[i].ucRAW));
         }
         log_debug("bgn_net_initialize: Done");
@@ -129,6 +135,7 @@ size_t bgn_net_makemessage(unsigned char *pBuf, int iTo, int iFrom, int iCmd, un
             }
             break;
         case BGNET_FRAME_CMD_DATA:
+        case BGNET_FRAME_CMD_PILOT_AM:            
             if (payloadlength == 0) {
                 xSize = 0; // always must have some payload
             } else {
@@ -152,28 +159,67 @@ size_t bgn_net_makemessage(unsigned char *pBuf, int iTo, int iFrom, int iCmd, un
 // a paylod for ACP response contains 4 channels (53, A6, A7, B5) + a bonus to verify that the message is received
 int makeACPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     int len;
+    time_t t;
+    time(&t);
     len = 0;
     payload[0]  = BGN_CNR_53_TARGET_TWA;
     payload[1]  = pCtrl->pChl[BGN_CNR_53_TARGET_TWA].ucFMT;
     payload[2]  = 0xFF;
     payload[3]  = 0xF6; // 0xFFF6 = -9
     payload[4]  = BGN_CNR_A6_AP_CTARGET;
-    payload[5]  = pCtrl->pChl[BGN_CNR_A6_AP_CTARGET].ucFMT;;
+    payload[5]  = pCtrl->pChl[BGN_CNR_A6_AP_CTARGET].ucFMT;
     payload[6]  = 0x01;
     payload[7]  = 0x61; // 0161 = 353 degrees
     payload[8]  = BGN_CNR_A7_AP_WPB;
-    payload[9]  = pCtrl->pChl[BGN_CNR_A7_AP_WPB].ucFMT;;
+    payload[9]  = pCtrl->pChl[BGN_CNR_A7_AP_WPB].ucFMT;
     payload[10] = 0x01;
     payload[11] = 0x67; // 0167 = 359
     payload[12] = BGN_CNR_B5_AP_MODE;
-    payload[13] = pCtrl->pChl[BGN_CNR_B5_AP_MODE].ucFMT;; // must be 0x08!
-    payload[14] = 0x00; // 01 = AUTO/353 (CH A6) 00 = STBY         01 = AUTO/353 00 = STBY
-    payload[15] = 0x01; // 03 = NAV/XTE>032      04 = VANE/WND OFF 01 = COMP     06 = JOYSTICK
-    payload[16] = BGN_CNR_8D_BATTVOLTS;
-    payload[17] = pCtrl->pChl[BGN_CNR_8D_BATTVOLTS].ucFMT;;
+    payload[13] = pCtrl->pChl[BGN_CNR_B5_AP_MODE].ucFMT;
+    payload[14] = pCtrl->ACP.ucSTATE; // AUTO/STBY
+    if (pCtrl->ACP.ucJOYSTICK == 0) {
+        payload[15] = pCtrl->ACP.ucMODE;
+    } else {
+        payload[15] = BGN_AP_MODE2_JOYSTICK;
+    }
+    payload[16] = BGN_CNR_8D_BATTVOLT;
+    payload[17] = pCtrl->pChl[BGN_CNR_8D_BATTVOLT].ucFMT;;
     payload[18] = 0x00;
     payload[19] = 0x80; // 80 = 128 = 12.8
-    len = 20;
+    payload[20] = BGN_CNR_0B_RUDDER;
+    payload[21] = pCtrl->pChl[BGN_CNR_0B_RUDDER].ucFMT;
+    payload[22] = 0;
+    payload[23] = 8-(t & 0x0F);
+    len = 24;
+    return (len);
+}
+int makeAUTOresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
+    int len;
+    time_t t;
+    time(&t);
+    len = 0;
+    payload[0] = BGN_CNR_B5_AP_MODE;
+    payload[1] = pCtrl->pChl[BGN_CNR_B5_AP_MODE].ucFMT;
+    payload[2] = pCtrl->ACP.ucSTATE; // AUTO/STBY
+    if (pCtrl->ACP.ucJOYSTICK == 0) {
+        payload[3] = pCtrl->ACP.ucMODE;
+    } else {
+        payload[3] = BGN_AP_MODE2_JOYSTICK;
+    }
+    payload[4] = BGN_CNR_0B_RUDDER;
+    payload[5] = pCtrl->pChl[BGN_CNR_0B_RUDDER].ucFMT;
+    payload[6] = 0;
+    payload[7] = 0x0A;  // 0A = 10
+    payload[8] = BGN_CNR_49_HEADING;
+    payload[9] = pCtrl->pChl[BGN_CNR_49_HEADING].ucFMT;
+    payload[10] = 0;
+    payload[11] = 0x4D; // 0x4D = 77
+    payload[12] = BGN_CNR_8D_BATTVOLT;
+    payload[13] = pCtrl->pChl[BGN_CNR_8D_BATTVOLT].ucFMT;
+    payload[14] = 0x00;
+    payload[15] = 0x61; // 61 = 97 = 9.7
+    payload[15] = (t & 0x0F); 
+    len = 16;
     return (len);
 }
 
@@ -196,7 +242,7 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
         // Stage 1 - check for new commands
         for (i=0; i<BGNET_COMMAND_MAX; i++) {
             if (pCtrl->CMD[i].iNewCommand < 1) {
-                // no new commands
+                // no n.ucSTATEew commands
             } else {
                 log_info("bgn_net_process: Command 0x%0X processing", i);
                 switch(i) {
@@ -218,6 +264,18 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
                     case BGNET_FRAME_CMD_DATA:
                         // these 2 commands send channel data; data was placed into the DATA structure by the "frame decoder".
                         // no response required
+                        break;
+                    case BGNET_FRAME_CMD_PILOT_AM:
+                        len_pl = makeAUTOresponse(pCtrl, payload);
+                        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                        memcpy(&buffer[r],&tmp_buffer,len_msg); // put output message in write buffer
+                        r = r + len_msg; // increment byte counter in TX buffer
+                        break;
+                    case BGNET_FRAME_CMD_PILOT_MODE:
+                        len_pl = makeAUTOresponse(pCtrl, payload);
+                        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                        memcpy(&buffer[r],&tmp_buffer,len_msg); // put output message in write buffer
+                        r = r + len_msg; // increment byte counter in TX buffer
                         break;
                 }
                 pCtrl->CMD[i].iNewCommand = 0; // reset new data flag for this command
@@ -298,7 +356,7 @@ static int value_length_DATA(unsigned char cnr, unsigned char fmt) {
         case BGN_CNR_80_UNKNOWN:
         case BGN_CNR_81_DR_DIST:
         case BGN_CNR_8A_UNKNOWN:
-        case BGN_CNR_8D_BATTVOLTS:
+        case BGN_CNR_8D_BATTVOLT:
         case BGN_CNR_A6_AP_CTARGET:
         case BGN_CNR_A7_AP_WPB:
         case BGN_CNR_AF_AP_OFFCOURSE:
@@ -385,7 +443,7 @@ char* substring(char* pTarget, char* pSource, int pos, int len) {
     return(pTarget);
 }
 
-// insert a 'divisor' (".") in the string. Realize that we could have a case where "0" should
+// insert a.ucSTATE 'divisor' (".") in the string. Realize that we could have a case where "0" should
 // be represented as "0.000"
 // our tactic:
 // - we use "00000" and append our value string
@@ -450,8 +508,10 @@ char *decode_value(char* pStr, unsigned char* pBuf) {
     //unsigned int d, s, f;
     char sWork[256];
     union ValueUnion {
+        uint16_t ui16;
+        int32_t i32;
         int i;
-        char c[8];
+        unsigned char c[8];
     } VU;
     // mask the low nibble (conversion factor, bits 3-0)
     switch (pBuf[BGN_VALUE_FMT] & BGN_FMT_MASK_CON) {
@@ -511,23 +571,36 @@ int process_CMD_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     int y,z;
     unsigned int d,s,f;
     unsigned char *pBuf,*pEnd;
-    unsigned char ucCh;
+    unsigned char ucCH;
     char sValue[256];
+    time_t t;
 
     pBuf = buffer+BGNET_FRAME_HEAD;
     pEnd = buffer+BGNET_FRAME_HEAD + buffer[BGNET_FRAME_HEAD_SIZE];
     z=0;
+    time(&t);
     while (pBuf < pEnd) {
-        ucCh = *(pBuf+BGN_VALUE_CNR);
-        y = value_length_DATA(ucCh, *(pBuf+BGN_VALUE_FMT));
+        ucCH = *(pBuf+BGN_VALUE_CNR);
+        y = value_length_DATA(ucCH, *(pBuf+BGN_VALUE_FMT));
         fmt_decode(*(pBuf+BGN_VALUE_FMT), &d, &s, &f);
         if(y < 0) {
-            log_debug("    Ch=%02X Channel unknown, confused (size=%d),FMT=%02X (%x,%x,%x)", ucCh, y, *(pBuf+BGN_VALUE_FMT), d, s, f);
+            log_debug("    Ch=%02X Channel unknown, confused (size=%d),FMT=%02X (%x,%x,%x)", ucCH, y, *(pBuf+BGN_VALUE_FMT), d, s, f);
             break;
         } else {
-            decode_value(sValue,pBuf+BGN_VALUE_CNR);
-            log_debug("    Ch=%02X Channel OK (size=%2d),FMT=%02X, Value= %s (%02X, %02X) %s", ucCh, y, f, sValue, *(pBuf+BGN_VALUE_HEAD+0), *(pBuf+BGN_VALUE_HEAD+1), pCtrl->pChl[ucCh].cLabel);
-            //
+            decode_value(sValue, pBuf+BGN_VALUE_CNR);
+            log_debug("    Ch=%02X Channel OK (size=%2d),FMT=%02X, Value= %s (%02X, %02X) %s", ucCH, y, f, sValue, *(pBuf+BGN_VALUE_HEAD+0), *(pBuf+BGN_VALUE_HEAD+1), pCtrl->pChl[ucCH].cLabel);
+            // update CHANNEL structure
+            pCtrl->DATA[ucCH].iNewChannel = 1; // signal this channel
+            if (pCtrl->DATA[ucCH].iCounter < SHRT_MAX) {
+                pCtrl->DATA[ucCH].iCounter++;
+            } else {
+                pCtrl->DATA[ucCH].iCounter = 1;
+                pCtrl->DATA[ucCH].tCounterReset = t;
+            }
+            pCtrl->DATA[ucCH].tTimestamp = t;
+            strcpy(pCtrl->DATA[ucCH].cValue, sValue);
+            pCtrl->DATA[ucCH].iRawBytes = y;
+            memcpy(pCtrl->DATA[ucCH].ucRAW, pBuf+BGN_VALUE_CNR, y);
         }
         pBuf = pBuf+y;
         z++;
@@ -706,14 +779,23 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 break;
                             case BGNET_FRAME_CMD_BACKLIGHT:
                                 iIsValid = 1;
-                                log_info("  Command %02X BACKLIGHT BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0));
+                                log_info("  Command %02X BACKLIGHT BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)", *(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0), *(pBuf+BGNET_FRAME_HEAD+4));
+                                pCtrl->ACP.ucLight = *(pBuf+BGNET_FRAME_HEAD+0); // first byte is the LIGHTS state
                                 break;
                             case BGNET_FRAME_CMD_PILOT_AM:
                                 iIsValid = 1;
-                                log_info("  Command %02X AUTO/STBY BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)",*(pBuf+BGNET_FRAME_HEAD_CMD),*(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0));
+                                log_info("  Command %02X AUTO/STBY BUTTON PRESSED (BY: %02X, %s, state= %d)", *(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+4));
+                                pCtrl->ACP.ucPILOT = *(pBuf+BGNET_FRAME_HEAD_TO); // the PILOT where the button was pressed
+                                pCtrl->ACP.ucSTATE = *(pBuf+BGNET_FRAME_HEAD+4); // AUTO/STBY state
+                                break;
+                            case BGNET_FRAME_CMD_PILOT_MODE:
+                                iIsValid = 1;
+                                log_info("  Command %02X MODE BUTTON PRESSED (BY: %02X, %s, state= %d)", *(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+4));
+                                pCtrl->ACP.ucPILOT = *(pBuf+BGNET_FRAME_HEAD_TO); // the PILOT where the button was pressed
+                                pCtrl->ACP.ucMODE = *(pBuf+BGNET_FRAME_HEAD+4); // COMP/VANE/NAV mode
                                 break;
                             default:
-                                log_info("  Command %02X (with body) IGNORED (from %02X %s)",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName);
+                                log_info("  Command %02X (with body) IGNORED (from %02X %s)", *(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pType[x].sModelName);
                                 break;
                         }
                         if (iIsValid > 0) {
@@ -749,23 +831,5 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
 #endif
     return(z);
 }
-
-// Example: build a frame to transmit (placeholder)
-// Return vale: 0-nothing to send, >0 data to send
-//size_t build_tx_frame(BGNET_CTRL* pCtrl, unsigned char *pBuf, size_t maxlen) {
-//    size_t r;
-//    // when we have an output message from the "devices processor", copy it to the "writer process" and reset the output buffer
-//    r=0; // assume nothing to write
-//    if (pCtrl->tx_cnt > 0) {
-//        if (pCtrl->tx_cnt < maxlen) {
-//            memcpy(pBuf, pCtrl->tx_buf, pCtrl->tx_cnt); // copy output message
-//            r = pCtrl->tx_cnt; // save byte count to return
-//        } else {
-//            log_error("write buffer overflow (len=%d, max=%d), no output", pCtrl->tx_cnt, maxlen);
-//        }
-//    }
-//    pCtrl->tx_cnt = 0; // reset message byte count
-//    return(r); // return bytes in output message
-//}
 
 #endif
