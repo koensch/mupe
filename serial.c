@@ -184,7 +184,7 @@ void *serial_thread(void *arg)
                     w = write(fd, TxBuf, nTx);
                     if (w == nTx) {
                         // nothing wrong here
-                        log_info("serial write: %d bytes output)", w);
+                        log_info("serial write: %d bytes output", w);
                     } else {
                         log_error("serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), nTx, w);
                     }
