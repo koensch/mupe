@@ -215,6 +215,6 @@ void *ethernet_thread(void *arg)
         usleep(MSEC1);
     }
     close(sockfd);
-    log_info("Ethernet thread exiting");
+    log_info("Ethernet: thread exiting");
     return NULL;
 }

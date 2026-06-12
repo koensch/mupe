@@ -194,6 +194,6 @@ void *serial_thread(void *arg)
         usleep(MSEC1);
     }
     close(fd);
-    log_info("Serial thread exiting");
+    log_info("Serial: thread exiting");
     return NULL;
 }

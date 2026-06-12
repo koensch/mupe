@@ -252,15 +252,41 @@ static void handle_api_update(int client_fd, const char *body)
     send(client_fd, ok, strlen(ok), 0);
 }
 
-static void handle_root_html(int client_fd, Config *pCfg)
-{
-    const char *template =
+static char* html_head(char *Buffer, size_t MaxBuf) {
+    const char *cHead =
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
         "<html>\r\n"
-        "<head><title>%s</title></head>\r\n"
-        "<body>\r\n<div style=\"float:right\"><p>%s</p></div>\r\n"
-        "<h1>%s</h1>"
+        "<head><style>h3 {margin-left: 40px;}\r\ntable {border-collapse: collapse; width: 80%; margin: 20px auto;}\r\nth, td {border:1px solid \#ccc; padding: 10px; text-align: left;}</style><title>%s</title></head>\r\n"
+        "<body>\r\n";
+    snprintf(Buffer, MaxBuf, cHead, ApplicationName);
+    return(Buffer);
+}
+
+static char* html_tail(char *Buffer, size_t MaxBuf) {
+    const char *cTail =
+        "<h2>End of Report</h2></body></html>\r\n";
+    strcpy(Buffer, cTail);
+    return(Buffer);
+}
+
+static char* html_title(char *Buffer, size_t MaxBuf) {
+    const char *cTitle =
+        "<div style=\"float:right\"><p>%s</p></div>\r\n"
+        "<h1>%s</h1>";
+    char cTime[256];
+    time_t t;
+    struct tm* tm_info;
+    time (&t);
+    tm_info = localtime(&t);
+    strftime(cTime, sizeof(cTime),"%Y-%m-%d %H:%M:%S", tm_info);
+    snprintf(Buffer, MaxBuf, cTitle, cTime, ApplicationName);
+    return(Buffer);
+}
+
+static char* html_help(char *Buffer, size_t MaxBuf, int iPort) {
+    const char *cHelp =
+        "<h2>Help</h2>"
         "<p>REST:</p>"
         "<ul>"
         "<li>GET /api/state</li>"
@@ -268,17 +294,134 @@ static void handle_root_html(int client_fd, Config *pCfg)
         "<li>POST /api/update</li>"
         "</ul>"
         "<p>WebSocket: ws://host:%d/ws</p>"
-        "<p>for configuration parameters check file 'config.json'</p>"
-        "</body></html>\r\n";
-    char timebuffer[256];
-    time_t rawtime;
-    struct tm* tm_info;
-    time (&rawtime);
-    tm_info = localtime(&rawtime);
-    strftime(timebuffer, sizeof(timebuffer),"%Y-%m-%d %H:%M:%S", tm_info);
-    char htmlbuffer[4095];
-    snprintf(htmlbuffer, sizeof(htmlbuffer), template, ApplicationName, timebuffer, ApplicationName, pCfg->web_port);
+        "<p>for configuration parameters check file 'config.json'</p>";
+    snprintf(Buffer, MaxBuf, cHelp, iPort);
+    return(Buffer);
+}
+
+static char* html_device_top(char *Buffer) {
+    const char *cDevTop =
+        "<h2>B&G Network Statistics</h2>"
+        "<h3>Devices</h3>"
+        "<table><tr><th>Address</th><th>Counter</th><th>DeviceType</th></tr>";
+    strcpy(Buffer, cDevTop);
+    return(Buffer);
+}
+static char* html_device_row(char *Buffer, size_t MaxBuf, BGNET_CTRL *pCtrl) {
+    int i;
+    char cLine[256];
+    const char *cDevRow =
+        "<tr><td>0x%02X</td><td>%d</td><td>%s</td></tr>";
+
+    strcpy(cLine, "");
+    strcpy(Buffer, "");
+    for (i=0; i<BGNET_DEVICE_MAX; i++) {
+        if (pCtrl->DEV[i].iCounter < 1) {
+            // it was never touched
+        } else {
+            snprintf(cLine, sizeof(cLine), cDevRow, i, pCtrl->DEV[i].iCounter, pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName);
+            strcat(Buffer, cLine);
+        }
+    }
+    return(Buffer);
+}
+static char* html_device_end(char *Buffer) {
+    const char *cDevTop =
+        "</table>";
+    strcpy(Buffer, cDevTop);
+    return(Buffer);
+}
+
+static char* html_command_top(char *Buffer) {
+    const char *cDevTop =
+        "<h3>Commands</h3>"
+        "<table><tr><th>Command</th><th>Counter</th></tr>";
+    strcpy(Buffer, cDevTop);
+    return(Buffer);
+}
+static char* html_command_row(char *Buffer, size_t MaxBuf, BGNET_CTRL *pCtrl) {
+    int i;
+    char cLine[256];
+    const char *cDevRow =
+        "<tr><td>0x%02X</td><td>%d</td></tr>";
+
+    strcpy(cLine, "");
+    strcpy(Buffer, "");
+    for (i=0; i<BGNET_COMMAND_MAX; i++) {
+        if (pCtrl->CMD[i].iCounter < 1) {
+            // it was never touched
+        } else {
+            snprintf(cLine, sizeof(cLine), cDevRow, i, pCtrl->CMD[i].iCounter);
+            strcat(Buffer, cLine);
+        }
+    }
+    return(Buffer);
+}
+static char* html_command_end(char *Buffer) {
+    const char *cDevTop =
+        "</table>";
+    strcpy(Buffer, cDevTop);
+    return(Buffer);
+}
+
+static char* html_channel_top(char *Buffer) {
+    const char *cDevTop =
+        "<h3>Channels</h3>"
+        "<table><tr><th>Channel</th><th>Counter</th><th>Label</th><th>Last Reading</th></tr>";
+    strcpy(Buffer, cDevTop);
+    return(Buffer);
+}
+static char* html_channel_row(char *Buffer, size_t MaxBuf, BGNET_CTRL *pCtrl) {
+    int i;
+    char cLine[256];
+    const char *cDevRow =
+        "<tr><td>0x%02X</td><td>%d</td><td>%s</td><td>%s</td></tr>";
+
+    strcpy(cLine, "");
+    strcpy(Buffer, "");
+    for (i=0; i<BGN_CHANNEL_MAX; i++) {
+        if (pCtrl->DATA[i].iCounter < 1) {
+            // it was never touched
+        } else {
+            snprintf(cLine, sizeof(cLine), cDevRow, i, pCtrl->DATA[i].iCounter, pCtrl->pCHNDT[i].cLabel, "tbd");
+            strcat(Buffer, cLine);
+        }
+    }
+    return(Buffer);
+}
+static char* html_channel_end(char *Buffer) {
+    const char *cDevTop =
+        "</table>";
+    strcpy(Buffer, cDevTop);
+    return(Buffer);
+}
+
+static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
+{
+    char htmlbuffer[8192], workbuffer[2048];
+    strcpy(htmlbuffer, ""); // initialize the empty buffer
+
+    strcat(htmlbuffer, html_head(workbuffer, sizeof(workbuffer)));
+    strcat(htmlbuffer, html_title(workbuffer, sizeof(workbuffer)));
+
+    strcat(htmlbuffer, html_help(workbuffer, sizeof(workbuffer), pCtrl->pCfg->web_port));
+
+    strcat(htmlbuffer, html_device_top(workbuffer));
+    strcat(htmlbuffer, html_device_row(workbuffer, sizeof(workbuffer), pCtrl));
+    strcat(htmlbuffer, html_device_end(workbuffer));
+
+    strcat(htmlbuffer, html_command_top(workbuffer));
+    strcat(htmlbuffer, html_command_row(workbuffer, sizeof(workbuffer), pCtrl));
+    strcat(htmlbuffer, html_command_end(workbuffer));
+
+    strcat(htmlbuffer, html_channel_top(workbuffer));
+    strcat(htmlbuffer, html_channel_row(workbuffer, sizeof(workbuffer), pCtrl));
+    strcat(htmlbuffer, html_channel_end(workbuffer));
+
+    strcat(htmlbuffer, html_tail(workbuffer, sizeof(workbuffer)));
+
     send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
+    log_info("Webserver: pagesize %d bytes", strlen(htmlbuffer));
 }
 
 void *webserver_thread(void *arg)
@@ -363,7 +506,7 @@ void *webserver_thread(void *arg)
 
         char method[8], path[256];
         if (sscanf(req, "%7s %255s", method, path) != 2) {
-            handle_root_html(client_fd, cfg);
+            handle_root_html(client_fd, pCtrl);
             close(client_fd);
             continue;
         }
@@ -382,14 +525,14 @@ void *webserver_thread(void *arg)
                 send(client_fd, err, strlen(err), 0);
             }
         } else {
-            handle_root_html(client_fd, cfg);
+            handle_root_html(client_fd, pCtrl);
         }
         usleep(MSEC1);
         close(client_fd);
     }
 
     close(server_fd);
-    log_info("Webserver thread exiting");
+    log_info("Webserver: thread exiting");
     return NULL;
 }
 

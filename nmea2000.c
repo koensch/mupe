@@ -247,6 +247,6 @@ void *nmea2000_thread(void *arg)
         usleep(MSEC1);
     }
     close(s);
-    log_info("NMEA2000 thread exiting");
+    log_info("NMEA2000: thread exiting");
     return NULL;
 }

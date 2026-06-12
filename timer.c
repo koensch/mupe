@@ -117,6 +117,6 @@ void *timer_thread(void *arg)
         // no racing allowed
         usleep(cfg->timer_interval_ms * MSEC1);
     }
-    log_info("Timer thread exiting");
+    log_info("Timer: thread exiting");
     return NULL;
 }
