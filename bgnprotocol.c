@@ -82,6 +82,10 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         // stage 1 - initialize device listVA
         pCtrl->iNewDevice = 0; // no new data available
         for (i=0; i<BGNET_DEVICE_MAX; i++) {
+            // error counters Checksum
+            pCtrl->DEV[i].iCSError_Header = 0;
+            pCtrl->DEV[i].iCSError_Frame = 0;
+            // packet counters & timestamps
             pCtrl->DEV[i].iCounterRx = 0;
             pCtrl->DEV[i].iCounterTx = 0;
             pCtrl->DEV[i].tTimestamp = t;
@@ -571,7 +575,7 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
         if (g_serial_mode == BGN_SERIAL_MODE_RW) {
             // leave output data
         } else {
-            r = 0;
+            r = 0; // destroy what we have in the buffer
         }
 
         // / stage 4 - reset new data flag
@@ -586,168 +590,75 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
     return(r);
 };
 
-// value length for DATA element (command 1 & 3)
-int value_length_DATA(BGNET_CTRL* pCtrl, unsigned char CNR, unsigned char FMT) {
-    int l;
-    l = pCtrl->pFMTDT[(FMT & BGN_FMT_MASK_DT)].iLen;
-    if (l > 0) {
-        // should be OK
-    } else {
-        log_error("Channel 0x%02X, FMT= 0x%02X Undefined: %d", CNR, FMT, l);
-        l = 4; // most are 4 bytes (it's just a wild guess, -1 or 0 is even worse)
-    }
-    return(l);
-}
-
 // the FMT byte in the value header has some packed information
-void fmt_decode(unsigned int buf, unsigned int *divisor, unsigned int *size, unsigned int *fmt) {
-    *divisor=(buf>>6&0x03);
-    *size=(buf>>4&0x03);
-    *fmt=(buf&0x0F);
+void fmt_decode(unsigned int buf, unsigned int *divisor, unsigned int *pad, unsigned int *fmt) {
+    *divisor=((buf & BGN_FMT_MASK_DIVPAD_DIV) >> 6);
+    *pad=((buf & BGN_FMT_MASK_DIVPAD_PAD) >> 4);
+    *fmt=(buf & BGN_FMT_MASK_DT);
 }
-void fmt_encode(unsigned int *buf, unsigned int div, unsigned int size, unsigned int fmt) {
-    *buf = ((div&0x03)<<6)|((size&0x03)<<4)|(fmt&0x0F);
-}
-// return the format specifier as a string
-char *fmt_string(unsigned char buf) {
-    static char *fmtid[]={"xxxx."," xxx.","  xx.","   x.","xxx.x"," xx.x","  x.x","   .x"," xx.xx","  x.xx","  .xx","  .0x","x.xxx"," x.xx","  .xx","  .00x"};
-    return(fmtid[buf>>4&0x0F]);
-}
-// we do not wat to han        #define BGN_CNR_BA_UNKNOWN          0xBAdle our value as float, but as a integer with a divisor
-//char *strDecimals(unsigned char* pStr, int iV, int iS, int iD) {
-//    //convert value (2 bytes, -32766/+32767) to ascii string for display purposes
-//    sprintf(pStr,"%06d", iV);
-//    return(pStr);
-//}
+void fmt_encode(unsigned int *buf, unsigned int div, unsigned int pad, unsigned int fmt) {
+    *buf = ((div << 6) & BGN_FMT_MASK_DIVPAD_DIV) | ((pad << 4) & BGN_FMT_MASK_DIVPAD_PAD) | (fmt & BGN_FMT_MASK_DT);
+} 
 
-
-// copy substring in cSource at pos to cTarget for len characters
-char* substring(char* pTarget, char* pSource, int pos, int len) {
-    memcpy(pTarget, pSource+pos, len);
-    *(pTarget+len) = '\0';
-    return(pTarget);
+int ChannelByteLength(BGNET_CTRL* pCtrl, unsigned char ucFMT) {
+    int r;
+    r = pCtrl->pFMTDT[(ucFMT & BGN_FMT_MASK_DT)].iLen;
+    if (r > 0) {
+        // this is OK
+    } else {
+        r = 4; // just a guess
+    }
+    return(r);
 }
 
-// insert a.ucSTATE 'divisor' (".") in the string. Realize that we could have a case where "0" should
-// be represented as "0.000"
-// our tactic:
-// - we use "00000" and append our value string
-// - we use a table/index to insert a '.' on the right place
-// - we use a table/index to pick the starting point in the string
-// - we use a table/index to pick the number of characters from the string 
-char* insertDivisor(char* strC, char* string, unsigned char ucFMT) {
-    // bit 7,6 = divisor (0=1, 1=10, 2=100, 3=1000)
-    // bit 5,4 = size/characters (0=1, 1=2, 2=3, 3=4)
-    // we do not want to do arithemetic because of rounding errors, so we do "charachter shifting"
-
-    // we shift it right and get an index 0-F we can use to lookup the maniplation
-    // this is how it is supposed to look for each of the possible values/format:
-    //      "x.","xx.","xxx.","xxxx.","0.x","x.x","xx.x","xxx.x","0.0x","0.xx","x.xx","xx.xx","0.00x","0.0xx","0.xxx","x.xxx"};
-    // - we append our value-string "1", "12", "123" or "1234" to "0.0000", resulting in:
-    //          "0.0000x",     "0.0000xx",     "0.0000xxx"   or   "0.0000xxxx" (depending on the string length, 1-4 positions)
-    // - we append "0000", so we get someting like:
-    //          "0.0000x0000", "0.0000xx0000", "0.0000xxx0000" or "00000x.xxx0000"
-    // we move the decimal point into position (shift-right, 0=do not shift)
-    //                    div=0       l+0        l+0         l+0            l+0
-    //                    div=1       l+3        l+3         l+3            l+3
-    //                    div=2       l+2        l+2         l+2            l+2
-    //                    div=3       l+1        l+1         l+1            l+1
-    // we take the substring (start/length):
-    //                    div=0       7/l+0      7/l+0       7/l+0          7/l+0        
-    //                    div=1       5/l+2      6/l+1       6/l+1          6/l+1
-    //                    div=2       4/l+4      5/l+4       6/l+1          6/l+1
-    //                    div=3       3/l+4      4/l+3       5/l+2          6/l+1                   
-    //                           
-    // realise that the string passed (containing the value) does not have the same
-    // length as the 'size' specification in the FMT byte.
-
-    unsigned char shift[16] = {0,0,0,0, 3,3,3,3, 2,2,2,2, 1,1,1,1};
-    unsigned char start[16] = {7,7,7,7, 5,6,6,6, 4,5,6,6, 3,4,5,6};
-    unsigned char size [16] = {0,0,0,0, 2,1,1,1, 4,4,1,1, 4,3,2,1};
-    int i,x;
-    // mask the high nibble (divisor & padding), shift it right, range 0x00-0x0F
-    int n = (ucFMT & BGN_FMT_MASK_DIVPAD)>>4;
-    int l = strlen(string);
-    char cWork[255], cTmp;
-    strcpy(cWork, "0.0000"); // fill it with leading zero's
-    strcat(cWork, string); // append our value-string
-    strcat(cWork, "0000"); // append traling zero's
-    x = shift[n];
-    //log_debug("sValue %s (len=%d, index=%d) -> step 1 = %s, shift= %d", string, l, n, cWork, x);
-    if (x > 0) {
-        // move dec, size_timal point to the right, only when non-zero
-        // decimal point is at 1, shift it right
-        for (i=0; i<x+l; i++) {
-            cTmp = cWork[i+1]; // save it
-            cWork[i+1] = cWork[i+2]; // move it right
-            cWork[i+2] = cTmp; // put back saved character
+// returns the length of the channel value bytes and generates the text representation of the channel value
+char* decode_value(char* pStr, union CH* puCH) {
+    int iValue, iValid;
+    double fValue;
+    unsigned int d, p, f;
+    double fDiv[4] = {1.0,10.0,100.0,1000.0};
+    // switch according to DataType
+    switch(puCH->s.FMT & BGN_FMT_MASK_DT) {
+        case BGN_FMT_01: // signed 16bit register (-128 to +128)
+            iValue = (int16_t)ntohs(puCH->s.v.sW[0]);
+            iValid = 1;
+            break;
+        case BGN_FMT_02: // unsigned 32bit register (0xCD, storedlog)
+            iValue = ntohl(puCH->s.v.uL[0]);
+            iValid = 1;
+            break;
+        case BGN_FMT_03: // 3 bytes timer value (0x75, timer)
+            sprintf(pStr,"%02d:%02d:%02d", puCH->s.v.uB[0], puCH->s.v.uB[1], puCH->s.v.uB[2]);
+            iValid = 2;
+            break;
+        case BGN_FMT_04: // 3 bytes ASCII
+            pStr[0] = puCH->s.v.uB[1];
+            pStr[1] = puCH->s.v.uB[2];
+            pStr[2] = puCH->s.v.uB[3];
+            pStr[3] = '\0';
+            iValid = 2;
+            break;
+        case BGN_FMT_08: // unsigned 16bit register
+            iValue = ntohs(puCH->s.v.uW[0]);
+            iValid = 1;
+            break;
+        default:
+            pStr[0] = '?';
+            pStr[1] = '?';
+            pStr[2] = '?';
+            pStr[3] = '\0';
+            iValid = 0;
+    }
+    // iValid: 0 = not recognised, 1= numeric (scaled with divisor), 2=bytes/ascii/time
+    if (iValid == 1) {
+        fmt_decode(puCH->s.FMT, &d, &p, &f);
+        if (d > 0) {
+            fValue = ((double)iValue)/fDiv[d];
+            sprintf(pStr,"%.1f", fValue);
+        } else {
+            sprintf(pStr,"%d", iValue);
         }
     }
-    substring(strC, cWork, start[n], l+size[n]);
-    //log_debug("right-shift %s, substring %s, n= %d, start= %d, size= %d", cWork, strC, n, start[n], size[n]);
-    return(strC);
-}
-
-// convert the channel data to ASCII for display purposes
-char *decode_value(char* pStr, unsigned char* pBuf) {
-    //unsigned int d, s, f;
-    char sWork[256];
-    union ValueUnion {
-        uint16_t ui16;
-        int32_t i32;
-        int i;
-        unsigned char c[8];
-    } VU;
-    // mask the low nibble (conversion factor, bits 3-0)
-    switch (pBuf[BGN_VALUE_FMT] & BGN_FMT_MASK_DT) {
-        case 0x00://used for CMD=3/ASCII (LATLON position information) 
-            sprintf(pStr, "untested");
-            break;
-        case 0x05: //time 0-99, untested
-        case 0x06: //raw LCD segments
-        case 0x07:
-            sprintf(pStr, "untested");
-            break;
-        case 0x0A: //signed integer (32bits, 4 bytes), untested
-            VU.i = (pBuf[5]|(pBuf[4]<<8)|(pBuf[3]<<16)|(pBuf[2]<<24));
-            if (VU.i > INT_MAX) {
-                VU.i = VU.i-UINT_MAX-1;
-            }
-            sprintf(pStr, "%d", VU.i);
-            break;
-        case 0x02: //4 bytes, data 3x numerical
-            VU.i = pBuf[5]+(pBuf[4]*0xFF)+(pBuf[3]*0xFFFF)+(pBuf[2]*0xFFFFFF);
-            sprintf(pStr,"%d",VU.i);
-            break;
-        case 0x03: //timer value (5 bytes), tested
-            sprintf(pStr,"%02d:%02d:%02d", pBuf[2], pBuf[3], pBuf[4]); // includes the null-terminator    
-            break;
-        case 0x04: //1 spare byte (any value) + 3 ASCII characters, tested
-            pStr[0] = pBuf[3];
-            pStr[1] = pBuf[4];
-            pStr[2] = pBuf[5];
-            pStr[3] = 0x00; // string terminator
-            break;
-        case 0x01: //signed integer (-9999/+9999), used for rudderangle (-45/+45), windangle (-180/+180)
-        case 0x08: //unsigned integer (0-511), used for speed (0-nn.nn), course (0-360)
-            VU.i = (pBuf[3]|(pBuf[2]<<8));
-            if (VU.i > SHRT_MAX) {
-                VU.i = VU.i-USHRT_MAX-1;
-            }
-            sprintf(pStr, "%d", VU.i);
-            break;
-        default: // 09, 0B, 0C, 0D and 0F are undefined
-            sprintf(pStr, "??????");
-            break;
-    }
-    //switch (d) {
-    //    case 0: // no decimals, leave like it is
-    //        break;
-    //    default:
-            insertDivisor(sWork, pStr, pBuf[BGN_VALUE_FMT]);
-            strcpy(pStr, sWork); // return it
-    //        break;
-    //}
     return(pStr);
 }
 
@@ -796,26 +707,23 @@ void CounterTxUpDEV(BGN_DEVICE *pDEV, time_t t) {
 // routine to process values in the body. A body might contain multiple values
 int process_CMD_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     int y,z;
-    //unsigned int d,s,f;
     unsigned char *pBuf,*pEnd;
     unsigned char ucCH, ucFMT;
     time_t t;
 
     pBuf = buffer+BGNET_FRAME_HEAD;
     pEnd = buffer+BGNET_FRAME_HEAD + buffer[BGNET_FRAME_HEAD_SIZE];
-    z=0;
+    z = 0;
     time(&t);
     // scan through frame/subframe
     while (pBuf < pEnd) {
-        ucCH = *(pBuf+BGN_VALUE_CNR);
-        ucFMT = *(pBuf+BGN_VALUE_FMT);
-        y = value_length_DATA(pCtrl, ucCH, ucFMT); // includes protection against unknown types
-        //fmt_decode(ucFMT, &d, &s, &f);
-
+        ucCH = *(pBuf + BGN_VALUE_CNR);
+        ucFMT = *(pBuf + BGN_VALUE_FMT);
         // update CHANNEL structure
         pCtrl->DATA[ucCH].ucFROM = *(buffer + BGNET_FRAME_HEAD_FROM); // originator of the frame is sender of all channels within
         pCtrl->DATA[ucCH].iNewChannel = 1; // signal this channel as new/changed
-        decode_value(pCtrl->DATA[ucCH].cValue, pBuf + BGN_VALUE_CNR); // decode the value for this channel
+        y = ChannelByteLength(pCtrl, ucFMT);
+        decode_value(pCtrl->DATA[ucCH].cValue, (union CH*)(pBuf + BGN_VALUE_CNR)); // decode the value for this channel
         memcpy(pCtrl->DATA[ucCH].ucRAW, pBuf + BGN_VALUE_CNR, y); // copy y bytes from channel number
 
         CounterUpDATA(&pCtrl->DATA[ucCH], t);
@@ -886,6 +794,7 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
     // process multiple subframes in our buffer
     while (pBuf < pEnd) {
         // the header is fixed size
+        ucFROM = pBuf[BGNET_FRAME_HEAD_FROM];
         cs = calculate_checksum(pBuf, BGNET_FRAME_CR_HEAD, BGNET_FRAME_HEAD_TO, BGNET_FRAME_HEAD-1); // calculate the checksum over the header (without the CR)
 #ifdef FRAME_DEBUG
         log_debug("  Header Checksum: %02X (seed),%02X (received),%02X (calculated)", BGNET_FRAME_CR_HEAD, *(pBuf+BGNET_FRAME_HEAD_CS), cs);
@@ -903,14 +812,12 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                 xSize = pEnd - pBuf; // dump the remainder of the frame; it's a readback of my own transmission
 
                 // update DEVICE structure (statistics)
-                ucFROM = pBuf[BGNET_FRAME_HEAD_FROM];
                 CounterTxUpDEV(&pCtrl->DEV[ucFROM], t);
 
             } else {
                 // The HEADER is OK, process it. Note that some CMD's do not have a body and in such case, we should skip the body & CS part.
 
                 // update DEVICE structure (statistics)
-                ucFROM = pBuf[BGNET_FRAME_HEAD_FROM];
                 CounterRxUpDEV(&pCtrl->DEV[ucFROM], t);
 
                 // get the device type, device index and timestamp (we might need them)
@@ -1043,13 +950,15 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                     } else {
                         // CS is bad (only skip this sub-frame, the length is known)
                         log_info("    Frame Checksum BAD, framesize: %d", xSize);
+                        pCtrl->DEV[ucFROM].iCSError_Frame++;
                     }
                 }
             }
         } else {
             // header CS invalid, we can not process this subframe, we can not establish a subframe length unambigiously, so we dump the receive buffer
-            break;
+            pCtrl->DEV[ucFROM].iCSError_Header++;
             log_error("  Header Checksum ERR, dumping RX frame");
+            break;
         }
         pBuf=pBuf+xSize;
         z=z+1;

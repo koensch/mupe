@@ -423,6 +423,20 @@ union CH {
 };
 #pragma pack()
 
+// divisor may be used to scale the value to more digits
+#define BGN_FMT_01      0x01        // 16 bit signed register, is used for a value that falls in range -255/+255 (rudder posiotion, wind angle)
+#define BGN_FMT_81      0x81        // for something that can also be negative 
+
+#define BGN_FMT_03      0x03        // Timer value (5 bytes), last 3 bytes are HH:MM:SS
+
+#define BGN_FMT_02      0x02
+#define BGN_FMT_42      0x42        // stored log (5 bytes), last 3 bytes are a 24bit long register
+
+#define BGN_FMT_04      0x04        // 6 bytes; last 3 bytes are ASCII, like " T ", " F ", "OFF", "ON " or "---"
+
+#define BGN_FMT_08      0x08        // is used for a positive value 0-999, optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
+#define BGN_FMT_48      0x48
+
 // FMT Definition Table
 typedef struct {
     int iLen;
@@ -457,6 +471,8 @@ typedef struct {
 
 // register device statistics
 typedef struct {
+    int iCSError_Header;
+    int iCSError_Frame;
     int iCounterRx;
     int iCounterTx;
     time_t tTimestamp;
@@ -526,6 +542,6 @@ size_t bgn_net_process(BGNET_CTRL*, unsigned char*);
 void bgn_net_initialize_reset(BGNET_CTRL*);
 void bgn_net_initialize(BGNET_CTRL*);
 int bgn_FindDeviceIndex(BGNET_CTRL*, unsigned char);
-int value_length_DATA(BGNET_CTRL*, unsigned char, unsigned char);
+int ChannelByteLength(BGNET_CTRL*, unsigned char);
 
 #endif

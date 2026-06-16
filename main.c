@@ -28,7 +28,7 @@ void handle_sigint(int sig) {
 // please consider this as 'constant'; do not write into this structure.
 // Use is as some kind of bookkeeping table. We only 'enable' the devices we have tested.
 // if we do a lookup and there is no match, we return 0 and pick the first one (the ACP)
-const BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
+BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 // ProdName     Model       ModelNr       SerialNr       Version Enable DeviceType
 {"??????",      "??????",   "??????",     "??????",      "????", 0,     0xFF},\
 {"NET ACP",     "NET-ACP",  "360-00-002", "NP1CB15613",  "0000", 0,     BGNET_FRAME_FROM_NETACP},\
@@ -49,20 +49,6 @@ const BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 {"NET VHF",     "NET-VHF",  "613-10-003", "",            "0000", 0,     BGNET_FRAME_FROM_NETACP}};
 
 
-// divisor may be used to scale the value to more digits
-#define BGN_FMT_01      0x01        // 16 bit signed register, is used for a value that falls in range -255/+255 (rudder posiotion, wind angle)
-#define BGN_FMT_81      0x81        // for something that can also be negative 
-
-#define BGN_FMT_03      0x03        // Timer value (5 bytes), last 3 bytes are HH:MM:SS
-
-#define BGN_FMT_42      0x42        // stored log (5 bytes), last 3 bytes are a 24bit long register
-
-#define BGN_FMT_04      0x04        // 6 bytes; last 3 bytes are ASCII, like " T ", " F ", "OFF", "ON " or "---"
-
-#define BGN_FMT_08      0x08        // is used for a positive value 0-999, optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
-#define BGN_FMT_48      0x48
-
-
 
 // allow import/export definitions for NMEA & Signal K. import or export is exclusive. When you import from one, you can not
 // export to the other You can't have it both ways.
@@ -81,7 +67,7 @@ const BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 // i would prefer this to do in some kind of ini-file, but that might be done later
 // i know it's kind of redundant to van de channel number in this table (it's also the index),
 // but this table gives me a quick x-ref when i'm reverse-engineering the protocol.
-const BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
+BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 00",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 01",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 02",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
@@ -341,7 +327,7 @@ const BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
 };
 
 // for every DataType (0-15) we check the validity (>0) and the number of bytes used in the frame
-const BGNET_FMTDT FMTDT[16] = { {-1, ""}, \
+BGNET_FMTDT FMTDT[16] = { {-1, ""}, \
                                 { 4, "2 bytes, signed 16bit register"}, \
                                 { 6, "4 bytes, unsigned 32bit register (used by STOREDLOG)"}, \
                                 { 5, "3 bytes, timer value (HH,MM,SS, displayed as 'H:MM:SS')"}, \

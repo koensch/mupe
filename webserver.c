@@ -299,11 +299,40 @@ static char* html_help(char *Buffer, size_t MaxBuf, int iPort) {
     return(Buffer);
 }
 
-static char* html_device_top(char *Buffer) {
+static char* html_interface_top(char *Buffer) {
     const char *cDevTop =
         "<h2>B&G Network Statistics</h2>"
+        "<h3>Serial Interface</h3>"
+        "<table><tr><th>Interface</th><th>Communication Parameters</th><th>Service</th></tr>";
+    strcpy(Buffer, cDevTop);
+    return(Buffer);
+}
+static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
+    char cLine[256];
+    const char *cInfRow =
+        "<tr><td>%s</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td></tr>";
+    snprintf(cLine, sizeof(cLine), cInfRow,
+                                            pCtrl->pCfg->serial_port,
+                                            pCtrl->pCfg->baudrate,
+                                            pCtrl->pCfg->parity,
+                                            pCtrl->pCfg->databits,
+                                            pCtrl->pCfg->stopbits,
+                                            pCtrl->pCfg->mode
+                                        );
+    strcpy(Buffer, cLine);
+    return(Buffer);
+}
+static char* html_interface_end(char *Buffer) {
+    const char *cInfEnd =
+        "</table>";
+    strcpy(Buffer, cInfEnd);
+    return(Buffer);
+}
+
+static char* html_device_top(char *Buffer) {
+    const char *cDevTop =
         "<h3>Devices</h3>"
-        "<table><tr><th>Address</th><th>Rx Counter</th><th>Tx Counter</th><th>DeviceType</th></tr>";
+        "<table><tr><th>Address</th><th>Rx Counter</th><th>Tx Counter</th><th>CS Errors Head</th><th>CS Errors Frame</th><th>DeviceType</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -311,7 +340,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     char cLine[256];
     const char *cDevRow =
-        "<tr><td>0x%02X</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+        "<tr><td>0x%02X</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -319,16 +348,23 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
         if ((pCtrl->DEV[i].iCounterRx < 1) & (pCtrl->DEV[i].iCounterTx < 1)) {
             // it was never touched
         } else {
-            snprintf(cLine, sizeof(cLine), cDevRow, i, pCtrl->DEV[i].iCounterRx, pCtrl->DEV[i].iCounterTx, pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName);
+            snprintf(cLine, sizeof(cLine), cDevRow,
+                                                     i,
+                                                     pCtrl->DEV[i].iCounterRx,
+                                                     pCtrl->DEV[i].iCounterTx,
+                                                     pCtrl->DEV[i].iCSError_Header, 
+                                                     pCtrl->DEV[i].iCSError_Frame,
+                                                     pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName
+                                                    );
             strcat(Buffer, cLine);
         }
     }
     return(Buffer);
 }
 static char* html_device_end(char *Buffer) {
-    const char *cDevTop =
+    const char *cDevEnd =
         "</table>";
-    strcpy(Buffer, cDevTop);
+    strcpy(Buffer, cDevEnd);
     return(Buffer);
 }
 
@@ -383,7 +419,8 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
         if (pCtrl->DATA[i].iCounter < 1) {
             // it was never touched
         } else {
-            y = value_length_DATA(pCtrl, pCtrl->DATA[i].ucRAW[0], pCtrl->DATA[i].ucRAW[1]);
+            //y = value_length_DATA(pCtrl, pCtrl->DATA[i].ucRAW[0], pCtrl->DATA[i].ucRAW[1]);
+            y = ChannelByteLength(pCtrl, pCtrl->DATA[i].ucRAW[BGN_VALUE_FMT]);
             byte2ascii(asciibuf, sizeof(asciibuf), pCtrl->DATA[i].ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine, sizeof(cLine), cDevRow, i, 
                                                     pCtrl->DATA[i].iCounter,
@@ -412,6 +449,10 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_title(workbuffer, sizeof(workbuffer)));
 
     strcat(htmlbuffer, html_help(workbuffer, sizeof(workbuffer), pCtrl->pCfg->web_port));
+
+    strcat(htmlbuffer, html_interface_top(workbuffer));
+    strcat(htmlbuffer, html_interface_row(workbuffer, pCtrl));
+    strcat(htmlbuffer, html_interface_end(workbuffer));
 
     strcat(htmlbuffer, html_device_top(workbuffer));
     strcat(htmlbuffer, html_device_row(workbuffer, pCtrl));
