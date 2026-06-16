@@ -70,7 +70,9 @@
 // - On the bus the RX and TX are joined. The software must block RX data that was send by yourself. The
 //   advantage is that you do not have to worry aboud cross-over between Tx and Rx. It does not matter if
 //   you have a DTE or DCE adapter (male or female).
-// - Command 01 = used to communicated DATA (values from instruments)
+// - Command 01 = used to communicated DATA (values from instruments). Data is send as "Channel". The length of the channel (number of bytes)
+//   depends on the DataType. The same channel could me send as different DataTypes. If that DataType has another length, sometimes the channels
+//   may have different length in one case or another.
 // - Command 02 = is used by some (QUAD, WIND) to advertise their values (with their used memnonic/units)
 // - Command 03 = used to communicate DATA (lat/lon in ASCII, by NAV module), could not be tested
 // - Command 06 = is used by some (DATA, possibly others) to subscribe to other devices (QUAD, PILOT, WIND)
@@ -225,10 +227,10 @@
                                         // MSB, bits 7,6 divisor (0=1, 1=10, 2=100, 3=1000)
                                         //      bits 5,4 size/pad (xxxx, xxx, xx, x)
                                         // LSB  bits 3,2,1,0 formatting specifier, see decode_value()
-    #define BGN_FMT_MASK_DIVPAD      0xF0    // bits 7,6,5,4 divisor & padding BGN_FMT_
-    #define BGN_FMT_MASK_DIVPAD_DIV  0xC0    // bits 7,6
-    #define BGN_FMT_MASK_DIVPAD_PAD  0x30    // bits 5,4
-    #define BGN_FMT_MASK_CON         0x0F    // bits 3,2,1,0 data conversion
+    #define BGN_FMT_MASK_DIVPAD      0xF0    // bits 7,6,5,4  - Divisor & Padding
+    #define BGN_FMT_MASK_DIVPAD_DIV  0xC0    // bits 7,6      - Divisor
+    #define BGN_FMT_MASK_DIVPAD_PAD  0x30    // bits 5,4      - Padding
+    #define BGN_FMT_MASK_DT          0x0F    // bits 3,2,1,0  - DataType
 
 #define BGN_VALUE_DATA              2   // position where DATA starts (multiple bytes, formatted as per FMT byte, variable length depending on CNR/FMT)
 
@@ -421,6 +423,12 @@ union CH {
 };
 #pragma pack()
 
+// FMT Definition Table
+typedef struct {
+    int iLen;
+    char cLabel[64];
+} BGNET_FMTDT;
+
 // 16 NETWORK devices exist, the first one (index=0) is used for devices we are unable to identify
 #define BGNET_TYPE_MAX            17
 // Device Definition Table
@@ -449,7 +457,8 @@ typedef struct {
 
 // register device statistics
 typedef struct {
-    int iCounter;
+    int iCounterRx;
+    int iCounterTx;
     time_t tTimestamp;
     time_t tCounterReset;
 } BGN_DEVICE;
@@ -466,9 +475,10 @@ typedef struct {
 } BGN_COMMAND;
 
 typedef struct {
-    int iRawBytes; // number of raw bytes in message
+    unsigned char ucFROM; // the station that transmitted the channel 
+    // we store the raw byte sequence for this channel. From the FMT character, you can derive the length of the channel sequence
     unsigned char ucRAW[16]; // raw data (for diagnostic purposes)
-
+    // we store the channel value in ASCII for display purposes
     char cValue[16]; // ascii formatted value string (for display purposes)
     int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
     int iNewChannel; // some new channel data was received
@@ -499,7 +509,8 @@ typedef struct {
 
     // pointers for control structures. Do not write into
     BGNET_DEVDT* pDEVDT; // device definitions
-    BGNET_CHNDT* pCHNDT; // channel definition
+    BGNET_CHNDT* pCHNDT; // channel definitions
+    BGNET_FMTDT* pFMTDT; // format definitions
     Config* pCfg;    // config structure
 
     int iNewDevice; // some new was received
@@ -515,5 +526,6 @@ size_t bgn_net_process(BGNET_CTRL*, unsigned char*);
 void bgn_net_initialize_reset(BGNET_CTRL*);
 void bgn_net_initialize(BGNET_CTRL*);
 int bgn_FindDeviceIndex(BGNET_CTRL*, unsigned char);
+int value_length_DATA(BGNET_CTRL*, unsigned char, unsigned char);
 
 #endif

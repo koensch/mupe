@@ -257,13 +257,13 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
         "<html>\r\n"
-        "<head><style>h3 {margin-left: 40px;}\r\ntable {border-collapse: collapse; width: 80%; margin: 20px auto;}\r\nth, td {border:1px solid \#ccc; padding: 10px; text-align: left;}</style><title>%s</title></head>\r\n"
+        "<head><style>h3 {margin-left: 40px;}\r\ntable {border-collapse: collapse; width: 80%; margin: 20px auto;}\r\nth, td {border:1px solid #ccc; padding: 10px; text-align: left;}</style><title>%s</title></head>\r\n"
         "<body>\r\n";
     snprintf(Buffer, MaxBuf, cHead, ApplicationName);
     return(Buffer);
 }
 
-static char* html_tail(char *Buffer, size_t MaxBuf) {
+static char* html_tail(char *Buffer) {
     const char *cTail =
         "<h2>End of Report</h2></body></html>\r\n";
     strcpy(Buffer, cTail);
@@ -303,23 +303,23 @@ static char* html_device_top(char *Buffer) {
     const char *cDevTop =
         "<h2>B&G Network Statistics</h2>"
         "<h3>Devices</h3>"
-        "<table><tr><th>Address</th><th>Counter</th><th>DeviceType</th></tr>";
+        "<table><tr><th>Address</th><th>Rx Counter</th><th>Tx Counter</th><th>DeviceType</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
-static char* html_device_row(char *Buffer, size_t MaxBuf, BGNET_CTRL *pCtrl) {
+static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     char cLine[256];
     const char *cDevRow =
-        "<tr><td>0x%02X</td><td>%d</td><td>%s</td></tr>";
+        "<tr><td>0x%02X</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
     for (i=0; i<BGNET_DEVICE_MAX; i++) {
-        if (pCtrl->DEV[i].iCounter < 1) {
+        if ((pCtrl->DEV[i].iCounterRx < 1) & (pCtrl->DEV[i].iCounterTx < 1)) {
             // it was never touched
         } else {
-            snprintf(cLine, sizeof(cLine), cDevRow, i, pCtrl->DEV[i].iCounter, pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName);
+            snprintf(cLine, sizeof(cLine), cDevRow, i, pCtrl->DEV[i].iCounterRx, pCtrl->DEV[i].iCounterTx, pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName);
             strcat(Buffer, cLine);
         }
     }
@@ -339,7 +339,7 @@ static char* html_command_top(char *Buffer) {
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
-static char* html_command_row(char *Buffer, size_t MaxBuf, BGNET_CTRL *pCtrl) {
+static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     char cLine[256];
     const char *cDevRow =
@@ -367,15 +367,15 @@ static char* html_command_end(char *Buffer) {
 static char* html_channel_top(char *Buffer) {
     const char *cDevTop =
         "<h3>Channels</h3>"
-        "<table><tr><th>Channel</th><th>Counter</th><th>Label</th><th>Last Reading</th></tr>";
+        "<table><tr><th>Channel</th><th>Counter</th><th>Label</th><th>From</th><th>Raw</th><th>Display</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
-static char* html_channel_row(char *Buffer, size_t MaxBuf, BGNET_CTRL *pCtrl) {
-    int i;
-    char cLine[256];
+static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
+    int i,y;
+    char cLine[1024], asciibuf[256];
     const char *cDevRow =
-        "<tr><td>0x%02X</td><td>%d</td><td>%s</td><td>%s</td></tr>";
+        "<tr><td>0x%02X</td><td>%d</td><td>%s</td><td>0x%02X</td><td>%s</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -383,8 +383,15 @@ static char* html_channel_row(char *Buffer, size_t MaxBuf, BGNET_CTRL *pCtrl) {
         if (pCtrl->DATA[i].iCounter < 1) {
             // it was never touched
         } else {
-            snprintf(cLine, sizeof(cLine), cDevRow, i, pCtrl->DATA[i].iCounter, pCtrl->pCHNDT[i].cLabel, "tbd");
-            strcat(Buffer, cLine);
+            y = value_length_DATA(pCtrl, pCtrl->DATA[i].ucRAW[0], pCtrl->DATA[i].ucRAW[1]);
+            byte2ascii(asciibuf, sizeof(asciibuf), pCtrl->DATA[i].ucRAW, y, BYTE2ASCII_SPACED);
+            snprintf(cLine, sizeof(cLine), cDevRow, i, 
+                                                    pCtrl->DATA[i].iCounter,
+                                                    pCtrl->pCHNDT[i].cLabel,
+                                                    pCtrl->DATA[i].ucFROM,
+                                                    asciibuf,
+                                                    pCtrl->DATA[i].cValue);
+            strcat(Buffer, cLine);  // warning: this could overflow the buffer
         }
     }
     return(Buffer);
@@ -398,7 +405,7 @@ static char* html_channel_end(char *Buffer) {
 
 static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
 {
-    char htmlbuffer[8192], workbuffer[2048];
+    char htmlbuffer[8192], workbuffer[4096];
     strcpy(htmlbuffer, ""); // initialize the empty buffer
 
     strcat(htmlbuffer, html_head(workbuffer, sizeof(workbuffer)));
@@ -407,20 +414,21 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_help(workbuffer, sizeof(workbuffer), pCtrl->pCfg->web_port));
 
     strcat(htmlbuffer, html_device_top(workbuffer));
-    strcat(htmlbuffer, html_device_row(workbuffer, sizeof(workbuffer), pCtrl));
+    strcat(htmlbuffer, html_device_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_device_end(workbuffer));
 
     strcat(htmlbuffer, html_command_top(workbuffer));
-    strcat(htmlbuffer, html_command_row(workbuffer, sizeof(workbuffer), pCtrl));
+    strcat(htmlbuffer, html_command_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_command_end(workbuffer));
 
     strcat(htmlbuffer, html_channel_top(workbuffer));
-    strcat(htmlbuffer, html_channel_row(workbuffer, sizeof(workbuffer), pCtrl));
+    strcat(htmlbuffer, html_channel_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_channel_end(workbuffer));
 
-    strcat(htmlbuffer, html_tail(workbuffer, sizeof(workbuffer)));
+    strcat(htmlbuffer, html_tail(workbuffer));
 
     send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
+    // check in the logfiles how much buffer space is used/left.
     log_info("Webserver: pagesize %d bytes", strlen(htmlbuffer));
 }
 
