@@ -58,15 +58,19 @@ BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 
 // this lookup table allows us:
 // - to lookup the channel label
-// - to obtain the format specifier (when making a output message)
+// - to obtain the format specifier (when making a output message, see note below)
 // - to obtain the length of the channel-string
 // - enable/disable items for import or export
 // - import/export data to/from NMEA of Signal K interface
 // - get the NMEA PGN for import/export (if NMEA2000 enabled)
 // - SignalK reference key(if SignalK enabled)
-// i would prefer this to do in some kind of ini-file, but that might be done later
-// i know it's kind of redundant to van de channel number in this table (it's also the index),
+// i would prefer this to do in some kind of ini-file, but that might be done later (if ever).
+// i know it's kind of redundant to have the channel number in this table (it's also the index),
 // but this table gives me a quick x-ref when i'm reverse-engineering the protocol.
+// Note: The DataType is determined by the lower nibble. This must be a valid number (use the defines to be sure).
+//       If the high nibble is 0 we do NOT perform scaling. If the high nibble is non-zero, the application will
+//       automatically adjust the 'divisor' to get the compatible display representation.
+//       Only used for creating output (write) DATA commands (0x01) for DataType 1 and 8.
 BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 00",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 01",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
@@ -209,7 +213,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 8A",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 8B",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 8C",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
-    {BGN_CNR_8D_BATTVOLT,      "BATT VOLT",        BGN_FMT_48, 4, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
+    {BGN_CNR_8D_BATTVOLT,      "BATT VOLT",       BGN_FMT_08, 4, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 8E",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 8F",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 90",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
@@ -230,7 +234,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 9F",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN A0",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN A1",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
-    {0,                        "UNKNOWN A2",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
+    {BGN_CNR_A2_UNKNOWN,       "FROM WIND A2",    BGN_FMT_01, 4, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN A3",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN A4",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN A5",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
@@ -323,7 +327,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {BGN_CNR_FC_SHALLOWALARM,  "SHALLOW ALARM",   BGN_FMT_04, 6, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {BGN_CNR_FD_DEPTHALARM,    "DEPTH ALARM",     BGN_FMT_01, 4, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {BGN_CNR_FE_ANCHORALARM,   "ANCHOR ALARM",    BGN_FMT_04, 6, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
-    {BGN_CNR_FF_DEPTH_CAL,     "DEPTH CAL",       BGN_FMT_81, 4, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""}\
+    {BGN_CNR_FF_DEPTH_CAL,     "DEPTH CAL",       BGN_FMT_01, 4, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""}\
 };
 
 // for every DataType (0-15) we check the validity (>0) and the number of bytes used in the frame

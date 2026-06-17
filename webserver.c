@@ -303,21 +303,22 @@ static char* html_interface_top(char *Buffer) {
     const char *cDevTop =
         "<h2>B&G Network Statistics</h2>"
         "<h3>Serial Interface</h3>"
-        "<table><tr><th>Interface</th><th>Communication Parameters</th><th>Service</th></tr>";
+        "<table><tr><th>Interface</th><th>Communication Parameters</th><th>Service</th><th>Address</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[256];
     const char *cInfRow =
-        "<tr><td>%s</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td></tr>";
+        "<tr><td>%s</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>0x%02X</td></tr>";
     snprintf(cLine, sizeof(cLine), cInfRow,
                                             pCtrl->pCfg->serial_port,
                                             pCtrl->pCfg->baudrate,
                                             pCtrl->pCfg->parity,
                                             pCtrl->pCfg->databits,
                                             pCtrl->pCfg->stopbits,
-                                            pCtrl->pCfg->mode
+                                            pCtrl->pCfg->mode,
+                                            BGNET_ADDRESS_ME
                                         );
     strcpy(Buffer, cLine);
     return(Buffer);

@@ -329,7 +329,7 @@
 #define BGN_CNR_9C_MASTANGLE        0x9C
 #define BGN_CNR_9D_WANGLETOMAST     0x9D
 #define BGN_CNR_9E_PITCHRATE        0x9E
-#define BGN_CNR_A3_DBOARDPOS        0xA3
+#define BGN_CNR_A2_UNKNOWN          0xA2 // send by WIND (occasionally)
 #define BGN_CNR_A4_BOOMPOS          0xA4
 #define BGN_CNR_A6_AP_CTARGET       0xA6 // send by PILOT upon change/button pressed, Target Course (in AUTO or memory when STBY), fmt=0x08
 #define BGN_CNR_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
@@ -405,37 +405,38 @@
 // use htons/htonl (host to network short/long) to write and ntohs/ntohl (network to host short/long) to read. Be careful
 // using signed interger read/write.
 #pragma pack(1)
+union V {
+    uint8_t uB[8];      // binary data (status, pattern, mask)
+    unsigned char uC[8];// ASCII characters
+    int8_t sB[8];       // signed bytes (byte values with +/- range like depth)
+    uint16_t uW[4];     // unsigned 16-bit register
+    int16_t sW[4];      // signed 16-bit registers
+    uint32_t uL[2];     // unsigned 32-bit register
+    int32_t sL[2];      // signed 32-bit register
+};
 union CH {
     uint8_t B[10]; // sufficient space for the largest one (2 bytes header + max 8 bytes in data)
     struct {
         uint8_t CH;             // channel number
         uint8_t FMT;            // format byte
-        union V {
-            uint8_t uB[8];      // binary data (status, pattern, mask)
-            unsigned char uC[8];// ASCII characters
-            int8_t sB[8];       // signed bytes (byte values with +/- range like depth)
-            uint16_t uW[4];     // unsigned 16-bit register
-            int16_t sW[4];      // signed 16-bit registers
-            uint32_t uL[2];     // unsigned 32-bit register
-            int32_t sL[2];      // signed 32-bit register
-        } v;
+        union V v;              // packed data
     } s;
 };
 #pragma pack()
 
 // divisor may be used to scale the value to more digits
 #define BGN_FMT_01      0x01        // 16 bit signed register, is used for a value that falls in range -255/+255 (rudder posiotion, wind angle)
-#define BGN_FMT_81      0x81        // for something that can also be negative 
+#define BGN_FMT_F1      0xF1        // idem, with automatic scaling 
 
 #define BGN_FMT_03      0x03        // Timer value (5 bytes), last 3 bytes are HH:MM:SS
 
-#define BGN_FMT_02      0x02
-#define BGN_FMT_42      0x42        // stored log (5 bytes), last 3 bytes are a 24bit long register
+#define BGN_FMT_02      0x02        // stored log (5 bytes), last 3 bytes are a 24bit long register
+#define BGN_FMT_42      0x42        // automatic scaling NOT for DataType 2
 
 #define BGN_FMT_04      0x04        // 6 bytes; last 3 bytes are ASCII, like " T ", " F ", "OFF", "ON " or "---"
 
 #define BGN_FMT_08      0x08        // is used for a positive value 0-999, optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
-#define BGN_FMT_48      0x48
+#define BGN_FMT_F8      0xF8
 
 // FMT Definition Table
 typedef struct {

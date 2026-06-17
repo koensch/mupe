@@ -413,7 +413,109 @@ int makeQUADresponseRESET(BGNET_CTRL *pCtrl, unsigned char* payload) {
     payload[1] = BGN_CNR_CF_TRIPLOGNM;
     return(2);
 }
+
+// use this macro to convert a floating point value (double) to integer with round-off
+#define DTOIR(d) ((int)(d >= 0.0 ? (d + 0.5) : (d - 0.5)))
+
+// establish the divisor (we do not support values > 999)
+// -1 = clamp to 999 with divisor 0 (=1), no decimals
+//  0 = 100-999, 3 digits with divisor 0 (=1), no decimals
+//  1 = 10.0-99.9, 2 digits + 1 decimal with divisor 1 (=10)
+//  2 = 1.00-9.99, 1 digit + 2 decimals with divisor 2 (=100)
+//  3 = 0.00-0.99, 1 digit + 2 decimals with divisor 3 (=1000)
+// note: i is expected to be a integer. To correctly scale fractions we use
+//       the i*10 (and all the factors scaled up also.
+
+#define MKDIV(i)      (i*10<10000?(i*10<1000?(i*10<100?(i*10<1?(3):(2)):(1)):(0)):(-1))
+
+int MakeChannelValue(BGNET_CTRL *pCtrl, union CH* pCH ,unsigned char ucCH, union V* puV) {
+    int iDiv;
+    int iDivisor[4] = {1,10,100,1000};
+
+    pCH->s.CH = ucCH;
+    pCH->s.FMT = (pCtrl->pCHNDT[ucCH].ucFMT & BGN_FMT_MASK_DT); // default DataType from Definition Table
+    switch (pCH->s.FMT & BGN_FMT_MASK_DT) {
+        case BGN_FMT_01: // signed 16bit register
+            // autoscaling not supported
+            pCH->s.v.sW[0] = (int16_t)htons(puV->sW[0]);
+            pCH->s.FMT = pCH->s.FMT & BGN_FMT_MASK_DT; // mask-out DIV and PAD
+            break;
+        case BGN_FMT_08: // unsigned 16bit register 
+            if ((pCH->s.FMT & ~BGN_FMT_MASK_DT) == 0) {
+                // autoscaling disabled
+                pCH->s.v.uW[0] = htons(puV->uW[0]);
+            } else {
+                // autoscaling enabled
+                iDiv = MKDIV(puV->uW[0]);
+                if ((iDiv<0)|(iDiv>3)) {
+                    // overflow/underflow
+                    pCH->s.v.uW[0] = htons(999);
+                    pCH->s.FMT = pCH->s.FMT & BGN_FMT_MASK_DT; // mask-out DIV and PAD
+                } else {
+                    pCH->s.v.uW[0] = htons(puV->uW[0]*iDivisor[iDiv]);
+                    pCH->s.FMT = pCH->s.FMT | ((iDiv << 6) & BGN_FMT_MASK_DIVPAD_DIV);
+                }
+            }   
+            break;
+        case BGN_FMT_02: // unsigned 32bit register (0xCD, storedlog, value *10)
+            pCH->s.v.uL[0] = puV->uL[0];
+            pCH->s.FMT = BGN_FMT_42; // divisor 1 (*10)
+            break;
+        case BGN_FMT_03: // 3 bytes timer value (0x75, timer)
+            pCH->s.v.uB[0] = puV->uB[0];
+            pCH->s.v.uB[1] = puV->uB[1];
+            pCH->s.v.uB[2] = puV->uB[2];
+            pCH->s.FMT = BGN_FMT_03; // no divisor, no padding
+            break;
+        case BGN_FMT_04: // 3 bytes ASCII
+            pCH->s.v.uB[0] = 0;
+            pCH->s.v.uB[1] = puV->uB[0];
+            pCH->s.v.uB[2] = puV->uB[1];
+            pCH->s.v.uB[3] = puV->uB[2];
+            pCH->s.FMT = BGN_FMT_04; // no divisor, no padding
+            break;
+        default: // unsupported FMT, make it something
+            pCH->s.v.uB[0] = 0;
+            pCH->s.v.uB[1] = 'E';
+            pCH->s.v.uB[2] = 'R';
+            pCH->s.v.uB[3] = 'R';
+            pCH->s.FMT = BGN_FMT_04; // no divisor, no padding
+            break;
+    }
+    return(ChannelByteLength(pCtrl, pCH->s.FMT)); // return the length of the byte sequence
+}
+
 int makeAUTOresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
+    int len;
+    time_t t;
+    time(&t);
+    len = 0;
+    payload[0] = BGN_CNR_B5_AP_MODE;
+    payload[1] = pCtrl->pCHNDT[BGN_CNR_B5_AP_MODE].ucFMT;
+    payload[2] = pCtrl->ACP.ucSTATE; // AUTO/STBY
+    if (pCtrl->ACP.ucJOYSTICK == 0) {
+        payload[3] = pCtrl->ACP.ucMODE;
+    } else {
+        payload[3] = BGN_AP_MODE2_JOYSTICK;
+    }
+    payload[4] = BGN_CNR_0B_RUDDER;
+    payload[5] = pCtrl->pCHNDT[BGN_CNR_0B_RUDDER].ucFMT;
+    payload[6] = 0;
+    payload[7] = 0x0A;  // 0A = 10
+    payload[8] = BGN_CNR_49_HEADING;
+    payload[9] = pCtrl->pCHNDT[BGN_CNR_49_HEADING].ucFMT;
+    payload[10] = 0;
+    payload[11] = 0x4D; // 0x4D = 77
+    payload[12] = BGN_CNR_8D_BATTVOLT;
+
+    payload[13] = pCtrl->pCHNDT[BGN_CNR_8D_BATTVOLT].ucFMT;
+    payload[14] = 0x00;
+    payload[15] = 0x61; // 61 = 97 = 9.7
+    payload[15] = (t & 0x0F); 
+    len = 16;
+    return (len);
+}
+int makeAUTOresponse2(BGNET_CTRL *pCtrl, unsigned char* payload) {
     int len;
     time_t t;
     time(&t);
@@ -652,11 +754,20 @@ char* decode_value(char* pStr, union CH* puCH) {
     // iValid: 0 = not recognised, 1= numeric (scaled with divisor), 2=bytes/ascii/time
     if (iValid == 1) {
         fmt_decode(puCH->s.FMT, &d, &p, &f);
-        if (d > 0) {
-            fValue = ((double)iValue)/fDiv[d];
-            sprintf(pStr,"%.1f", fValue);
-        } else {
-            sprintf(pStr,"%d", iValue);
+        fValue = ((double)iValue)/fDiv[d];
+        switch (d) {
+            case 1:
+                sprintf(pStr,"%.1f", fValue);
+                break;
+            case 2:
+                sprintf(pStr,"%.2f", fValue);
+                break;
+            case 3:
+                sprintf(pStr,"%.3f", fValue);
+                break;
+            default:
+                sprintf(pStr,"%d", iValue);
+                break;
         }
     }
     return(pStr);
