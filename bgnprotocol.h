@@ -194,8 +194,8 @@
                                              // the NETWORK series:
                                              // ACP:   "51 00 07 8E XX 01 07 2C FF D8 00 00 5A"
                                              //                        01 = MODE = Auto {STBY|AUTO|TRACK|WIND}
-                                             //                           07 2C = Heading = 185.6 (actual, 0-360), 1/10th of a degree
-                                             //                                 FF D8 = Rudder = -4.0 (-45/+45), 1/10th of a degree
+                                             //                           07 2C = Heading = 1846 = 184.6 (actual, 0-360), 1/10th of a degree
+                                             //                                 FF D8 = Rudder = -40 = -4.0 (-45/+45), 1/10th of a degree
                                              //                                       00 = Alarms = No {off-course|drive fail|compass fail}
                                              //                                          00 = Drive = Idle {port|starboard|idle}
                                              // i leave this info here, possibly for more modern equipment this might be applicable.
@@ -476,19 +476,24 @@ typedef struct {
     int iCSError_Frame;
     int iCounterRx;
     int iCounterTx;
-    time_t tTimestamp;
-    time_t tCounterReset;
+    time_t tTimestampRx;
+    time_t tCounterResetRx;
+    time_t tTimestampTx;
+    time_t tCounterResetTx;
 } BGN_DEVICE;
 
 #define BGN_ASCIIFRAME_SIZE    256
 // register Command statistics
 typedef struct {
-    int iCounter; // everytime we receive this command, we increment this (with wrap-around)
-    int iNewCommand; // come new command was received
-    time_t tTimestamp; // timestamp of last update
-    time_t tCounterReset; // when ww wrap-around the counter
-    char cFrame[BGN_ASCIIFRAME_SIZE]; // frame stored as ASCII (for display puposes)
-    char ucFrame[BGN_ASCIIFRAME_SIZE]; // frame in binary
+    int iNewCommand; // a new command was received
+    int iCounterRx; // everytime we receive this command, we increment this (with wrap-around)
+    time_t tTimestampRx; // timestamp of last update
+    time_t tCounterResetRx; // when ww wrap-around the counter
+    unsigned char ucFrameRx[BGN_ASCIIFRAME_SIZE]; // most recent Rx frame (binary)
+    int iCounterTx; // everytime we send this command, we increment this (with wrap-around)
+    time_t tTimestampTx; // timestamp of last update
+    time_t tCounterResetTx; // when ww wrap-around the counter
+    unsigned char ucFrameTx[BGN_ASCIIFRAME_SIZE]; // most recent Tx frame (binary)
 } BGN_COMMAND;
 
 typedef struct {
@@ -544,5 +549,11 @@ void bgn_net_initialize_reset(BGNET_CTRL*);
 void bgn_net_initialize(BGNET_CTRL*);
 int bgn_FindDeviceIndex(BGNET_CTRL*, unsigned char);
 int ChannelByteLength(BGNET_CTRL*, unsigned char);
+
+// convert Command Frame to ASCII for display purposes
+#define BGN_CMD_ASCII       48
+#define BGN_CMD_ASCII_SEP   " /.../ "
+#define BGN_CMD_DATA_TAIL  6
+char* CommandToAscii(char*, unsigned char*);
 
 #endif

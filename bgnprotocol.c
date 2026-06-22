@@ -88,16 +88,21 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
             // packet counters & timestamps
             pCtrl->DEV[i].iCounterRx = 0;
             pCtrl->DEV[i].iCounterTx = 0;
-            pCtrl->DEV[i].tTimestamp = t;
-            pCtrl->DEV[i].tCounterReset = t;
+            pCtrl->DEV[i].tTimestampRx = t;
+            pCtrl->DEV[i].tCounterResetRx = t;
+            pCtrl->DEV[i].tTimestampTx = t;
+            pCtrl->DEV[i].tCounterResetTx = t;
         }
 
         // stage 2 - initialize command list
         for (i=0; i<BGNET_COMMAND_MAX; i++) {
             pCtrl->CMD[i].iNewCommand = 0;
-            pCtrl->CMD[i].iCounter = 0;
-            pCtrl->CMD[i].tTimestamp = t;
-            pCtrl->CMD[i].tCounterReset = t;
+            pCtrl->CMD[i].iCounterRx = 0;
+            pCtrl->CMD[i].iCounterTx = 0;
+            pCtrl->CMD[i].tTimestampRx = t;
+            pCtrl->CMD[i].tCounterResetRx = t;
+            pCtrl->CMD[i].tTimestampTx = t;
+            pCtrl->CMD[i].tCounterResetTx = t;
         }
 
         // stage 3 - initialize channel list
@@ -332,6 +337,16 @@ int makeQUADresponse1(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.v.sW[0] = htons(2); 
     r = r + pCtrl->pCHNDT[c].iChannelLen;
 
+    return(r);
+}
+// this message is send from PILOT to ACP when the AUTO or OFF button is pressed
+int makeAUTOSTBYack(BGNET_CTRL *pCtrl, unsigned char* payload, int iState, int iMode) {
+    int r = 5;
+    payload[0] = 0xFF;
+    payload[1] = 0xB5;
+    payload[2] = iState; // request AUTO/STBY
+    payload[3] = iMode; // mode request
+    payload[4] = 0xFF; // unknown
     return(r);
 }
 // this response is only send whenever a button on the PILOT was pressed
@@ -601,11 +616,12 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
                         len_pl = makeACPresponseFAST(pCtrl, payload);
                         len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                         memcpy(&buffer[r],&tmp_buffer,len_msg); // put output message in write buffer
+                        
                         r = r + len_msg; // increment byte counter in TX buffer
-                        len_pl = makeACPresponse(pCtrl, payload);
-                        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
-                        memcpy(&buffer[r],&tmp_buffer,len_msg); // put output message in write buffer
-                        r = r + len_msg; // increment byte counter in TX buffer
+                        //len_pl = makeACPresponse(pCtrl, payload);
+                        //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                        //memcpy(&buffer[r],&tmp_buffer,len_msg); // put output message in write buffer
+                        //r = r + len_msg; // increment byte counter in TX buffer
                         break;
                     case BGNET_FRAME_CMD_POWERUP:
                         // we received a powerup from the network. This happens when the network did a POWERUP while we are running
@@ -623,28 +639,28 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
                         // replay is immediately send when received; nothing to do here            
                         break;
                     case BGNET_FRAME_CMD_PILOT_AM:
-                        len_pl = makeAUTOresponse(pCtrl, payload);
-                        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
-                        memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
-                        r = r + len_msg; // increment byte counter in TX buffer
+                        //len_pl = makeAUTOresponse(pCtrl, payload);
+                        //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                        //memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
+                        //r = r + len_msg; // increment byte counter in TX buffer
                         break;
                     case BGNET_FRAME_CMD_PILOT_MODE:
-                        len_pl = makeAUTOresponse(pCtrl, payload);
-                        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
-                        memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
-                        r = r + len_msg; // increment byte counter in TX buffer
+                        //len_pl = makeAUTOresponse(pCtrl, payload);
+                        //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                        //memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
+                        //r = r + len_msg; // increment byte counter in TX buffer
                         break;
                     case BGNET_FRAME_CMD_PILOT_SPEED:
-                        len_pl = makeSPEEDresponse(pCtrl, payload);
-                        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
-                        memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
-                        r = r + len_msg; // increment byte counter in TX buffer
+                        //len_pl = makeSPEEDresponse(pCtrl, payload);
+                        //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                        //memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
+                        //r = r + len_msg; // increment byte counter in TX buffer
                         break;
                     case BGNET_FRAME_CMD_PILOT_STEP:
-                        len_pl = makeAUTOresponse(pCtrl, payload);
-                        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
-                        memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
-                        r = r + len_msg; // increment byte counter in TX buffer
+                        //len_pl = makeAUTOresponse(pCtrl, payload);
+                        //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                        //memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
+                        //r = r + len_msg; // increment byte counter in TX buffer
                         break;
                 }
                 pCtrl->CMD[i].iNewCommand = 0; // reset new data flag for this command
@@ -662,14 +678,14 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
         }
 
         // stage 3 - do some scheduled messages
-        len_pl = makeQUADresponse1(pCtrl, payload);
-        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
-        memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
-        r = r + len_msg; // increment byte counter in TX buffer
-        len_pl = makeQUADresponse2(pCtrl, payload);
-        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
-        memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
-        r = r + len_msg; // increment byte counter in TX buffer
+        //len_pl = makeQUADresponse1(pCtrl, payload);
+        //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+        //memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
+        //r = r + len_msg; // increment byte counter in TX buffer
+        //len_pl = makeQUADresponse2(pCtrl, payload);
+        //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+        //memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
+        //r = r + len_msg; // increment byte counter in TX buffer
 
         // stage 4 - check if we are allowed to send output
         // check if we are in RW mode; if not, destroy our output. I'd rather do it here that making the logic complexer
@@ -702,16 +718,60 @@ void fmt_encode(unsigned int *buf, unsigned int div, unsigned int pad, unsigned 
     *buf = ((div << 6) & BGN_FMT_MASK_DIVPAD_DIV) | ((pad << 4) & BGN_FMT_MASK_DIVPAD_PAD) | (fmt & BGN_FMT_MASK_DT);
 } 
 
+// returns the length of a channel block; it all depends on the FMT specifier.
 int ChannelByteLength(BGNET_CTRL* pCtrl, unsigned char ucFMT) {
     int r;
     r = pCtrl->pFMTDT[(ucFMT & BGN_FMT_MASK_DT)].iLen;
     if (r > 0) {
         // this is OK
     } else {
+        // is the value is unknown, i just make a guess. 4 is better than zero or -1
         r = 4; // just a guess
     }
     return(r);
 }
+
+// returns the length of a frame block
+// some commands have no payload, just the header. Others do have a payload (with a extra CS).
+int CommandByteLength(unsigned char* ucFrame) {
+    int r;
+    if (ucFrame[BGNET_FRAME_HEAD_SIZE] == 0) {
+        r = BGNET_FRAME_HEAD;
+    } else {
+        r = BGNET_FRAME_HEAD + ucFrame[BGNET_FRAME_HEAD_SIZE] + BGNET_FRAME_TAIL_CS;
+    }
+    return(r);
+}
+
+// copy command frame into a ascii buffer (for display purposes)
+char* CommandToAscii(char* asciibuf, unsigned char* ucFrame) {
+    int n, y, x;
+    char cWork[BGN_CMD_ASCII];
+    strcpy(cWork, "");
+    if (ucFrame[BGNET_FRAME_HEAD_CMD] == 0) {
+        // invalid command, buffer must be empty
+        strcpy(asciibuf,"-+-");
+    } else {
+        strcpy(asciibuf, "");
+        y = CommandByteLength(ucFrame);
+        if (y*3 < BGN_CMD_ASCII) {
+            // it fits, just copy it all
+            byte2ascii(asciibuf, BGN_CMD_ASCII, ucFrame, y, BYTE2ASCII_SPACED);
+        } else {
+            // we use a 7-character separation string: " /.../ " to avoid excessive long output
+            // we also copy the first 10 (5 header with CS + 5 first data) and the tail (5 last data + CS = 6 bytes)
+            // 6 bytes tail = 18 ascii characters
+            n = (BGN_CMD_ASCII - strlen(BGN_CMD_ASCII_SEP))/3; // we have ascii space for 'n' databytes
+            byte2ascii(asciibuf, BGN_CMD_ASCII, ucFrame, n-BGN_CMD_DATA_TAIL, BYTE2ASCII_SPACED);
+            strcat(asciibuf, BGN_CMD_ASCII_SEP); // append separator
+            byte2ascii(cWork, BGN_CMD_ASCII, &ucFrame[y-BGN_CMD_DATA_TAIL], BGN_CMD_DATA_TAIL, BYTE2ASCII_SPACED);
+            strcat(asciibuf, cWork);
+        }
+    }
+    // return a null terminated ascii string
+    return(asciibuf);
+}
+
 
 // returns the length of the channel value bytes and generates the text representation of the channel value
 char* decode_value(char* pStr, union CH* puCH) {
@@ -784,34 +844,44 @@ void CounterUpDATA(BGN_CHANNEL *pCH, time_t t) {
         pCH->tCounterReset = t;
     }
 }
-void CounterUpCMD(BGN_COMMAND *pCMD, time_t t) {
-    pCMD->tTimestamp = t;
+void CounterRxUpCMD(BGN_COMMAND *pCMD, time_t t) {
+    pCMD->tTimestampRx = t;
     // update counter (with wrap-around)
-    if (pCMD->iCounter < SHRT_MAX) {
-        pCMD->iCounter++;
+    if (pCMD->iCounterRx < SHRT_MAX) {
+        pCMD->iCounterRx++;
     } else {
-        pCMD->iCounter = 1;
-        pCMD->tCounterReset = t;
+        pCMD->iCounterRx = 1;
+        pCMD->tCounterResetRx = t;
+    }
+}
+void CounterTxUpCMD(BGN_COMMAND *pCMD, time_t t) {
+    pCMD->tTimestampTx = t;
+    // update counter (with wrap-around)
+    if (pCMD->iCounterTx < SHRT_MAX) {
+        pCMD->iCounterTx++;
+    } else {
+        pCMD->iCounterTx = 1;
+        pCMD->tCounterResetTx = t;
     }
 }
 void CounterRxUpDEV(BGN_DEVICE *pDEV, time_t t) {
-    pDEV->tTimestamp = t;
+    pDEV->tTimestampRx = t;
     // update counter (with wrap-around)
     if (pDEV->iCounterRx < SHRT_MAX) {
         pDEV->iCounterRx++;
     } else {
         pDEV->iCounterRx = 1;
-        pDEV->tCounterReset = t;
+        pDEV->tCounterResetRx = t;
     }
 }
 void CounterTxUpDEV(BGN_DEVICE *pDEV, time_t t) {
-    pDEV->tTimestamp = t;
+    pDEV->tTimestampTx = t;
     // update counter (with wrap-around)
     if (pDEV->iCounterTx < SHRT_MAX) {
         pDEV->iCounterTx++;
     } else {
         pDEV->iCounterTx = 1;
-        pDEV->tCounterReset = t;
+        pDEV->tCounterResetTx = t;
     }
 }
 
@@ -923,7 +993,7 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                 xSize = pEnd - pBuf; // dump the remainder of the frame; it's a readback of my own transmission
 
                 // update DEVICE structure (statistics)
-                CounterTxUpDEV(&pCtrl->DEV[ucFROM], t);
+                CounterRxUpDEV(&pCtrl->DEV[ucFROM], t);
 
             } else {
                 // The HEADER is OK, process it. Note that some CMD's do not have a body and in such case, we should skip the body & CS part.
@@ -962,10 +1032,8 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                         // update CMD structure
                         pCtrl->iNewDevice = 1; // signal this device
                         pCtrl->CMD[ucCMD].iNewCommand = 1; // signal this command
-                        strcpy(pCtrl->CMD[ucCMD].cFrame, asciibuffer);
-                        memcpy(pCtrl->CMD[ucCMD].ucFrame, pBuf, xSize);
-
-                        CounterUpCMD(&pCtrl->CMD[ucCMD], t);
+                        memcpy(pCtrl->CMD[ucCMD].ucFrameRx, pBuf, xSize);
+                        CounterRxUpCMD(&pCtrl->CMD[ucCMD], t);
                     }
                 } else {
                     // payload present, check frame-CR
@@ -1010,25 +1078,42 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 iIsValid = 1;
                                 log_info("  Command %02X BACKLIGHT BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)", *(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDEVDT[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0), *(pBuf+BGNET_FRAME_HEAD+4));
                                 pCtrl->ACP.ucLight = *(pBuf+BGNET_FRAME_HEAD+0); // first byte is the LIGHTS state
+                                // if this was the PB on the QUAD, do something extra
+                                if (*(pBuf+BGNET_FRAME_HEAD_FROM) == 0x30) {
+                                    // toggle AUTO/STBY state
+                                    pCtrl->ACP.ucSTATE = 1 - pCtrl->ACP.ucSTATE;
+                                }
                                 break;
                             case BGNET_FRAME_CMD_QUAD_RESET1:
                             case BGNET_FRAME_CMD_QUAD_RESET3:
                             //makeQUADresponseRESET
-                                iIsValid = 1;
-                                pCtrl->ACP.uiTripLogNM = 0; // reset log trip counter            
-                                len_pl = makeQUADresponseRESET(pCtrl, payload);
-                                len_msg = bgn_net_makemessage(tmp_buffer, 0x30, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_QUAD_RESET1, payload, len_pl);
-                                memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &tmp_buffer, len_msg); // put output message in write buffer
-                                g_serial_data_lenTx = g_serial_data_lenTx + len_msg; // increment byte counter in TX buffer
+                                //iIsValid = 1;
+                                //pCtrl->ACP.uiTripLogNM = 0; // reset log trip counter            
+                                //len_pl = makeQUADresponseRESET(pCtrl, payload);
+                                //len_msg = bgn_net_makemessage(tmp_buffer, 0x30, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_QUAD_RESET1, payload, len_pl);
+                                //memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &tmp_buffer, len_msg); // put output message in write buffer
+                                //g_serial_data_lenTx = g_serial_data_lenTx + len_msg; // increment byte counter in TX buffer
                                 break;
                             case BGNET_FRAME_CMD_PILOT_AM:
                                 iIsValid = 1;
                                 log_info("  Command %02X AUTO/STBY BUTTON PRESSED (BY: %02X, %s, state= %d)", *(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDEVDT[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+4));
                                 pCtrl->ACP.ucSTATE = *(pBuf+BGNET_FRAME_HEAD+4); // AUTO/STBY state
-                                len_pl = makeACPresponseFAST(pCtrl, payload);
-                                len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, 0xD3, payload, len_pl);
+                                //len_pl = makeACPresponseFAST(pCtrl, payload);
+                                //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_AM, payload, len_pl);
+                                //memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &tmp_buffer, len_msg); // put output message in write buffer
+                                //g_serial_data_lenTx = g_serial_data_lenTx + len_msg; // increment byte counter in TX buffer
+
+                                // create ACK response
+                                len_pl = makeAUTOSTBYack(pCtrl, payload, BGN_AP_MODE1_AUTO, BGN_AP_MODE2_NAV);
+                                len_msg = bgn_net_makemessage(tmp_buffer, 0x50, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_AM, payload, len_pl);                                
+
+                                // put it for transmission
                                 memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &tmp_buffer, len_msg); // put output message in write buffer
                                 g_serial_data_lenTx = g_serial_data_lenTx + len_msg; // increment byte counter in TX buffer
+
+                                // update statistics
+                                memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_PILOT_AM].ucFrameTx, &tmp_buffer, len_msg);
+                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_PILOT_AM], t);
                                 break;
                             case BGNET_FRAME_CMD_PILOT_MODE:
                                 iIsValid = 1;
@@ -1053,10 +1138,8 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                             // update CMD structure
                             pCtrl->iNewDevice = 1; // signal this device
                             pCtrl->CMD[ucCMD].iNewCommand = 1; // signal this command
-                            strcpy(pCtrl->CMD[ucCMD].cFrame, asciibuffer);
-                            memcpy(pCtrl->CMD[ucCMD].ucFrame, pBuf, xSize);
-
-                            CounterUpCMD(&pCtrl->CMD[ucCMD], t);
+                            memcpy(pCtrl->CMD[ucCMD].ucFrameRx, pBuf, xSize);
+                            CounterRxUpCMD(&pCtrl->CMD[ucCMD], t);
                         }   
                     } else {
                         // CS is bad (only skip this sub-frame, the length is known)

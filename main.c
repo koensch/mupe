@@ -57,9 +57,8 @@ BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 #define BGN_CNR_IMPEXP_SK   2       // import from or export to SignalK
 
 // this lookup table allows us:
-// - to lookup the channel label
+// - to lookup the channel label (looks nice in styatistics report)
 // - to obtain the format specifier (when making a output message, see note below)
-// - to obtain the length of the channel-string
 // - enable/disable items for import or export
 // - import/export data to/from NMEA of Signal K interface
 // - get the NMEA PGN for import/export (if NMEA2000 enabled)
@@ -68,10 +67,23 @@ BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 // i know it's kind of redundant to have the channel number in this table (it's also the index),
 // but this table gives me a quick x-ref when i'm reverse-engineering the protocol.
 // Note: The DataType is determined by the lower nibble. This must be a valid number (use the defines to be sure).
-//       If the high nibble is 0 we do NOT perform scaling. If the high nibble is non-zero, the application will
-//       automatically adjust the 'divisor' to get the compatible display representation.
-//       Only used for creating output (write) DATA commands (0x01) for DataType 1 and 8.
+//       If the high nibble is 0 we do NOT perform scaling when making a output message. If the high nibble is non-zero,
+//       the application attempts to adjust the value and divisor to get the compatible display representation.
+//       This FMT is only used for creating output (write) DATA commands (0x01) for DataType 1 and 8. For incoming
+//       messages, the sender(s) alread did the scaling for us.
+
+    uint8_t ubChannelIndex;     // Channel index
+    char cLabel[20];            // the label, variable name
+    uint8_t ucFMT;              // default formatting
+    int iChannelLen;            // number of bytes in channel
+    int iImpExpEnable;          // allow Import or Export
+    int iImportFrom;            // Import from NMEA2000 or SignalK
+    int iExportTo;              // Export to NMEA2000 of SignalK
+    int iNMEA_PGN;              // NMEA2000 reference PGN
+    char cSKdef[32];            // SignalK reference string 
+
 BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
+    //Index                    Label              FMT       n/a  I/E enable    Import From Export To          PGN SK
     {0,                        "UNKNOWN 00",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 01",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
     {0,                        "UNKNOWN 02",      0x00,       0, 0,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0, ""},\
@@ -416,20 +428,20 @@ int main(void)
 
     // print report
     log_info("Statistics report");
-    log_info("   FROM         Counter    DeviceType");
+    log_info("   FROM       CounterRx    CounterTx  DeviceType");
     for (i=0; i<BGNET_DEVICE_MAX; i++) {
         if ((pBGNET_ctrl->DEV[i].iCounterRx < 1) & (pBGNET_ctrl->DEV[i].iCounterTx < 1)) {
             // it was never touched
         } else {
-            log_info("  0x%02X        %8d     %s", i, pBGNET_ctrl->DEV[i].iCounterRx, pBGNET_ctrl->pDEVDT[bgn_FindDeviceIndex(pBGNET_ctrl, i)].sProdName);
+            log_info("  0x%02X        %8d     %8d     %s", i, pBGNET_ctrl->DEV[i].iCounterRx, pBGNET_ctrl->DEV[i].iCounterTx, pBGNET_ctrl->pDEVDT[bgn_FindDeviceIndex(pBGNET_ctrl, i)].sProdName);
         }
     }
-    log_info("    CMD         Counter");
+    log_info("    CMD       CounterRx    CounterTx");
     for (i=0; i<BGNET_COMMAND_MAX; i++) {
-        if (pBGNET_ctrl->CMD[i].iCounter < 1) {
+        if ((pBGNET_ctrl->CMD[i].iCounterRx < 1) & (pBGNET_ctrl->CMD[i].iCounterTx < 1)) {
             // it was never touched
         } else {
-            log_info("  0x%02X        %8d", i, pBGNET_ctrl->CMD[i].iCounter);
+            log_info("  0x%02X        %8d     %8d", i, pBGNET_ctrl->CMD[i].iCounterRx, pBGNET_ctrl->CMD[i].iCounterTx, pBGNET_ctrl->CMD[i].iCounterTx);
         }
     }
     log_info("Channel         Counter    Label");
