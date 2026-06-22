@@ -303,14 +303,16 @@ static char* html_interface_top(char *Buffer) {
     const char *cDevTop =
         "<h2>B&G Network Statistics</h2>"
         "<h3>Serial Interface</h3>"
-        "<table><tr><th>Interface</th><th>Communication Parameters</th><th>Service</th><th>Address</th></tr>";
+        "<table>"
+        "<tr><th rowspan='2'>Interface</th><th rowspan='2'>Communication Parameters</th><th rowspan='2'>Service</th><th colspan='2'>Device</th></tr>"
+        "<tr><th>Address</th><th>Type</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
-    char cLine[256];
+    char cLine[512];
     const char *cInfRow =
-        "<tr><td>%s</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>0x%02X</td></tr>";
+        "<tr><td>%s</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
     snprintf(cLine, sizeof(cLine), cInfRow,
                                             pCtrl->pCfg->serial_port,
                                             pCtrl->pCfg->baudrate,
@@ -318,7 +320,8 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->databits,
                                             pCtrl->pCfg->stopbits,
                                             pCtrl->pCfg->mode,
-                                            BGNET_ADDRESS_ME
+                                            BGNET_ADDRESS_ME,
+                                            pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, BGNET_ADDRESS_ME)].sProdName
                                         );
     strcpy(Buffer, cLine);
     return(Buffer);
@@ -334,8 +337,8 @@ static char* html_device_top(char *Buffer) {
     const char *cDevTop =
         "<h3>Devices</h3>"
         "<table>"
-        "<tr><th rowspan='2'>Address</th><th colspan='2'>Rx</th><th colspan='2'>Tx</th><th colspan='2'>Checksum Errors</th></th><th rowspan='2'>DeviceType</th></tr>"
-        "<tr><th>Counter</th><th>Sec</th><th>Counter</th><th>Sec</th><th>Head</th><th>Frame</th></tr>";
+        "<tr><th colspan='2'>Device</th><th colspan='2'>Rx</th><th colspan='2'>Tx</th><th colspan='2'>Checksum Errors</th></th></tr>"
+        "<tr><th>Address</th><th>Type</th><th>Counter</th><th>Sec</th><th>Counter</th><th>Sec</th><th>Head</th><th>Frame</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -344,7 +347,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     time_t t;
     char cLine[256];
     const char *cDevRow =
-        "<tr><td>0x%02X</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+        "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -355,13 +358,13 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
         } else {
             snprintf(cLine, sizeof(cLine), cDevRow,
                                                      i,
+                                                     pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName,
                                                      pCtrl->DEV[i].iCounterRx,
                                                      t - pCtrl->DEV[i].tTimestampRx,
                                                      pCtrl->DEV[i].iCounterTx,
                                                      t - pCtrl->DEV[i].tTimestampTx,
                                                      pCtrl->DEV[i].iCSError_Header, 
-                                                     pCtrl->DEV[i].iCSError_Frame,
-                                                     pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName
+                                                     pCtrl->DEV[i].iCSError_Frame
                                                     );
             strcat(Buffer, cLine);
         }
@@ -415,7 +418,7 @@ static char* html_command_top(char *Buffer) {
         "<h3>Commands</h3>"
         "<table>"
         "<tr><th rowspan='2'>Command</th><th colspan='3'>Rx</th><th colspan='3'>Tx</th></tr>"
-        "<tr><th>Rx Counter</th><th>Rx Sec</th><th>Rx Raw</th><th>Tx Counter</th><th>Tx Sec</th><th>Tx Raw</th></tr>";
+        "<tr><th>Counter</th><th>Sec</th><th>Raw</th><th>Counter</th><th>Sec</th><th>Raw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }

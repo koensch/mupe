@@ -745,12 +745,12 @@ int CommandByteLength(unsigned char* ucFrame) {
 
 // copy command frame into a ascii buffer (for display purposes)
 char* CommandToAscii(char* asciibuf, unsigned char* ucFrame) {
-    int n, y, x;
+    int n, y;
     char cWork[BGN_CMD_ASCII];
     strcpy(cWork, "");
     if (ucFrame[BGNET_FRAME_HEAD_CMD] == 0) {
         // invalid command, buffer must be empty
-        strcpy(asciibuf,"-+-");
+        strcpy(asciibuf,"---");
     } else {
         strcpy(asciibuf, "");
         y = CommandByteLength(ucFrame);
