@@ -34,7 +34,6 @@ int bgn_FindDeviceIndex(BGNET_CTRL* pCtrl, unsigned char ucDevAddr) {
             break;
         }
     }
-//    log_info("bgn_FindDeviceIndex: done Adr= 0x%X, index=%d, type=0x%0X", ucDevAddr, r, pCtrl->pDev[i].iDeviceType);
     return(r);
 }
 
@@ -119,7 +118,7 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
     }
 };
 
-
+// this routine we use to generate a output message and append the payload (if any)
 size_t bgn_net_makemessage(unsigned char *pBuf, int iTo, int iFrom, int iCmd, unsigned char *payload, int payloadlength) {
     int i;
     size_t xSize;
@@ -128,41 +127,40 @@ size_t bgn_net_makemessage(unsigned char *pBuf, int iTo, int iFrom, int iCmd, un
     pBuf[BGNET_FRAME_HEAD_SIZE] = 0; // assume command without payload
     pBuf[BGNET_FRAME_HEAD_CMD] = iCmd;
     switch (iCmd) {
-        case BGNET_FRAME_CMD_POWERUP:
-            // this message takes no payload
+        case BGNET_FRAME_CMD_POWERUP: // no payload
             if (payloadlength == 0) {
-                pBuf[BGNET_FRAME_HEAD_CS] = calculate_checksum(pBuf,BGNET_FRAME_CR_HEAD,0,BGNET_FRAME_HEAD-1);
+                pBuf[BGNET_FRAME_HEAD_CS] = calculate_checksum(pBuf, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1);
                 xSize = BGNET_FRAME_HEAD;
             } else {
                 xSize = 0;
             }
             break;
-        case BGNET_FRAME_CMD_BACKLIGHT:
+        case BGNET_FRAME_CMD_BACKLIGHT: // always 1-byte payload
             if (payloadlength == 1) {
-                pBuf[BGNET_FRAME_HEAD_SIZE] = 1; // 1-byte payload
-                pBuf[BGNET_FRAME_HEAD_CS] = calculate_checksum(pBuf,BGNET_FRAME_CR_HEAD,0,BGNET_FRAME_HEAD-1);
-                pBuf[BGNET_FRAME_HEAD+0] = payload[0]; // 1-byte payload
-                xSize = BGNET_FRAME_HEAD+pBuf[BGNET_FRAME_HEAD_SIZE]+BGNET_FRAME_TAIL_CS;
-                pBuf[BGNET_FRAME_HEAD+1] = calculate_checksum(pBuf,BGNET_FRAME_CR_FRAME,0,xSize-1);
+                pBuf[BGNET_FRAME_HEAD_SIZE] = 1; 
+                pBuf[BGNET_FRAME_HEAD_CS] = calculate_checksum(pBuf, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1);
+                pBuf[BGNET_FRAME_HEAD + 0] = payload[0]; // 1-byte payload
+                xSize = BGNET_FRAME_HEAD + pBuf[BGNET_FRAME_HEAD_SIZE] + BGNET_FRAME_TAIL_CS;
+                pBuf[BGNET_FRAME_HEAD + 1] = calculate_checksum(pBuf, BGNET_FRAME_CR_FRAME, 0, xSize-1);
             } else {
                 xSize = 0;
             }
             break;
-        case BGNET_FRAME_CMD_DATA:
+        case BGNET_FRAME_CMD_DATA:  // variable payload length, payload mandatory
             if (payloadlength == 0) {
                 xSize = 0; // always must have some payload
             } else {
                 pBuf[BGNET_FRAME_HEAD_SIZE] = payloadlength;
-                pBuf[BGNET_FRAME_HEAD_CS] = calculate_checksum(pBuf,BGNET_FRAME_CR_HEAD,0,BGNET_FRAME_HEAD-1);
+                pBuf[BGNET_FRAME_HEAD_CS] = calculate_checksum(pBuf, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1);
                 for (i=0; i<payloadlength; i++) {
-                    pBuf[BGNET_FRAME_HEAD+i] = payload[i]; // copy whole payload
+                    pBuf[BGNET_FRAME_HEAD + i] = payload[i]; // copy whole payload
                 }
-                xSize = BGNET_FRAME_HEAD+pBuf[BGNET_FRAME_HEAD_SIZE]+BGNET_FRAME_TAIL_CS;
-                pBuf[BGNET_FRAME_HEAD+i] = calculate_checksum(pBuf,BGNET_FRAME_CR_FRAME,0,xSize-1);
+                xSize = BGNET_FRAME_HEAD + pBuf[BGNET_FRAME_HEAD_SIZE] + BGNET_FRAME_TAIL_CS;
+                pBuf[BGNET_FRAME_HEAD + i] = calculate_checksum(pBuf, BGNET_FRAME_CR_FRAME, 0, xSize-1);
             }
             break;
-        case BGNET_FRAME_CMD_QUAD_RESET1:            
-        case BGNET_FRAME_CMD_QUAD_RESET3:            
+        case BGNET_FRAME_CMD_QUAD_RESET:            
+        case BGNET_FRAME_CMD_QUAD_RESET_R:            
         case BGNET_FRAME_CMD_PILOT_AM:            
         case BGNET_FRAME_CMD_PILOT_MODE:            
         case BGNET_FRAME_CMD_PILOT_SPEED:            
@@ -171,12 +169,12 @@ size_t bgn_net_makemessage(unsigned char *pBuf, int iTo, int iFrom, int iCmd, un
                 xSize = 0; // always must have some payload
             } else {
                 pBuf[BGNET_FRAME_HEAD_SIZE] = payloadlength;
-                pBuf[BGNET_FRAME_HEAD_CS] = calculate_checksum(pBuf,BGNET_FRAME_CR_HEAD,0,BGNET_FRAME_HEAD-1);
+                pBuf[BGNET_FRAME_HEAD_CS] = calculate_checksum(pBuf, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1);
                 for (i=0; i<payloadlength; i++) {
-                    pBuf[BGNET_FRAME_HEAD+i] = payload[i]; // copy whole payload
+                    pBuf[BGNET_FRAME_HEAD + i] = payload[i]; // copy whole payload
                 }
-                xSize = BGNET_FRAME_HEAD+pBuf[BGNET_FRAME_HEAD_SIZE]+BGNET_FRAME_TAIL_CS;
-                pBuf[BGNET_FRAME_HEAD+i] = calculate_checksum(pBuf,BGNET_FRAME_CR_FRAME,0,xSize-1);
+                xSize = BGNET_FRAME_HEAD + pBuf[BGNET_FRAME_HEAD_SIZE] + BGNET_FRAME_TAIL_CS;
+                pBuf[BGNET_FRAME_HEAD + i] = calculate_checksum(pBuf, BGNET_FRAME_CR_FRAME, 0, xSize-1);
             }
             break;
         default:
@@ -191,19 +189,19 @@ int makeQUADresponse2(BGNET_CTRL *pCtrl, unsigned char* payload) {
     int r=0, c;
     union CH* puCH;
 
-    c = BGN_CNR_41_BOATSPEEDKTS;
+    c = BGN_CNR_41_BOATSPEEDKT;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(125);
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_42_BOATSPEEDRAW;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(120);
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     // the next 3 values are 'rotated' by the QUAD: CD every other time, 64/65 every 4'th time
     // but that is too complex at this moment. Later i will build a rotating scheme.
@@ -213,20 +211,21 @@ int makeQUADresponse2(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uL[0] = htonl(112233);
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
-    c = BGN_CNR_64_SPEEDAVGKTS;
+    c = BGN_CNR_64_SPEEDAVGKT;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(111); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
-    c = BGN_CNR_65_SPEEDAVGRAW;
+    c = BGN_CNR_65_SPEEDMAXKT;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(222); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     // the next values are always present 
 
@@ -235,28 +234,28 @@ int makeQUADresponse2(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(333); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
-    c = BGN_CNR_81_DR_DIST;
+    c = BGN_CNR_81_DR_DISTNM;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(55); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_D3_DR_COURSE;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.sW[0] = htons(-20); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_20_SEATEMPQ;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.sW[0] = htons(12); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_75_TIMER;
     puCH = (union CH*)&(payload[r]);
@@ -265,7 +264,7 @@ int makeQUADresponse2(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.v.uB[0] = 1; // only 1 digit is shown 
     puCH->s.v.uB[1] = 59;
     puCH->s.v.uB[2] = 59;
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     return(r);
 }
@@ -282,7 +281,7 @@ int makeQUADresponse1(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.v.uC[0] = ' '; 
     puCH->s.v.uC[0] = 'F'; 
     puCH->s.v.uC[0] = ' ';
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
     
     // the next 3 values are 'rotated' by the QUAD: FE every other time, FC/FD every 4'th time
     // but that is too complex at this moment. Later i will build a rotating scheme.
@@ -295,14 +294,14 @@ int makeQUADresponse1(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.v.uC[0] = 'O'; 
     puCH->s.v.uC[0] = 'F'; 
     puCH->s.v.uC[0] = 'F';
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_FD_DEPTHALARM;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.v.sW[0] = htons(-5); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    puCH->s.v.sW[0] = htons(5); 
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_FE_ANCHORALARM;
     puCH = (union CH*)&(payload[r]);
@@ -312,7 +311,7 @@ int makeQUADresponse1(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.v.uC[0] = 'O'; 
     puCH->s.v.uC[0] = 'F'; 
     puCH->s.v.uC[0] = 'F';
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     // the next values are always present 
 
@@ -321,32 +320,32 @@ int makeQUADresponse1(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.sW[0] = htons(4); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_C4_DEPTHM;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.v.sW[0] = htons(-6); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    puCH->s.v.sW[0] = htons(6); 
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_C1_DEPTHM;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.sW[0] = htons(2); 
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     return(r);
 }
 // this message is send from PILOT to ACP when the AUTO or OFF button is pressed
 int makeAUTOSTBYack(BGNET_CTRL *pCtrl, unsigned char* payload, int iState, int iMode) {
     int r = 5;
-    payload[0] = 0xFF;
+    payload[0] = 0x00;
     payload[1] = 0xB5;
-    payload[2] = iState; // request AUTO/STBY
-    payload[3] = iMode; // mode request
-    payload[4] = 0xFF; // unknown
+    payload[2] = 0x01; // request AUTO/STBY
+    payload[3] = 0x00; //iMode; // mode request
+    payload[4] = iState; // unknown
     return(r);
 }
 // this response is only send whenever a button on the PILOT was pressed
@@ -359,21 +358,21 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.sW[0] = htons(-9);
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_A6_AP_CTARGET;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(353);
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_A7_AP_WPB;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(355);
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_B5_AP_MODE;
     puCH = (union CH*)&(payload[r]);
@@ -381,7 +380,7 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uB[0] = pCtrl->ACP.ucSTATE; // AUTO/STBY
     puCH->s.v.uB[1] = pCtrl->ACP.ucMODE;  // COMP/NAV/VANE
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     return (r);
 }
@@ -397,28 +396,28 @@ int makeACPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.sW[0] = htons(-8+(t&0x01F));
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
-    c = BGN_CNR_41_BOATSPEEDKTS;
+    c = BGN_CNR_41_BOATSPEEDKT;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(118);
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_49_HEADING;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.uW[0] = htons(77);
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     c = BGN_CNR_51_AWINDANGLE;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.v.sW[0] = htons(-95);
-    r = r + pCtrl->pCHNDT[c].iChannelLen;
+    r = r + ChannelByteLength(pCtrl, puCH->s.FMT);
 
     return (r);
 }
@@ -443,7 +442,37 @@ int makeQUADresponseRESET(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
 #define MKDIV(i)      (i*10<10000?(i*10<1000?(i*10<100?(i*10<1?(3):(2)):(1)):(0)):(-1))
 
-int MakeChannelValue(BGNET_CTRL *pCtrl, union CH* pCH ,unsigned char ucCH, union V* puV) {
+union V* DoubleToChannelValue(union CH* pCH, double dValue) {
+    int iDivMask, iV;
+    if (dValue < 1000) {
+        if (dValue < 100) {
+            if (dValue < 10) {
+                if (dValue < 1) {
+                    iDivMask = 0xC0;
+                    iV = DTOIR(dValue * 1000);
+                } else {
+                    iDivMask = 0x80;
+                    iV = DTOIR(dValue * 100);
+                }
+            } else {
+                iDivMask = 0x40;
+                iV = DTOIR(dValue * 10);
+            }
+        } else {
+            iDivMask = 0x00;
+            iV = DTOIR(dValue);
+        }
+    } else {
+        // too big, round up
+        iDivMask = 0x00;
+        iV = 999;
+    }
+    pCH->s.v.uW[0] = iV;
+    pCH->s.FMT = (iDivMask & BGN_FMT_MASK_DIVPAD_DIV) | (pCH->s.FMT & BGN_FMT_MASK_DT);
+    return (pCH);
+}
+
+int MakeChannelValue(BGNET_CTRL *pCtrl, union CH* pCH, unsigned char ucCH, union V* puV) {
     int iDiv;
     int iDivisor[4] = {1,10,100,1000};
 
@@ -489,7 +518,7 @@ int MakeChannelValue(BGNET_CTRL *pCtrl, union CH* pCH ,unsigned char ucCH, union
             pCH->s.v.uB[3] = puV->uB[2];
             pCH->s.FMT = BGN_FMT_04; // no divisor, no padding
             break;
-        default: // unsupported FMT, make it something
+        default: 
             pCH->s.v.uB[0] = 0;
             pCH->s.v.uB[1] = 'E';
             pCH->s.v.uB[2] = 'R';
@@ -566,13 +595,13 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     union CH* puCH;
 
     puCH = (union CH*)&(payload[0]);
-    puCH->s.CH = BGN_CNR_46_AP_SPEEDKTS;
+    puCH->s.CH = BGN_CNR_46_AP_SPEEDKT;
     puCH->s.FMT = 0x08;
     puCH->s.v.uB[0] = 1;
     puCH->s.v.uB[0] = 2;
 
     puCH = (union CH*)&(payload[4]);
-    puCH->s.CH = BGN_CNR_41_BOATSPEEDKTS;
+    puCH->s.CH = BGN_CNR_41_BOATSPEEDKT;
     puCH->s.FMT = 0x08;
     puCH->s.v.uB[0] = 1;
     puCH->s.v.uB[0] = 2;
@@ -587,6 +616,58 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     return (len);
 }
 
+// update timestamp and increment counter (with wrap-around)
+void CounterUpDATA(BGN_CHANNEL *pCH, time_t t) {
+    pCH->tTimestamp = t;
+    // update counter (with wrap-around)
+    if (pCH->iCounter < SHRT_MAX) {
+        pCH->iCounter++;
+    } else {
+        pCH->iCounter = 1;
+        pCH->tCounterReset = t;
+    }
+}
+void CounterRxUpCMD(BGN_COMMAND *pCMD, time_t t) {
+    pCMD->tTimestampRx = t;
+    // update counter (with wrap-around)
+    if (pCMD->iCounterRx < SHRT_MAX) {
+        pCMD->iCounterRx++;
+    } else {
+        pCMD->iCounterRx = 1;
+        pCMD->tCounterResetRx = t;
+    }
+}
+void CounterTxUpCMD(BGN_COMMAND *pCMD, time_t t) {
+    pCMD->tTimestampTx = t;
+    // update counter (with wrap-around)
+    if (pCMD->iCounterTx < SHRT_MAX) {
+        pCMD->iCounterTx++;
+    } else {
+        pCMD->iCounterTx = 1;
+        pCMD->tCounterResetTx = t;
+    }
+}
+void CounterRxUpDEV(BGN_DEVICE *pDEV, time_t t) {
+    pDEV->tTimestampRx = t;
+    // update counter (with wrap-around)
+    if (pDEV->iCounterRx < SHRT_MAX) {
+        pDEV->iCounterRx++;
+    } else {
+        pDEV->iCounterRx = 1;
+        pDEV->tCounterResetRx = t;
+    }
+}
+void CounterTxUpDEV(BGN_DEVICE *pDEV, time_t t) {
+    pDEV->tTimestampTx = t;
+    // update counter (with wrap-around)
+    if (pDEV->iCounterTx < SHRT_MAX) {
+        pDEV->iCounterTx++;
+    } else {
+        pDEV->iCounterTx = 1;
+        pDEV->tCounterResetTx = t;
+    }
+}
+
 // This is the "device processor". Data received was placed into the control block. Here we scan the
 // control block to see if we have to generate a reply message.
 // We attempt to emulate the real thing.
@@ -596,13 +677,16 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
     unsigned char tmp_buffer[256],payload[256];
     char asciibuffer[256];
     int i,len_pl,len_msg;
-
+    time_t t;
     size_t r = 0;
 
     // device received new data
     if ((pCtrl->iNewDevice < 1)) {
         // nothing to do
     } else {
+
+        time(&t); // save the time
+
         // Stage 1 - check for new commands
         for (i=0; i<BGNET_COMMAND_MAX; i++) {
             if (pCtrl->CMD[i].iNewCommand < 1) {
@@ -634,8 +718,8 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
                         // these 2 commands send channel data; data was placed into the DATA structure by the "frame decoder".
                         // no response required
                         break;
-                    case BGNET_FRAME_CMD_QUAD_RESET1:
-                    case BGNET_FRAME_CMD_QUAD_RESET3:
+                    case BGNET_FRAME_CMD_QUAD_RESET:
+                    case BGNET_FRAME_CMD_QUAD_RESET_R:
                         // replay is immediately send when received; nothing to do here            
                         break;
                     case BGNET_FRAME_CMD_PILOT_AM:
@@ -678,14 +762,27 @@ size_t bgn_net_process(BGNET_CTRL *pCtrl, unsigned char* buffer) {
         }
 
         // stage 3 - do some scheduled messages
-        //len_pl = makeQUADresponse1(pCtrl, payload);
-        //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
-        //memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
-        //r = r + len_msg; // increment byte counter in TX buffer
-        //len_pl = makeQUADresponse2(pCtrl, payload);
-        //len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
-        //memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
-        //r = r + len_msg; // increment byte counter in TX buffer
+        len_pl = makeQUADresponse1(pCtrl, payload);
+        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+
+        // put it for transmission
+        memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
+        r = r + len_msg; // increment byte counter in TX buffer
+
+        // update statistics
+        memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].ucFrameTx, &tmp_buffer, len_msg);
+        CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_DATA], t);
+
+        len_pl = makeQUADresponse2(pCtrl, payload);
+        len_msg = bgn_net_makemessage(tmp_buffer, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+        
+        // put it for transmission
+        memcpy(&buffer[r], &tmp_buffer, len_msg); // put output message in write buffer
+        r = r + len_msg; // increment byte counter in TX buffer
+
+        // update statistics
+        memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].ucFrameTx, &tmp_buffer, len_msg);
+        CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_DATA], t);
 
         // stage 4 - check if we are allowed to send output
         // check if we are in RW mode; if not, destroy our output. I'd rather do it here that making the logic complexer
@@ -718,7 +815,7 @@ void fmt_encode(unsigned int *buf, unsigned int div, unsigned int pad, unsigned 
     *buf = ((div << 6) & BGN_FMT_MASK_DIVPAD_DIV) | ((pad << 4) & BGN_FMT_MASK_DIVPAD_PAD) | (fmt & BGN_FMT_MASK_DT);
 } 
 
-// returns the length of a channel block; it all depends on the FMT specifier.
+// returns the length of a channel block; it all depends on the FMT specifier (in the FMT Definition Table).
 int ChannelByteLength(BGNET_CTRL* pCtrl, unsigned char ucFMT) {
     int r;
     r = pCtrl->pFMTDT[(ucFMT & BGN_FMT_MASK_DT)].iLen;
@@ -727,6 +824,7 @@ int ChannelByteLength(BGNET_CTRL* pCtrl, unsigned char ucFMT) {
     } else {
         // is the value is unknown, i just make a guess. 4 is better than zero or -1
         r = 4; // just a guess
+        log_error("FMT specifier 0x%02X, invalid length %d", ucFMT & BGN_FMT_MASK_DT, r);
     }
     return(r);
 }
@@ -771,7 +869,6 @@ char* CommandToAscii(char* asciibuf, unsigned char* ucFrame) {
     // return a null terminated ascii string
     return(asciibuf);
 }
-
 
 // returns the length of the channel value bytes and generates the text representation of the channel value
 char* decode_value(char* pStr, union CH* puCH) {
@@ -833,58 +930,6 @@ char* decode_value(char* pStr, union CH* puCH) {
     return(pStr);
 }
 
-// update timestamp and increment counter (with wrap-around)
-void CounterUpDATA(BGN_CHANNEL *pCH, time_t t) {
-    pCH->tTimestamp = t;
-    // update counter (with wrap-around)
-    if (pCH->iCounter < SHRT_MAX) {
-        pCH->iCounter++;
-    } else {
-        pCH->iCounter = 1;
-        pCH->tCounterReset = t;
-    }
-}
-void CounterRxUpCMD(BGN_COMMAND *pCMD, time_t t) {
-    pCMD->tTimestampRx = t;
-    // update counter (with wrap-around)
-    if (pCMD->iCounterRx < SHRT_MAX) {
-        pCMD->iCounterRx++;
-    } else {
-        pCMD->iCounterRx = 1;
-        pCMD->tCounterResetRx = t;
-    }
-}
-void CounterTxUpCMD(BGN_COMMAND *pCMD, time_t t) {
-    pCMD->tTimestampTx = t;
-    // update counter (with wrap-around)
-    if (pCMD->iCounterTx < SHRT_MAX) {
-        pCMD->iCounterTx++;
-    } else {
-        pCMD->iCounterTx = 1;
-        pCMD->tCounterResetTx = t;
-    }
-}
-void CounterRxUpDEV(BGN_DEVICE *pDEV, time_t t) {
-    pDEV->tTimestampRx = t;
-    // update counter (with wrap-around)
-    if (pDEV->iCounterRx < SHRT_MAX) {
-        pDEV->iCounterRx++;
-    } else {
-        pDEV->iCounterRx = 1;
-        pDEV->tCounterResetRx = t;
-    }
-}
-void CounterTxUpDEV(BGN_DEVICE *pDEV, time_t t) {
-    pDEV->tTimestampTx = t;
-    // update counter (with wrap-around)
-    if (pDEV->iCounterTx < SHRT_MAX) {
-        pDEV->iCounterTx++;
-    } else {
-        pDEV->iCounterTx = 1;
-        pDEV->tCounterResetTx = t;
-    }
-}
-
 // routine to process values in the body. A body might contain multiple values
 int process_CMD_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     int y,z;
@@ -908,6 +953,13 @@ int process_CMD_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
         memcpy(pCtrl->DATA[ucCH].ucRAW, pBuf + BGN_VALUE_CNR, y); // copy y bytes from channel number
 
         CounterUpDATA(&pCtrl->DATA[ucCH], t);
+
+        // sometimes we have to update someting more
+        switch(ucCH) {
+            case BGN_CNR_B5_AP_MODE:
+                pCtrl->ACP.ucSTATE = (*(pBuf + 2) & BGN_AP_MODE1_MASK_STATE);  // get AUTO/STBY state into ACP
+                pCtrl->ACP.ucMODE = (*(pBuf +3) & BGN_AP_MODE2_MASK_MODE);     // get COMP/NAV/VANE mode into ACP
+        }
 
         pBuf = pBuf + y;
         z++;
@@ -959,7 +1011,7 @@ int IsMessageForMe(unsigned char *pBuf) {
 size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
     unsigned char cs; // checksum calculated
     unsigned char *pBuf,*pEnd; // pointer to start and end of buffer
-    char asciibuffer[BGN_ASCIIFRAME_SIZE];
+    char asciibuffer[BGN_FRAME_SIZE];
     int xSize,x,z,n;
     int iIsForMe, iIsValid;
     unsigned char ucCMD, ucFROM;
@@ -1018,19 +1070,20 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                     switch(ucCMD) {
                         case BGNET_FRAME_CMD_KEEPALIVE:
                             iIsValid = 1;
-                            log_info("  Command %02X (header only) KEEPALIVE by %02X %s",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDEVDT[x].sModelName);
+                            log_info("  Command %02X (header only) KEEPALIVE by %02X %s", ucCMD, ucFROM, pCtrl->pDEVDT[x].sModelName);
                             break;
                         case BGNET_FRAME_CMD_POWERUP:
                             iIsValid = 1;
-                            log_info("  Command %02X (header only) POWERUP by %02X %s",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDEVDT[x].sModelName);
+                            log_info("  Command %02X (header only) POWERUP by %02X %s", ucCMD, ucFROM, pCtrl->pDEVDT[x].sModelName);
                             break;
                         default:
-                            log_info("  Command %02X (header only) IGNORED from %02X %s)",*(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDEVDT[x].sModelName);
+                            log_info("  Command %02X (header only) IGNORED from %02X %s)", ucCMD, ucFROM, pCtrl->pDEVDT[x].sModelName);
                             break;
                     }
                     if (iIsValid > 0) {
-                        // update CMD structure
+                        // update DEV & CMD structure
                         pCtrl->iNewDevice = 1; // signal this device
+                        memcpy(pCtrl->DEV[ucFROM].ucFrameRx, pBuf, xSize);
                         pCtrl->CMD[ucCMD].iNewCommand = 1; // signal this command
                         memcpy(pCtrl->CMD[ucCMD].ucFrameRx, pBuf, xSize);
                         CounterRxUpCMD(&pCtrl->CMD[ucCMD], t);
@@ -1060,32 +1113,36 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 iIsValid = 1;
                                 // process DATA/LATLON message
                                 n = process_CMD_DATA(pCtrl, pBuf);
-                                log_info("  Command %02X (with body), %d channels",*(pBuf+BGNET_FRAME_HEAD_CMD), n);
+                                log_info("  Command %02X (with payload), %d channels", ucCMD, n);
                                 break;
                             case BGNET_FRAME_CMD_LABEL:
                                 iIsValid = 1;
                                 // process message (only at startup)
                                 process_CMD_VALUE(pBuf);
-                                log_info("  Command %02X (with body) LABEL",*(pBuf+BGNET_FRAME_HEAD_CMD));
+                                log_info("  Command %02X (with payloady) LABEL", ucCMD);
                                 break;
                             case BGNET_FRAME_CMD_SUBSCRIBE:
                                 iIsValid = 1;
                                 // process message (only at startup)
                                 process_CMD_SUBSCRIBE(pBuf);
-                                log_info("  Command %02X (with body) SUBSCRIBE",*(pBuf+BGNET_FRAME_HEAD_CMD));
+                                log_info("  Command %02X (with payload) SUBSCRIBE", ucCMD);
                                 break;
                             case BGNET_FRAME_CMD_BACKLIGHT:
                                 iIsValid = 1;
-                                log_info("  Command %02X BACKLIGHT BUTTON PRESSED (BY: %02X, %s, LEVEL: %02X)", *(pBuf+BGNET_FRAME_HEAD_CMD), *(pBuf+BGNET_FRAME_HEAD_FROM), pCtrl->pDEVDT[x].sModelName, *(pBuf+BGNET_FRAME_HEAD+0), *(pBuf+BGNET_FRAME_HEAD+4));
                                 pCtrl->ACP.ucLight = *(pBuf+BGNET_FRAME_HEAD+0); // first byte is the LIGHTS state
+                                log_info("  Command %02X (with payload) BACKLIGHT (BY: %02X, %s, LEVEL: %02X)", *(pBuf+BGNET_FRAME_HEAD_CMD), ucFROM, pCtrl->pDEVDT[x].sModelName, pCtrl->ACP.ucLight);
                                 // if this was the PB on the QUAD, do something extra
                                 if (*(pBuf+BGNET_FRAME_HEAD_FROM) == 0x30) {
-                                    // toggle AUTO/STBY state
-                                    pCtrl->ACP.ucSTATE = 1 - pCtrl->ACP.ucSTATE;
+                                //    // toggle AUTO/STBY state
+                                //    pCtrl->ACP.ucSTATE = 1 - pCtrl->ACP.ucSTATE;
+                                //    // toggle MODE
+                                        pCtrl->ACP.ucMODE++;
+                                        if (pCtrl->ACP.ucMODE > 6) pCtrl->ACP.ucMODE = 1;
                                 }
+
                                 break;
-                            case BGNET_FRAME_CMD_QUAD_RESET1:
-                            case BGNET_FRAME_CMD_QUAD_RESET3:
+                            case BGNET_FRAME_CMD_QUAD_RESET:
+                            case BGNET_FRAME_CMD_QUAD_RESET_R:
                             //makeQUADresponseRESET
                                 //iIsValid = 1;
                                 //pCtrl->ACP.uiTripLogNM = 0; // reset log trip counter            
@@ -1135,8 +1192,9 @@ size_t frame_decoder(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 break;
                         }
                         if (iIsValid > 0) {
-                            // update CMD structure
+                            // update DEV & CMD structure
                             pCtrl->iNewDevice = 1; // signal this device
+                            memcpy(pCtrl->DEV[ucFROM].ucFrameRx, pBuf, xSize);
                             pCtrl->CMD[ucCMD].iNewCommand = 1; // signal this command
                             memcpy(pCtrl->CMD[ucCMD].ucFrameRx, pBuf, xSize);
                             CounterRxUpCMD(&pCtrl->CMD[ucCMD], t);

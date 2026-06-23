@@ -305,7 +305,7 @@ static char* html_interface_top(char *Buffer) {
         "<h3>Serial Interface</h3>"
         "<table>"
         "<tr><th rowspan='2'>Interface</th><th rowspan='2'>Communication Parameters</th><th rowspan='2'>Service</th><th colspan='2'>Device</th></tr>"
-        "<tr><th>Address</th><th>Type</th></tr>";
+        "<tr><th>Node</th><th>Type</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -337,17 +337,17 @@ static char* html_device_top(char *Buffer) {
     const char *cDevTop =
         "<h3>Devices</h3>"
         "<table>"
-        "<tr><th colspan='2'>Device</th><th colspan='2'>Rx</th><th colspan='2'>Tx</th><th colspan='2'>Checksum Errors</th></th></tr>"
-        "<tr><th>Address</th><th>Type</th><th>Counter</th><th>Sec</th><th>Counter</th><th>Sec</th><th>Head</th><th>Frame</th></tr>";
+        "<tr><th colspan='2'>Device</th><th colspan='3'>Rx</th><th colspan='3'>Tx</th><th colspan='2'>Checksum Errors</th></th></tr>"
+        "<tr><th>Node</th><th>Type</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Head</th><th>Frame</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     time_t t;
-    char cLine[256];
+    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII];
     const char *cDevRow =
-        "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td></tr>";
+        "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -356,13 +356,17 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
         if ((pCtrl->DEV[i].iCounterRx < 1) & (pCtrl->DEV[i].iCounterTx < 1)) {
             // it was never touched
         } else {
+            CommandToAscii(asciibufRx, pCtrl->DEV[i].ucFrameRx);
+            CommandToAscii(asciibufTx, pCtrl->DEV[i].ucFrameTx);
             snprintf(cLine, sizeof(cLine), cDevRow,
                                                      i,
                                                      pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName,
                                                      pCtrl->DEV[i].iCounterRx,
                                                      t - pCtrl->DEV[i].tTimestampRx,
+                                                     asciibufRx,
                                                      pCtrl->DEV[i].iCounterTx,
                                                      t - pCtrl->DEV[i].tTimestampTx,
+                                                     asciibufTx,
                                                      pCtrl->DEV[i].iCSError_Header, 
                                                      pCtrl->DEV[i].iCSError_Frame
                                                     );
@@ -388,7 +392,7 @@ static char* html_ACP_top(char *Buffer) {
 static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[256];
     char cSTAT[2][5] = {"STBY","AUTO"};
-    char cMODE[8][8] = {"---0","COMP","---2","NAV","VANE","---5","---6","JOYSTICK"};
+    char cMODE[8][8] = {"---0","COMP","---2","NAV","VANE","---5","JOYSTICK","---7"};
     const char *cACPRowS =
         "<tr><td>%s</td><td>%s</td></tr>";
     const char *cACPRowD =
@@ -417,17 +421,47 @@ static char* html_command_top(char *Buffer) {
     const char *cDevTop =
         "<h3>Commands</h3>"
         "<table>"
-        "<tr><th rowspan='2'>Command</th><th colspan='3'>Rx</th><th colspan='3'>Tx</th></tr>"
-        "<tr><th>Counter</th><th>Sec</th><th>Raw</th><th>Counter</th><th>Sec</th><th>Raw</th></tr>";
+        "<tr><th colspan='2'>Command</th><th colspan='3'>Rx</th><th colspan='3'>Tx</th></tr>"
+        "<tr><th>Code</th><th>Label</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Counter</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
+static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
+    char cCMD[7][10] = {"UNKNOWN","DATA", "LABEL", "SUBSCRIBE", "POWERUP", "KEEPALIVE", "LIGHTS"};
+    int x;
+    switch(ucCMD) {
+        case BGNET_FRAME_CMD_DATA:
+            x = 1; // DATA
+            break;
+        case BGNET_FRAME_CMD_LABEL:
+            x = 2;  // LABEL
+            break;
+        case BGNET_FRAME_CMD_SUBSCRIBE:
+            x = 3;  // SUBSCRIBE
+            break;
+        case BGNET_FRAME_CMD_POWERUP:
+            x = 4;  // POWERUP
+            break;
+        case BGNET_FRAME_CMD_KEEPALIVE:
+            x = 5;  // KEEPALIVE
+            break;
+        case BGNET_FRAME_CMD_BACKLIGHT:
+            x = 6;  // LIGHTS
+            break;
+        default:
+            x = 0; // UNKNOWN
+            break;
+    }
+    strcpy(asciibuf, cCMD[x]);
+    return(asciibuf);
+}
+
 static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     time_t t;
-    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII];
+    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII], asciibufCMD[512];
     const char *cDevRow =
-        "<tr><td>0x%02X</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+        "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -440,6 +474,7 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
             CommandToAscii(asciibufTx, pCtrl->CMD[i].ucFrameTx);
             snprintf(cLine, sizeof(cLine), cDevRow,
                                                     i,
+                                                    StrCommandLabel(asciibufCMD, i),
                                                     pCtrl->CMD[i].iCounterRx,
                                                     t - pCtrl->CMD[i].tTimestampRx,
                                                     asciibufRx,
@@ -461,10 +496,10 @@ static char* html_command_end(char *Buffer) {
 
 static char* html_channel_top(char *Buffer) {
     const char *cDevTop =
-        "<h3>Channels</h3>"
+        "<h3>Channels (broadcast via command 0x01)</h3>"
         "<table>"
-        "<tr><th rowspan='2'>Channel</th><th colspan='3'>Rx</th><th rowspan='2'>Label</th><th rowspan='2'>From Address</th><th rowspan='2'>Display</th></tr>"
-        "<tr><th>Counter</th><th>Sec</th><td>Raw</td></tr>";
+        "<tr><th rowspan='2'>Channel</th><th colspan='3'>Rx</th><th rowspan='2'>Label</th><th rowspan='2'>Node</th><th rowspan='2'>Display</th></tr>"
+        "<tr><th>Counter</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }

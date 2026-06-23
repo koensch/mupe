@@ -204,8 +204,9 @@
                                              // FF 70 01 C9 C7 00 AA
                                              // at powerup, initializes to 0 (off), when pressed the 1st time (after power) it starts with 3, then
                                              // down to 2,1,0 (off) and wrap back to 3
-#define BGNET_FRAME_CMD_QUAD_RESET1     0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm)
-#define BGNET_FRAME_CMD_QUAD_RESET3     0xCD // 2 bytes payload (00 CF), request to reset channel CF (triplognm)
+#define BGNET_FRAME_CMD_QUAD_RESET      0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm)
+#define BGNET_FRAME_CMD_QUAD_RESET_R    0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF/TRIPLOGNM or 41/BOATSPEEDKT (81/DR_DIST)
+                                             // Note: DR_DISTNM is displayed on SPEED and DATA, not on QUAD.
 
 #define BGNET_FRAME_CMD_PILOT_SPEED     0xD0 // 2 bytes payload (00 46), 46= AP_SPEEDKTS
 #define BGNET_FRAME_CMD_PILOT_AM        0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5
@@ -273,16 +274,16 @@
 #define BGN_CNR_3B_LINEAR4          0x3B
 #define BGN_CNR_3C_ROLLRATE         0x3C
 #define BGN_CNR_40_FORESTAY         0x40
-#define BGN_CNR_41_BOATSPEEDKTS     0x41
+#define BGN_CNR_41_BOATSPEEDKT      0x41
 #define BGN_CNR_42_BOATSPEEDRAW     0x42
 #define BGN_CNR_43_BOATSPEEDMS      0x43
 #define BGN_CNR_44_YAWRATE          0x44
-#define BGN_CNR_46_AP_SPEEDKTS      0x46 // displayed when SPEED button is pressed on a PILOT
+#define BGN_CNR_46_AP_SPEEDKT       0x46 // displayed when SPEED button is pressed on a PILOT
 #define BGN_CNR_47_LONLAT           0x47 //send in ASCII via CMD03
 #define BGN_CNR_48_LONLAT           0x48 //send in ASCII via CMD03
 #define BGN_CNR_49_HEADING          0x49
 #define BGN_CNR_4A_HEADINGRAW       0x4A
-#define BGN_CNR_4D_AWINDSPEEDKTS    0x4D
+#define BGN_CNR_4D_AWINDSPEEDKT     0x4D
 #define BGN_CNR_4E_AWINDSPEEDRAW    0x4E
 #define BGN_CNR_4F_AWINDSPEEDMS     0x4F
 #define BGN_CNR_50_AWINDSPEEDKT     0x50 // displayed by WIND (small display, when APP selected)
@@ -296,8 +297,8 @@
 #define BGN_CNR_57_TWINDSPEEDKT     0x57
 #define BGN_CNR_59_TWINDANGLE       0x59
 #define BGN_CNR_5A_MEASWINDANGLE    0x5A
-#define BGN_CNR_64_SPEEDAVGKTS      0x64
-#define BGN_CNR_65_SPEEDAVGRAW      0x65
+#define BGN_CNR_64_SPEEDAVGKT       0x64 // displayed by QUAD
+#define BGN_CNR_65_SPEEDMAXKT       0x65 // displayed by QUAD
 #define BGN_CNR_66_KEELANGLE        0x66
 #define BGN_CNR_67_CANARDANGLE      0x67
 #define BGN_CNR_68_REQFORDATA       0x68
@@ -314,7 +315,7 @@
 #define BGN_CNR_7D_TARGETBOATSPEED  0x7D
 #define BGN_CNR_7F_VMGKT            0x7F
 #define BGN_CNR_80_UNKNOWN          0x80
-#define BGN_CNR_81_DR_DIST          0x81 // displayed by SPEED and DATA, reset via QUAD
+#define BGN_CNR_81_DR_DISTNM        0x81 // Dead Reckoned Distance, displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_82_LEEWAY           0x82
 #define BGN_CNR_83_TIDALDRIFT       0x83
 #define BGN_CNR_84_TIDALSET         0x84
@@ -345,14 +346,14 @@
     #define BGN_AP_MODE2_COMP       0x01
     #define BGN_AP_MODE2_NAV        0x03
     #define BGN_AP_MODE2_VANE       0x04
-    #define BGN_AP_MODE2_JOYSTICK   0x07
+    #define BGN_AP_MODE2_JOYSTICK   0x06
 #define BGN_CNR_BA_UNKNOWN          0xBA
 #define BGN_CNR_BB_LATITUDE         0xBB
 #define BGN_CNR_BC_LONGITUDE        0xBC
 #define BGN_CNR_C1_DEPTHM           0xC1
 #define BGN_CNR_C2_DEPTHFT          0xC2
 #define BGN_CNR_C3_DEPTHFM          0xC3
-#define BGN_CNR_C4_DEPTHM           0xC4 // shows some "---" or ?
+#define BGN_CNR_C4_DEPTHM           0xC4 // displayed by QUAD, or "---" incase no measurement
 #define BGN_CNR_CD_STORLOGNM        0xCD
 #define BGN_CNR_CF_TRIPLOGNM        0xCF
 #define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
@@ -387,11 +388,11 @@
 #define BGN_CNR_F9_COURSETOSAIL     0xF9
 #define BGN_CNR_FA_NEXTWPDIST       0xFA
 #define BGN_CNR_FB_TIMETOLAYLINE    0xFB
-#define BGN_CNR_FC_SHALLOWALARM     0xFC
-#define BGN_CNR_FD_DEPTHALARM       0xFD //OFF or ?, might be WIND
-#define BGN_CNR_FE_ANCHORALARM      0xFE //OFF or ?, might be WIND
-#define BGN_CNR_FF_DEPTH_CAL        0xFF //DEPTH calibration, difference between the deepest point of the boat and the
-                                         // sensor (Depth_sensor - Depth_keel, usually this value is negative)
+#define BGN_CNR_FC_SHALLOWALARM     0xFC // displayed on QUAD, FMT_01= value (0-999), FMT_04= "OFF"
+#define BGN_CNR_FD_DEPTHALARM       0xFD // displayed on QUAD, FMT_01= value (0-999), FMT_04= "OFF"
+#define BGN_CNR_FE_ANCHORALARM      0xFE // displayed on QUAD, FMT_01= value (0-999), FMT_04= "OFF"
+#define BGN_CNR_FF_DEPTH_CAL        0xFF // displayed on QUAD, FMT_01= value (0-999)
+                                         // difference between the deepest point of the boat and the depth of the sensor, usually negative
 
 // In our protocol handler, we mirror received channel data
 // In principal we could support every B&G NETWORK device, albeit we do not had them available when making this protcol
@@ -462,13 +463,14 @@ typedef struct {
     uint8_t ubChannelIndex;     // Channel index
     char cLabel[20];            // the label, variable name
     uint8_t ucFMT;              // default formatting
-    int iChannelLen;            // number of bytes in channel
     int iImpExpEnable;          // allow Import or Export
     int iImportFrom;            // Import from NMEA2000 or SignalK
     int iExportTo;              // Export to NMEA2000 of SignalK
     int iNMEA_PGN;              // NMEA2000 reference PGN
     char cSKdef[32];            // SignalK reference string 
 } BGNET_CHNDT;
+
+#define BGN_FRAME_SIZE    256
 
 // register device statistics
 typedef struct {
@@ -480,20 +482,21 @@ typedef struct {
     time_t tCounterResetRx;
     time_t tTimestampTx;
     time_t tCounterResetTx;
+    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
+    unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
 } BGN_DEVICE;
 
-#define BGN_ASCIIFRAME_SIZE    256
 // register Command statistics
 typedef struct {
     int iNewCommand; // a new command was received
     int iCounterRx; // everytime we receive this command, we increment this (with wrap-around)
     time_t tTimestampRx; // timestamp of last update
     time_t tCounterResetRx; // when ww wrap-around the counter
-    unsigned char ucFrameRx[BGN_ASCIIFRAME_SIZE]; // most recent Rx frame (binary)
+    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
     int iCounterTx; // everytime we send this command, we increment this (with wrap-around)
     time_t tTimestampTx; // timestamp of last update
     time_t tCounterResetTx; // when ww wrap-around the counter
-    unsigned char ucFrameTx[BGN_ASCIIFRAME_SIZE]; // most recent Tx frame (binary)
+    unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
 } BGN_COMMAND;
 
 typedef struct {
