@@ -12,7 +12,7 @@ void *timer_thread(void *arg)
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
     Config *cfg = pCtrl->pCfg;
 
-    unsigned char RxBuf[1024], TxBuf[1024]; // local read buffer
+    unsigned char RxBuf[BGNET_RXTXRAW_SIZE], TxBuf[BGNET_RXTXRAW_SIZE]; // local read buffer
     size_t RxBufLen = 0, TxBufLen = 0;
     int RxCounter = 0;
 
@@ -79,39 +79,38 @@ void *timer_thread(void *arg)
             //handle_received_frame(pCtrl, RxBuf, RxBufLen);
             // warning: frame decoder does not lock other threads, because is works on a copy
             // of a completely received frame
-            frame_decoder(pCtrl, RxBuf, RxBufLen);
+            decode_frame(pCtrl, RxBuf, RxBufLen);
             RxBufLen=0; // dump contents of local readbuffer, all data is processed
         }
 
-        // we do not wat to execute this logic every msec. transmisson will also take some count down device counter. note that any application can trigger an instant
-        // executionm of the device processing, by setting this counter to 0
+        // we do not wat to execute DEVICE processing every msec. transmisson will also take some count down device counter.
+        // note that any application can trigger an instant executionm of the device processing, by setting this counter to 0
         if (pCtrl->iDeviceCounter > 0) {
-          pthread_mutex_lock(&g_data_mutex);
           pCtrl->iDeviceCounter--;
-          pthread_mutex_unlock(&g_data_mutex);
         } else {
           log_info("Device Processing %d", pCtrl->iDeviceRun);
-          pthread_mutex_lock(&g_data_mutex);
 
           // device processing
-          TxBufLen = bgn_net_process(pCtrl, TxBuf);
+          TxBufLen = bgn_net_process(pCtrl, TxBuf, sizeof(TxBuf));
           pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
-
-          // copy any output frame into the Txbuffer. I do not 'append' to any existing
-          // contents, but overwrite what there might be. The reason is that i do not want
-          // to take the risk of writing outside by buffer.
-          if (TxBufLen > 0) {
-            memcpy(g_last_serial_dataTx, &TxBuf, TxBufLen);
-            g_serial_data_lenTx = TxBufLen;
-          }
 
           // increment a run counter, wrap around to avoid overruns
           pCtrl->iDeviceRun++;
-          if (pCtrl->iDeviceRun >= 10) {
+          if (pCtrl->iDeviceRun > 999) {
             pCtrl->iDeviceRun = 0;
           }
 
-          pthread_mutex_unlock(&g_data_mutex);
+          // copy any output frame (from device processor) into the Txbuffer. I do not 'append' to any existing
+          // contents, but overwrite what there might be. The reason is that i do not want to risk a buffer overflow
+          if (TxBufLen > 0) {
+            if ((TxBufLen * 10) > (sizeof(g_last_serial_dataTx) * 9)) {
+              log_error("Tx buffer dangerously full (>90%)");
+            }
+            pthread_mutex_lock(&g_data_mutex);
+            memcpy(g_last_serial_dataTx, &TxBuf, TxBufLen);
+            g_serial_data_lenTx = TxBufLen;
+            pthread_mutex_unlock(&g_data_mutex);
+          }
         }
 
         // no racing allowed

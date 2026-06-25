@@ -81,10 +81,6 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
     return 0;
 }
 
-// an incoming stream is captured every 1 msec. This buffer in only to
-// hold what 11008 baud can produce (= ca 1100 bytes/sec). 256 bytes should be OK
-#define BGNET_RXRAW_SIZE            256    // max size readbuffer 
-
 void *serial_thread(void *arg)
 {
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
@@ -114,8 +110,8 @@ void *serial_thread(void *arg)
     int flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
 
-    unsigned char RxBuf[BGNET_RXRAW_SIZE];
-    unsigned char TxBuf[BGNET_RXRAW_SIZE];
+    unsigned char RxBuf[BGNET_RXTXRAW_SIZE];
+    unsigned char TxBuf[BGNET_RXTXRAW_SIZE];
     ssize_t nRx = 0;
     ssize_t nTx = 0, w;
 

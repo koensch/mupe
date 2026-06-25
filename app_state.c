@@ -4,14 +4,16 @@
 volatile int g_running = 1;
 
 pthread_mutex_t g_data_mutex;
-char g_last_serial_dataRx[1024];
-char g_last_serial_dataTx[1024];
-char g_last_ethernet_data[1024];
-char g_last_signalk_delta[1024];
+
+char g_last_serial_dataRx[BGNET_RXTXRAW_SIZE];
+char g_last_serial_dataTx[BGNET_RXTXRAW_SIZE];
 int  g_serial_data_lenRx = 0;
 int  g_serial_data_lenTx = 0;
 int  g_serial_data_counter = SerialCounter_Reset;
 int  g_serial_mode = BGN_SERIAL_MODE_RO;
+
+char g_last_ethernet_data[BGNET_RXTXRAW_SIZE];
+char g_last_signalk_delta[BGNET_RXTXRAW_SIZE];
 
 double g_lat = 0.0;
 double g_lon = 0.0;

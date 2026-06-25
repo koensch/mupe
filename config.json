@@ -5,7 +5,7 @@
     "databits": 8,
     "stopbits": 2,
     "parity": "odd",
-    "mode": "readwrite"
+    "mode": "readonly"
   },
   "ethernet": {
     "device": "eth0",

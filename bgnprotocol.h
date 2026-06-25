@@ -30,7 +30,7 @@
 // - NET QUAD: has a 'repeater mode' (tYPEr)
 // - NET QUAD-R: does have NMEA output capabilities that the QUAD module has not. You can configure a QUAD as
 //   a repeater, but that does not give it the NMEA capability.
-// - NET QUAD has a 'demo mode' (press <TIMER> to display stored LOG, press <SETUP>)
+// - NET QUAD has a 'demo mode' (press <TIMER> to display stored LOG, press <SETUP>, select 'TYPEd')
 // - NET PILOT: has a 'demo mode' (TYPE D)
 // - NET PILOT: has a connector at the back for NMEA0183 input. Could be a 2-pin connector (use cable 612-OA-014)
 //   or a 3-pin connector (use cable 612-OA-053). Cables are no longer produced.
@@ -45,7 +45,7 @@
 // - NET PILOT:
 //    - normally sends 4 channels: 49 (Heading, 0/360), 0B (Rudder angle, -45/+45), 51 (AW angle, -180/+180), 41 (Speed KT, 0/99.9)
 //    - when any button is pressed (except SPEED or SETUP) it transmits 4 channels, appearently to synchronize with the ACP and other
-//      PILOT modules on the network: B5 (AP mode), 53 (Target TWA), A6 (AP Target Course), A7 (AP WP Bearing)
+//      PILOT modules on the network: B5 (AP mode), 53 (Target TWA), A6 (AP Target Course), A7 (AP WP Bearing). The message is only send once.
 // - NET PILOT: at startup (without ACP), the message "No Pilot" is displayed and it only sends a KEEPALIVE command (0x0E) TO 0x00. This is
 //   repeated every 3.8sec. If a reply is not received (within 5sec), "No Pilot" is displayed.
 //   If the PILOT recives the B5 (AP mode), 53 (Target TWA), A6 (AP Target Course), A7 (AP WP Bearing), same as transmitted in 'demo', the 
@@ -57,6 +57,7 @@
 //    - <10,>10,<1,>1 button: TO FROM 02 DC CS 00 A6 CS
 //   if no response message is received, PILOT starts to beep. What the response message should be is unclear.
 //   The 2nd byte of the payload appears to be a channel number.
+// - When a DATA or QUAD-r does not receive a value (every 10 seconds) it displays "OFF" 
 // - NET ACP: supports a joystick, directly connected to the ACP, engage/disengaged by a switch connected to the ACP. When engaged, the
 //   joystick controls the rudder directly. When engaged, the PILOT displays "JOYSTICK".
 // - after connection a message/error is displayed; press any button to resume
@@ -139,25 +140,28 @@
 #define BGNET_FRAME_TO_ALL            0xFF
 
 // values for the FROM field (byte 1)
-#define BGNET_FRAME_FROM_DEPTHCPU     0x01
-#define BGNET_FRAME_FROM_WINDCPU      0x05
-#define BGNET_FRAME_FROM_PERFCPU      0x09
-#define BGNET_FRAME_FROM_EXPANSION1   0x0D
-#define BGNET_FRAME_FROM_EXPANSION2   0x0E
-#define BGNET_FRAME_FROM_HALCYONCPU   0x0F
-#define BGNET_FRAME_FROM_H2000GYRO    0x10
-#define BGNET_FRAME_FROM_GYROACP      0x11
-#define BGNET_FRAME_FROM_GYROACPPILOT 0x12
-#define BGNET_FRAME_FROM_GYROACPPILOT 0x12
+#define BGNET_TYPE_DEPTHCPU     0x01
+#define BGNET_TYPE_WINDCPU      0x05
+#define BGNET_TYPE_PERFCPU      0x09
+#define BGNET_TYPE_EXPANSION1   0x0D
+#define BGNET_TYPE_EXPANSION2   0x0E
+#define BGNET_TYPE_HALCYONCPU   0x0F
+#define BGNET_TYPE_H2000GYRO    0x10
+#define BGNET_TYPE_GYROACP      0x11
+#define BGNET_TYPE_GYROACPPILOT 0x12
+#define BGNET_TYPE_GYROACPPILOT 0x12
 
-// FROM address range (0x?0-0x?F)
-#define BGNET_DEVICETYPE_MASK       0xF0 // mask the device type from the address
-#define BGNET_FRAME_FROM_NETACP     0x00 // could this be the ACP unit on the network? (it's also connected to the tails)
-#define BGNET_FRAME_FROM_FFD        0x20
-#define BGNET_FRAME_FROM_NETQUAD    0x30 // Halcon FFD's
-#define BGNET_FRAME_FROM_NETPILOT   0x50 // PILOT FFD's
-#define BGNET_FRAME_FROM_NETDATA    0xD0
-#define BGNET_FRAME_FROM_NETWIND    0x70
+// FROM address range (0x?0-0x?F) for device types
+#define BGNET_TYPE_MASK       0xF0 // mask the device type from the address
+#define BGNET_TYPE_NETACP     0x00 // could this be the ACP unit on the network? (it's also connected to the tails)
+#define BGNET_TYPE_FFD        0x20
+#define BGNET_TYPE_NETQUAD    0x30
+#define BGNET_TYPE_NETPILOT   0x50
+#define BGNET_TYPE_NETDEPTH   0x10 //?
+#define BGNET_TYPE_NETSPEED   0x40 //?
+#define BGNET_TYPE_NMEA       0x60 // external NMEA device
+#define BGNET_TYPE_NETDATA    0xD0
+#define BGNET_TYPE_NETWIND    0x70
 
 // OK, i have a dilemma.....
 // when we want to send some data onto the net IO, i must have a FROM adrress (and implicit a 'devicetype'). I don't want to
@@ -178,21 +182,25 @@
                                              //In demo mode the follwing (simulated) data is send:
                                              //  WIND:  4E(AWINDSPEEDRAW),50(AWINDSPEEDKT),51(AWINDANGLE),52(TWINDANGLERAW),8D(BATTVOLTS)
                                              //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
+                                             //         (when AUTO) 53(TARGET TWA),A6 (COURSETARGET),A7 (AP WP BEARING),B5 (AP MODE)
+                                             //  QUAD:  20(SEATEMP),31(ECHOSND),41(BOATSPEEDKT),42(BOATSPEEDRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
+                                             //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOALM),FD(DEPTHALM),FE(ANCHORALM)
                                              //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
 #define BGNET_FRAME_CMD_LATLON          0x03 //DATA broadcast, variable length. ASCII transmission, for LAT/LON messages, used for
-                                             //channel 0x47 (LONLAT)
+                                             //channel 0x47 (LONLAT), not used on NETWORK series
 #define BGNET_FRAME_CMD_SUBSCRIBE       0x06 //at startup some stations (DATA/60) broadcast to providers (QUAD/30) a subscription request, payload= Ch#, CS
                                              // DATA/60 to QUAD/30: FE(ANCHORALARM),FC(SHALLOWALARM),C4(DEPTHM),FD(DEPTHALARM),41(SPEEDKT),65(MAXSPEEDKT),
-                                             //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTANCENM),D3(DRCOURSEM)
-                                             //Note: Command is not send when device (QUAD/30) is in 'repeater' mode.
-#define BGNET_FRAME_CMD_POWERUP         0x0A //at startup all stations (QUAD/30, PILOT/51, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
-                                             //QUAD: "FF-30-00-0A-C7", PILOT: "FF-51-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
+                                             //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTNM),D3(DRCOURSEM)
+                                             //Note: Command is not send by DATA/60 when QUAD/30 is in 'repeater' mode.
+#define BGNET_FRAME_CMD_POWERUP         0x0A //at startup all stations (QUAD/30, PILOT/50, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
+                                             //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
+                                             //(no firmware version number is included in NETWORK series)
 #define BGNET_FRAME_CMD_0C              0x0C //unknown
-#define BGNET_FRAME_CMD_KEEPALIVE       0x0E //continously, a PILOT/50 station broadcasts (TO 0x00!) every 3-4 seconds. Message format:
+#define BGNET_FRAME_CMD_KEEPALIVE       0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
                                              // PILOT: "00 51 00 0E A1"
                                              // Copilot came up with this suggestion for a ACP response. This turns out to be not applicable for
                                              // the NETWORK series:
-                                             // ACP:   "51 00 07 8E XX 01 07 2C FF D8 00 00 5A"
+                                             // ACP:   "50 00 07 8E XX 01 07 2C FF D8 00 00 5A"
                                              //                        01 = MODE = Auto {STBY|AUTO|TRACK|WIND}
                                              //                           07 2C = Heading = 1846 = 184.6 (actual, 0-360), 1/10th of a degree
                                              //                                 FF D8 = Rudder = -40 = -4.0 (-45/+45), 1/10th of a degree
@@ -205,11 +213,11 @@
                                              // at powerup, initializes to 0 (off), when pressed the 1st time (after power) it starts with 3, then
                                              // down to 2,1,0 (off) and wrap back to 3
 #define BGNET_FRAME_CMD_QUAD_RESET      0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm)
-#define BGNET_FRAME_CMD_QUAD_RESET_R    0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF/TRIPLOGNM or 41/BOATSPEEDKT (81/DR_DIST)
+#define BGNET_FRAME_CMD_QUAD_RESET_R    0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
                                              // Note: DR_DISTNM is displayed on SPEED and DATA, not on QUAD.
 
-#define BGNET_FRAME_CMD_PILOT_SPEED     0xD0 // 2 bytes payload (00 46), 46= AP_SPEEDKTS
-#define BGNET_FRAME_CMD_PILOT_AM        0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5
+#define BGNET_FRAME_CMD_PILOT_SPEED     0xD0 // 2 bytes payload (00 46), 46= AP_SPEEDKT
+#define BGNET_FRAME_CMD_PILOT_AM        0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5?
 #define BGNET_FRAME_CMD_PILOT_MODE      0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
 #define BGNET_FRAME_CMD_PILOT_STEP      0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
 
@@ -221,19 +229,18 @@
 #define BGNET_FRAME_CMD_RESET           0xFE // reset adresss modules to factory default, no data. Does not work on NETWORK series devices.
                                              // FF 70 00 FE C9
 
-// layout of the VALUE (1 or more in a BODY, dynamic length)
+// layout of the VALUE (1 or more in the payload of a DATA command)
 #define BGN_VALUE_HEAD              2   // number of bytes in VALUE header
 #define BGN_VALUE_CNR               0   // position of channel byte
 #define BGN_VALUE_FMT               1   // position of FMT byte
-                                        // MSB, bits 7,6 divisor (0=1, 1=10, 2=100, 3=1000)
-                                        //      bits 5,4 size/pad (xxxx, xxx, xx, x)
-                                        // LSB  bits 3,2,1,0 formatting specifier, see decode_value()
+// FMT byte is encoded as follows:
+// MSB bit 7,6    : divisor (00=1, 01=10, 10=100, 11=1000)
+//     bit 5,4    : size/padding (00=4, 01=3, 10=2, 11=1)
+// LSB bit 3,2,1,0: datatype (0000-1111, see decoding routine)
     #define BGN_FMT_MASK_DIVPAD      0xF0    // bits 7,6,5,4  - Divisor & Padding
     #define BGN_FMT_MASK_DIVPAD_DIV  0xC0    // bits 7,6      - Divisor
     #define BGN_FMT_MASK_DIVPAD_PAD  0x30    // bits 5,4      - Padding
     #define BGN_FMT_MASK_DT          0x0F    // bits 3,2,1,0  - DataType
-
-#define BGN_VALUE_DATA              2   // position where DATA starts (multiple bytes, formatted as per FMT byte, variable length depending on CNR/FMT)
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
 #define BGN_CHANNEL_MAX             0xFF // for sizing purposes (range 00-FF, both including) add 1 for sizing purpose
@@ -315,7 +322,7 @@
 #define BGN_CNR_7D_TARGETBOATSPEED  0x7D
 #define BGN_CNR_7F_VMGKT            0x7F
 #define BGN_CNR_80_UNKNOWN          0x80
-#define BGN_CNR_81_DR_DISTNM        0x81 // Dead Reckoned Distance, displayed by SPEED and DATA, reset via QUAD
+#define BGN_CNR_81_TRIPLOGNM        0x81
 #define BGN_CNR_82_LEEWAY           0x82
 #define BGN_CNR_83_TIDALDRIFT       0x83
 #define BGN_CNR_84_TIDALSET         0x84
@@ -330,7 +337,7 @@
 #define BGN_CNR_9C_MASTANGLE        0x9C
 #define BGN_CNR_9D_WANGLETOMAST     0x9D
 #define BGN_CNR_9E_PITCHRATE        0x9E
-#define BGN_CNR_A2_UNKNOWN          0xA2 // send by WIND (occasionally)
+#define BGN_CNR_A2_UNKNOWN          0xA2
 #define BGN_CNR_A4_BOOMPOS          0xA4
 #define BGN_CNR_A6_AP_CTARGET       0xA6 // send by PILOT upon change/button pressed, Target Course (in AUTO or memory when STBY), fmt=0x08
 #define BGN_CNR_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
@@ -338,7 +345,9 @@
 #define BGN_CNR_B3_COMPASSCAL       0xB3
 #define BGN_CNR_B4_UNKNOWN          0xB4
 #define BGN_CNR_B5_AP_MODE          0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
-    #define BGN_AP_MODE1_MASK_STATE 0x01 // DATA1 - STATE (0=STBY, 1=AUTO)
+                                         // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
+                                         // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
+    #define BGN_AP_MODE1_MASK_STATE 0x01 // DATA1 - STATE (0=STBY, 1=AUTO) 
     #define BGN_AP_MODE1_STBY       0x00 
     #define BGN_AP_MODE1_AUTO       0x01
     #define BGN_AP_MODE1_MASK_INIT  0x04 //         1=Change to AUTO (copy stored course to target)
@@ -355,7 +364,8 @@
 #define BGN_CNR_C3_DEPTHFM          0xC3
 #define BGN_CNR_C4_DEPTHM           0xC4 // displayed by QUAD, or "---" incase no measurement
 #define BGN_CNR_CD_STORLOGNM        0xCD
-#define BGN_CNR_CF_TRIPLOGNM        0xCF
+#define BGN_CNR_CF_DR_DISTNM        0xCF // Dead Reckoned Distance, displayed by SPEED and DATA, reset via QUAD
+#define BGN_CNR_81_TRIPLOGNM        0x81
 #define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_DC_LOCALTIME        0xDC
 #define BGN_CNR_DD_UTCTIME          0xDD
@@ -369,9 +379,9 @@
 #define BGN_CNR_E6_BRG2WGYROMAG     0xE6
 #define BGN_CNR_E7_WAYPDISTRUMB     0xE7
 #define BGN_CNR_E8_WAYPDISTGYRO     0xE8
-#define BGN_CNR_E9_COGTRUE          0xE9
-#define BGN_CNR_EA_COGMAG           0xEA
-#define BGN_CNR_EB_SOGKT            0xEB
+#define BGN_CNR_E9_COGTRUE          0xE9  // Course Over Ground, True
+#define BGN_CNR_EA_COGMAG           0xEA  // Course Over Ground, Magnetic
+#define BGN_CNR_EB_SOGKT            0xEB  // Speed Over Ground, KT
 #define BGN_CNR_EC_VMG2W            0xEC
 #define BGN_CNR_ED_TIMETOWP         0xED
 #define BGN_CNR_EE_CROSSTRACKERR    0xEE
@@ -394,19 +404,14 @@
 #define BGN_CNR_FF_DEPTH_CAL        0xFF // displayed on QUAD, FMT_01= value (0-999)
                                          // difference between the deepest point of the boat and the depth of the sensor, usually negative
 
-// In our protocol handler, we mirror received channel data
-// In principal we could support every B&G NETWORK device, albeit we do not had them available when making this protcol
-// decoder/encoder, so for safely reasons we will ignore traffic from devices we could not test; hence the iEnable flag.
-// As per B&G recommendation we only expect 1 'active' device from every type. Possible double units shall to be configured
-// in 'repeater' mode (and will not transmit).
 
-// Channel data can be of variable length. we need a structure/union to device. Note that some compilers may not correctly
-// align them.
-// If you have a pointer to the starting byte of the value, use the structure to decode it.
-// use htons/htonl (host to network short/long) to write and ntohs/ntohl (network to host short/long) to read. Be careful
-// using signed interger read/write.
+// Channel data can be of variable length and variable datatype. We create a structure/union to pack/unpack the
+// contents of the channel data. Note that some compilers may not correctly align them.
+// use htons/htonl (host to network short/long) to write and ntohs/ntohl (network to host short/long) to read/write
+// to defeat possible endianess conflicts.
 #pragma pack(1)
-union V {
+// this is the value portion of the channel structure
+union CV {
     uint8_t uB[8];      // binary data (status, pattern, mask)
     unsigned char uC[8];// ASCII characters
     int8_t sB[8];       // signed bytes (byte values with +/- range like depth)
@@ -415,29 +420,24 @@ union V {
     uint32_t uL[2];     // unsigned 32-bit register
     int32_t sL[2];      // signed 32-bit register
 };
+// this is the complete channel structure
 union CH {
     uint8_t B[10]; // sufficient space for the largest one (2 bytes header + max 8 bytes in data)
     struct {
         uint8_t CH;             // channel number
         uint8_t FMT;            // format byte
-        union V v;              // packed data
+        union CV cv;              // packed data
     } s;
 };
 #pragma pack()
 
 // divisor may be used to scale the value to more digits
-#define BGN_FMT_01      0x01        // 16 bit signed register, is used for a value that falls in range -255/+255 (rudder posiotion, wind angle)
-#define BGN_FMT_F1      0xF1        // idem, with automatic scaling 
-
+#define BGN_FMT_01      0x01        // 16 bit signed register, is used for a value that falls in range -255/+255 (rudder position, wind angle)
 #define BGN_FMT_03      0x03        // Timer value (5 bytes), last 3 bytes are HH:MM:SS
-
 #define BGN_FMT_02      0x02        // stored log (5 bytes), last 3 bytes are a 24bit long register
 #define BGN_FMT_42      0x42        // automatic scaling NOT for DataType 2
-
 #define BGN_FMT_04      0x04        // 6 bytes; last 3 bytes are ASCII, like " T ", " F ", "OFF", "ON " or "---"
-
-#define BGN_FMT_08      0x08        // is used for a positive value 0-999, optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
-#define BGN_FMT_F8      0xF8
+#define BGN_FMT_08      0x08        // 16 bit unsigned register (0-999), optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
 
 // FMT Definition Table
 typedef struct {
@@ -460,9 +460,11 @@ typedef struct {
 
 // Channel Definition Table
 typedef struct {
-    uint8_t ubChannelIndex;     // Channel index
+    uint8_t ucChannelIndex;     // Channel index
     char cLabel[20];            // the label, variable name
     uint8_t ucFMT;              // default formatting
+    uint8_t ucFROM;             // instrument type that produces this channel
+    uint8_t ucFreq;             // frequency (0= none, 1=every run, 2= every other run, 3 = every 2nd run)
     int iImpExpEnable;          // allow Import or Export
     int iImportFrom;            // Import from NMEA2000 or SignalK
     int iExportTo;              // Export to NMEA2000 of SignalK
@@ -470,7 +472,7 @@ typedef struct {
     char cSKdef[32];            // SignalK reference string 
 } BGNET_CHNDT;
 
-#define BGN_FRAME_SIZE    256
+#define BGN_FRAME_SIZE    1024
 
 // register device statistics
 typedef struct {
@@ -492,10 +494,10 @@ typedef struct {
     int iCounterRx; // everytime we receive this command, we increment this (with wrap-around)
     time_t tTimestampRx; // timestamp of last update
     time_t tCounterResetRx; // when ww wrap-around the counter
-    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
     int iCounterTx; // everytime we send this command, we increment this (with wrap-around)
     time_t tTimestampTx; // timestamp of last update
     time_t tCounterResetTx; // when ww wrap-around the counter
+    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
     unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
 } BGN_COMMAND;
 
@@ -513,6 +515,7 @@ typedef struct {
 
 typedef struct {
     int iNewACP;
+    time_t tTimestamp; // timestamp of startup
     unsigned char ucSTATE; // STBY, AUTO
     unsigned char ucMODE; // COMP, NAV, VANE, JOYSTICK
     unsigned char ucJOYSTICK; //0=OFF, 1=ON
@@ -524,8 +527,9 @@ typedef struct {
 
 #define BGNET_CTRL_INIT            1
 #define BGNET_CTRL_INIT_RESET      0
-#define BGNET_CTRL_TXBUFFERSIZE    1024
+// we count down from 100
 #define BGNET_CTRL_DEVCNTR_INIT    100
+
 typedef struct {
     int iInitialized;
     // the timer service decrements this value to zero (and stops); if zero the 'device processing' takes place
@@ -538,7 +542,7 @@ typedef struct {
     BGNET_FMTDT* pFMTDT; // format definitions
     Config* pCfg;    // config structure
 
-    int iNewDevice; // some new was received
+    int iNewDevice; // some new DEVICE data was received
     BGN_ACP ACP; // ACP status
     BGN_DEVICE DEV[BGNET_DEVICE_MAX]; // device statistics
     BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // commands statistics
@@ -546,8 +550,8 @@ typedef struct {
 } BGNET_CTRL;
 
 // prototypes
-size_t frame_decoder(BGNET_CTRL*, unsigned char*, size_t);
-size_t bgn_net_process(BGNET_CTRL*, unsigned char*);
+size_t decode_frame(BGNET_CTRL*, unsigned char*, size_t);
+size_t bgn_net_process(BGNET_CTRL*, unsigned char*, size_t);
 void bgn_net_initialize_reset(BGNET_CTRL*);
 void bgn_net_initialize(BGNET_CTRL*);
 int bgn_FindDeviceIndex(BGNET_CTRL*, unsigned char);
@@ -557,6 +561,6 @@ int ChannelByteLength(BGNET_CTRL*, unsigned char);
 #define BGN_CMD_ASCII       48
 #define BGN_CMD_ASCII_SEP   " /.../ "
 #define BGN_CMD_DATA_TAIL  6
-char* CommandToAscii(char*, unsigned char*);
+char* CommandToAscii(char*, size_t, unsigned char*);
 
 #endif

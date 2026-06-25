@@ -24,6 +24,8 @@
 
 #define MAX_WS_CLIENTS 10
 
+#define BGN_ENABLE_REPORT
+
 static int ws_clients[MAX_WS_CLIENTS];
 static pthread_mutex_t ws_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -265,7 +267,7 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
 
 static char* html_tail(char *Buffer) {
     const char *cTail =
-        "<h2>End of Report</h2></body></html>\r\n";
+        "</body></html>\r\n";
     strcpy(Buffer, cTail);
     return(Buffer);
 }
@@ -299,6 +301,7 @@ static char* html_help(char *Buffer, size_t MaxBuf, int iPort) {
     return(Buffer);
 }
 
+#ifdef BGN_ENABLE_REPORT
 static char* html_interface_top(char *Buffer) {
     const char *cDevTop =
         "<h2>B&G Network Statistics</h2>"
@@ -335,9 +338,9 @@ static char* html_interface_end(char *Buffer) {
 
 static char* html_device_top(char *Buffer) {
     const char *cDevTop =
-        "<h3>Devices</h3>"
+        "<h3>External Devices</h3>"
         "<table>"
-        "<tr><th colspan='2'>Device</th><th colspan='3'>Rx</th><th colspan='3'>Tx</th><th colspan='2'>Checksum Errors</th></th></tr>"
+        "<tr><th colspan='2'>Device</th><th colspan='3'>Rx (received FROM)</th><th colspan='3'>Tx (send TO)</th><th colspan='2'>Checksum Errors</th></th></tr>"
         "<tr><th>Node</th><th>Type</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Head</th><th>Frame</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
@@ -356,8 +359,8 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
         if ((pCtrl->DEV[i].iCounterRx < 1) & (pCtrl->DEV[i].iCounterTx < 1)) {
             // it was never touched
         } else {
-            CommandToAscii(asciibufRx, pCtrl->DEV[i].ucFrameRx);
-            CommandToAscii(asciibufTx, pCtrl->DEV[i].ucFrameTx);
+            CommandToAscii(asciibufRx, sizeof(asciibufRx), pCtrl->DEV[i].ucFrameRx);
+            CommandToAscii(asciibufTx, sizeof(asciibufTx), pCtrl->DEV[i].ucFrameTx);
             snprintf(cLine, sizeof(cLine), cDevRow,
                                                      i,
                                                      pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName,
@@ -390,9 +393,11 @@ static char* html_ACP_top(char *Buffer) {
     return(Buffer);
 }
 static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
-    char cLine[256];
+    char cLine[512];
     char cSTAT[2][5] = {"STBY","AUTO"};
     char cMODE[8][8] = {"---0","COMP","---2","NAV","VANE","---5","JOYSTICK","---7"};
+    struct tm * ptmInfo;
+    char asciibuffer[256];
     const char *cACPRowS =
         "<tr><td>%s</td><td>%s</td></tr>";
     const char *cACPRowD =
@@ -401,6 +406,13 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(cLine, "");
     strcpy(Buffer, "");
 
+
+
+    ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
+    strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
+    //snprintf (cLine, sizeof(cLine), cACPRowS, "Running since", asctime(ptmInfo));
+    snprintf (cLine, sizeof(cLine), cACPRowS, "Running since", asciibuffer);
+    strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowS, "Status AUTO/STBY", cSTAT[pCtrl->ACP.ucSTATE]);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowS, "MODE COMP/NAV/VANE", cMODE[pCtrl->ACP.ucMODE]);
@@ -470,8 +482,8 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
         if ((pCtrl->CMD[i].iCounterRx < 1) & (pCtrl->CMD[i].iCounterTx < 1)) {
             // it was never touched
         } else {
-            CommandToAscii(asciibufRx, pCtrl->CMD[i].ucFrameRx);
-            CommandToAscii(asciibufTx, pCtrl->CMD[i].ucFrameTx);
+            CommandToAscii(asciibufRx, sizeof(asciibufRx), pCtrl->CMD[i].ucFrameRx);
+            CommandToAscii(asciibufTx, sizeof(asciibufTx), pCtrl->CMD[i].ucFrameTx);
             snprintf(cLine, sizeof(cLine), cDevRow,
                                                     i,
                                                     StrCommandLabel(asciibufCMD, i),
@@ -496,7 +508,7 @@ static char* html_command_end(char *Buffer) {
 
 static char* html_channel_top(char *Buffer) {
     const char *cDevTop =
-        "<h3>Channels (broadcast via command 0x01)</h3>"
+        "<h3>Channels (broadcast via DATA command by Node)</h3>"
         "<table>"
         "<tr><th rowspan='2'>Channel</th><th colspan='3'>Rx</th><th rowspan='2'>Label</th><th rowspan='2'>Node</th><th rowspan='2'>Display</th></tr>"
         "<tr><th>Counter</th><th>Sec</th><th>LastRaw</th></tr>";
@@ -537,6 +549,7 @@ static char* html_channel_end(char *Buffer) {
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
+#endif
 
 static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
 {
@@ -547,6 +560,8 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_title(workbuffer, sizeof(workbuffer)));
 
     strcat(htmlbuffer, html_help(workbuffer, sizeof(workbuffer), pCtrl->pCfg->web_port));
+
+#ifdef BGN_ENABLE_REPORT
 
     strcat(htmlbuffer, html_interface_top(workbuffer));
     strcat(htmlbuffer, html_interface_row(workbuffer, pCtrl));
@@ -574,7 +589,9 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_channel_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_channel_end(workbuffer));
 
-    strcat(htmlbuffer, html_tail(workbuffer));
+#endif
+
+strcat(htmlbuffer, html_tail(workbuffer));
 
     send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
     // check in the logfiles how much buffer space is used/left.

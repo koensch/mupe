@@ -12,14 +12,18 @@
 // generic defines
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
+// an incoming stream is captured every 1 msec. This buffer in only to
+// hold what 11008 baud can produce (= ca 1100 bytes/sec). 256 bytes should be OK
+#define BGNET_RXTXRAW_SIZE            1024    // max size readbuffer 
+
 // thread control
 extern volatile int g_running;
 
 extern pthread_mutex_t g_data_mutex;
-extern char g_last_serial_dataRx[1024];
-extern char g_last_serial_dataTx[1024];
-extern char g_last_ethernet_data[1024];
-extern char g_last_signalk_delta[1024];
+extern char g_last_serial_dataRx[BGNET_RXTXRAW_SIZE];
+extern char g_last_serial_dataTx[BGNET_RXTXRAW_SIZE];
+extern char g_last_ethernet_data[BGNET_RXTXRAW_SIZE];
+extern char g_last_signalk_delta[BGNET_RXTXRAW_SIZE];
 
 /* Serial Protocol timing */
 #define SerialCounter_Reset     0
