@@ -147,19 +147,21 @@ void *ethernet_thread(void *arg)
         counter++;
 
         if (counter % 200000 == 0) {
+            // get all the values
             pthread_mutex_lock(&g_data_mutex);
-            double lat   = g_lat;
-            double lon   = g_lon;
-            double cog   = g_cog;
-            double stw   = g_stw;
-            double depth = g_depth;
-            double twa   = g_twa;
-            double tws   = g_tws;
-            double awa   = g_awa;
-            double aws   = g_aws;
-            double rudder= g_rudder;
+            double lat   = g_n2kdata.pos.lat.value.dValue;
+            double lon   = g_n2kdata.pos.lon.value.dValue;
+            double cog   = g_n2kdata.pos.cog.value.dValue;
+            double stw   = g_n2kdata.boat.stw.value.dValue;
+            double depth = g_n2kdata.boat.depth.value.dValue;
+            double twa   = g_n2kdata.wind.twa.value.dValue;
+            double tws   = g_n2kdata.wind.tws.value.dValue;
+            double awa   = g_n2kdata.wind.awa.value.dValue;
+            double aws   = g_n2kdata.wind.aws.value.dValue;
+            double rudder= g_n2kdata.boat.rudder.value.dValue;
             pthread_mutex_unlock(&g_data_mutex);
 
+            // build json string
             char *json = build_signalk_delta(lat, lon, cog, stw, depth, twa, tws, awa, aws, rudder);
             if (json) {
                 char line[2048];

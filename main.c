@@ -333,22 +333,25 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
 };
 
 // for every DataType (0-15) we check the validity (>0) and the number of bytes used in the frame
-BGNET_FMTDT FMTDT[16] = { {-1, ""}, \
-                                { 4, "2 bytes, signed 16bit register"}, \
-                                { 6, "4 bytes, unsigned 32bit register (used by STOREDLOG)"}, \
-                                { 5, "3 bytes, timer value (HH,MM,SS, displayed as 'H:MM:SS')"}, \
-                                { 6, "4 bytes, text (00+3 bytes, like ' T ',' F ','OFF','ON ','---')"}, \
-                                {-1, ""}, \
-                                {-1, ""}, \
-                                { 6, "4 bytes"}, \
-                                { 4, "2 bytes, unsigned 16bit register"}, \
-                                {-1, ""}, \
-                                {-1, ""}, \
-                                {-1, ""}, \
-                                {-1, ""}, \
-                                {-1, ""}, \
-                                {-1, ""}, \
-                                {-1, ""}
+// -1 = not defined
+// 0 = variable string, look for the null-byte
+// 1-n = fixed length
+BGNET_FMTDT FMTDT[16] = {       { 0,-1, ""}, \
+                                { 1, 4, "2 bytes, signed 16bit register"}, \
+                                { 2, 6, "4 bytes, unsigned 32bit register (used by STOREDLOG)"}, \
+                                { 3, 5, "3 bytes, timer value (HH,MM,SS, displayed as 'H:MM:SS')"}, \
+                                { 4, 6, "4 bytes, text (00+3 bytes, like ' T ',' F ','OFF','ON ','---')"}, \
+                                { 5,-1, ""}, \
+                                { 6,-1, ""}, \
+                                { 7, 0, " variable characters + 1 null-byte"}, \
+                                { 8, 4, "2 bytes, unsigned 16bit register"}, \
+                                { 9,-1, ""}, \
+                                {10,-1, ""}, \
+                                {11,-1, ""}, \
+                                {12,-1, ""}, \
+                                {13,-1, ""}, \
+                                {14,-1, ""}, \
+                                {15,-1, ""}
                                 };
 
 #define BGN_ENABLE_SERIAL

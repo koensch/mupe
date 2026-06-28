@@ -150,23 +150,35 @@ static int handle_ws_handshake(int client_fd, const char *req)
         return -1;
 
     ws_add_client(client_fd);
-    log_info("WebSocket client connected");
+    log_info("webserver: WebSocket client connected");
     return 0;
 }
 
+// to read data via API interface, use 'curl':
+// curl http://localhost:8080/api/state
+// this returns the most recent received and transmitted serial message
 static void handle_api_state(int client_fd)
 {
-    char serial_copy[1024];
-    char eth_copy[1024];
+    unsigned char serial_dataRx[BGNET_RXTXRAW_SIZE];
+    unsigned char serial_dataTx[BGNET_RXTXRAW_SIZE];
+//    char ethernet_data[BGNET_RXTXRAW_SIZE];
+    char asciibufRx[BGNET_RXTXRAW_SIZE*2], asciibufTx[BGNET_RXTXRAW_SIZE*2];
 
+    // lock source, copy data
     pthread_mutex_lock(&g_data_mutex);
-    snprintf(serial_copy, sizeof(serial_copy), "%s", g_last_serial_dataRx);
-    snprintf(eth_copy, sizeof(eth_copy), "%s", g_last_ethernet_data);
+    memcpy(serial_dataRx, g_last_serial_dataRx, sizeof(serial_dataRx));
+    memcpy(serial_dataTx, g_last_serial_dataTx, sizeof(serial_dataRx));
+ //   memcpy(ethernet_data, g_last_ethernet_data, sizeof(ethernet_data));
     pthread_mutex_unlock(&g_data_mutex);
 
+    // convert Rx/Tx data to readable format
+    CommandToAscii(asciibufRx, sizeof(asciibufRx), serial_dataRx);
+    CommandToAscii(asciibufTx, sizeof(asciibufTx), serial_dataTx);
+
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "lastSerialData", serial_copy);
-    cJSON_AddStringToObject(root, "lastEthernetData", eth_copy);
+    cJSON_AddStringToObject(root, "SerialDataRx", asciibufRx);
+    cJSON_AddStringToObject(root, "SerialDataTx", asciibufTx);
+//    cJSON_AddStringToObject(root, "EthernetData", ethernet_data);
 
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -189,6 +201,9 @@ static void handle_api_state(int client_fd)
     free(json);
 }
 
+// to read data via API interface, use 'curl':
+// curl http://localhost:8080/api/signalk
+// this returns the most recent received signalk message
 static void handle_api_signalk(int client_fd)
 {
     char delta[1024];
@@ -215,37 +230,156 @@ static void handle_api_signalk(int client_fd)
     free(json);
 }
 
+// to send data via API interface, use 'curl':
+// curl --data "{datastring}" http://localhost:8080/api/update
+// where {json} is like:
+//  {\"depth\":15.6}
+// good result returns "OK"
 static void handle_api_update(int client_fd, const char *body)
 {
+    time_t t;
     cJSON *root = cJSON_Parse(body);
+
+    // obtain timestamp value
+    time(&t);
+
     if (!root) {
         const char *err = "HTTP/1.1 400 Bad Request\r\n\r\n";
         send(client_fd, err, strlen(err), 0);
         return;
     }
 
-    cJSON *lat    = cJSON_GetObjectItem(root, "lat");
-    cJSON *lon    = cJSON_GetObjectItem(root, "lon");
-    cJSON *cog    = cJSON_GetObjectItem(root, "cog");
-    cJSON *stw    = cJSON_GetObjectItem(root, "stw");
-    cJSON *depth  = cJSON_GetObjectItem(root, "depth");
-    cJSON *twa    = cJSON_GetObjectItem(root, "twa");
-    cJSON *tws    = cJSON_GetObjectItem(root, "tws");
-    cJSON *awa    = cJSON_GetObjectItem(root, "awa");
-    cJSON *aws    = cJSON_GetObjectItem(root, "aws");
-    cJSON *rudder = cJSON_GetObjectItem(root, "rudder");
+    log_debug("webserver: api_update: %s", body);
+
+    // GPS information
+    cJSON *latitude  = cJSON_GetObjectItem(root, "latitude");  // lattitude +=North of equator, -=South of equator
+    cJSON *longitude = cJSON_GetObjectItem(root, "longitude"); // longitude +=East of prime meridian, -=West of prime meridian
+    cJSON *altitude  = cJSON_GetObjectItem(root, "altitude");  // altitude [M], 0=sealevel, +=airplane, -=submarine
+    cJSON *cog       = cJSON_GetObjectItem(root, "cog");       // course over ground [degree] (0-359)
+    cJSON *sog       = cJSON_GetObjectItem(root, "sog");       // speed over ground [M/S]
+    // boat measured parameters
+    cJSON *stw       = cJSON_GetObjectItem(root, "stw");       // speed through water [M/S] (boatspeed)
+    cJSON *depth     = cJSON_GetObjectItem(root, "depth");     // water depth below transducer [M]
+    cJSON *seatemp   = cJSON_GetObjectItem(root, "seatemp");   // temperature of seawater [degree C]
+    cJSON *rudder    = cJSON_GetObjectItem(root, "rudder");    // rudder angle sensor [radian], -Pi/+Pi (equals to -180/+180)
+    cJSON *heading   = cJSON_GetObjectItem(root, "heading");   // heading [degree] (0-359, compass)
+    // wind measured parameters
+    cJSON *twa       = cJSON_GetObjectItem(root, "twa");       // True Wind Angle [degree] (-180/+180, derived from SOG, COG and AWA)
+    cJSON *tws       = cJSON_GetObjectItem(root, "tws");       // True Wind Speed [M/S] (derived from SOG, COG and AWS)
+    cJSON *awa       = cJSON_GetObjectItem(root, "awa");       // Appearant Wind Angle [degree] (-180/+180, measured by masttop sensor)
+    cJSON *aws       = cJSON_GetObjectItem(root, "aws");       // Appearent Wind Speed [M/S] (measured by masttop sensor)
+    cJSON *airtemp   = cJSON_GetObjectItem(root, "airtemp");   // temperature of air [degree C]
+    cJSON *baro      = cJSON_GetObjectItem(root, "baro");      // barometric airpressure [mbar]
+    // pilot/trip parameters
+    cJSON *cts       = cJSON_GetObjectItem(root, "cts");       // Course To Steer (0-359, compass)
+    cJSON *triplog   = cJSON_GetObjectItem(root, "triplog");   // triplog, distance covered [M]
+    cJSON *vmg       = cJSON_GetObjectItem(root, "vmg");       // Velocity Made Good, calculated from SOG and angle to the target
 
     pthread_mutex_lock(&g_data_mutex);
-    if (lat)    g_lat    = lat->valuedouble;
-    if (lon)    g_lon    = lon->valuedouble;
-    if (cog)    g_cog    = cog->valuedouble;
-    if (stw)    g_stw    = stw->valuedouble;
-    if (depth)  g_depth  = depth->valuedouble;
-    if (twa)    g_twa    = twa->valuedouble;
-    if (tws)    g_tws    = tws->valuedouble;
-    if (awa)    g_awa    = awa->valuedouble;
-    if (aws)    g_aws    = aws->valuedouble;
-    if (rudder) g_rudder = rudder->valuedouble;
+
+    // position information, usually from GPS
+    if (latitude) {
+        g_n2kdata.pos.lat.value.dValue = latitude->valuedouble;
+        g_n2kdata.pos.lat.timestamp = t;
+        g_n2kdata.pos.lat.source = BGN_SOURCE_API;
+    } 
+    if (longitude) {
+        g_n2kdata.pos.lon.value.dValue = longitude->valuedouble;
+        g_n2kdata.pos.lon.timestamp = t;
+        g_n2kdata.pos.lon.source = BGN_SOURCE_API;
+    }
+    if (altitude) {
+        g_n2kdata.pos.alt.value.dValue = altitude->valuedouble;
+        g_n2kdata.pos.alt.timestamp = t;
+        g_n2kdata.pos.alt.source = BGN_SOURCE_API;
+    }
+    if (cog) {
+        g_n2kdata.pos.cog.value.dValue = cog->valuedouble;
+        g_n2kdata.pos.cog.timestamp = t;
+        g_n2kdata.pos.cog.source = BGN_SOURCE_API;
+    }
+    if (sog) {
+        g_n2kdata.pos.sog.value.dValue = sog->valuedouble;
+        g_n2kdata.pos.sog.timestamp = t;
+        g_n2kdata.pos.sog.source = BGN_SOURCE_API;
+    }
+
+    // boat information from instruments onboard
+    if (stw) {
+        g_n2kdata.boat.stw.value.dValue = stw->valuedouble;
+        g_n2kdata.boat.stw.timestamp = t;
+        g_n2kdata.boat.stw.source = BGN_SOURCE_API;
+    }
+    if (depth) {
+        g_n2kdata.boat.depth.value.dValue = depth->valuedouble;
+        g_n2kdata.boat.depth.timestamp = t;
+        g_n2kdata.boat.depth.source = BGN_SOURCE_API;
+    }
+    if (seatemp) {
+        g_n2kdata.boat.seatemp.value.dValue = seatemp->valuedouble;
+        g_n2kdata.boat.seatemp.timestamp = t;
+        g_n2kdata.boat.seatemp.source = BGN_SOURCE_API;
+    }
+    if (rudder) {
+        g_n2kdata.boat.rudder.value.dValue = rudder->valuedouble;
+        g_n2kdata.boat.rudder.timestamp = t;
+        g_n2kdata.boat.rudder.source = BGN_SOURCE_API;
+    }
+    if (heading) {
+        g_n2kdata.boat.heading.value.dValue = heading->valuedouble;
+        g_n2kdata.boat.heading.timestamp = t;
+        g_n2kdata.boat.heading.source = BGN_SOURCE_API;
+    }
+
+    // wind information from masttop sensor
+    if (twa) {
+        g_n2kdata.wind.twa.value.dValue = twa->valuedouble;
+        g_n2kdata.wind.twa.timestamp = t;
+        g_n2kdata.wind.twa.source = BGN_SOURCE_API;
+    }
+    if (tws) {
+        g_n2kdata.wind.tws.value.dValue = tws->valuedouble;
+        g_n2kdata.wind.tws.timestamp = t;
+        g_n2kdata.wind.tws.source = BGN_SOURCE_API;
+    }
+    if (awa) {
+        g_n2kdata.wind.awa.value.dValue = awa->valuedouble;
+        g_n2kdata.wind.awa.timestamp = t;
+        g_n2kdata.wind.awa.source = BGN_SOURCE_API;
+    }
+    if (aws) {
+        g_n2kdata.wind.aws.value.dValue = aws->valuedouble;
+        g_n2kdata.wind.aws.timestamp = t;
+        g_n2kdata.wind.aws.source = BGN_SOURCE_API;
+    }
+    if (airtemp) {
+        g_n2kdata.wind.airtemp.value.dValue = airtemp->valuedouble;
+        g_n2kdata.wind.airtemp.timestamp = t;
+        g_n2kdata.wind.airtemp.source = BGN_SOURCE_API;
+    }
+    if (baro) {
+        g_n2kdata.wind.baro.value.dValue = baro->valuedouble;
+        g_n2kdata.wind.baro.timestamp = t;
+        g_n2kdata.wind.baro.source = BGN_SOURCE_API;
+    }
+
+    // pilot information from navigation systems, autopilot, trip planners
+    if (cts) {
+        g_n2kdata.pilot.cts.value.dValue = cts->valuedouble;
+        g_n2kdata.pilot.cts.timestamp = t;
+        g_n2kdata.pilot.cts.source = BGN_SOURCE_API;
+    }
+    if (triplog) {
+        g_n2kdata.pilot.triplog.value.dValue = triplog->valuedouble;
+        g_n2kdata.pilot.triplog.timestamp = t;
+        g_n2kdata.pilot.triplog.source = BGN_SOURCE_API;
+    }
+    if (vmg) {
+        g_n2kdata.pilot.vmg.value.dValue = vmg->valuedouble;
+        g_n2kdata.pilot.vmg.timestamp = t;
+        g_n2kdata.pilot.vmg.source = BGN_SOURCE_API;
+    }
+
     pthread_mutex_unlock(&g_data_mutex);
 
     cJSON_Delete(root);
@@ -259,22 +393,22 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
         "<html>\r\n"
-        "<head><style>h3 {margin-left: 40px;}\r\ntable {border-collapse: collapse; width: 80%; margin: 20px auto;}\r\nth, td {border:1px solid #ccc; padding: 10px; text-align: left;}</style><title>%s</title></head>\r\n"
+        "<head><style>h3 {margin-left: 40px;}\r\ntable {border-collapse: collapse; width: 80%; margin: 20px auto;}\r\nth, td {border:1px solid #ccc; padding: 10px; text-align: left;}</style><title>%s</title><link rel='shortcut icon' href='#' /></head>\r\n"
         "<body>\r\n";
     snprintf(Buffer, MaxBuf, cHead, ApplicationName);
     return(Buffer);
 }
 
-static char* html_tail(char *Buffer) {
+static char* html_tail(char *Buffer, size_t MaxBuf) {
     const char *cTail =
-        "</body></html>\r\n";
-    strcpy(Buffer, cTail);
+        "</body>%s</html>\r\n";
+    snprintf(Buffer, MaxBuf, cTail, "");
     return(Buffer);
 }
 
 static char* html_title(char *Buffer, size_t MaxBuf) {
     const char *cTitle =
-        "<div style=\"float:right\"><p>%s</p></div>\r\n"
+        //"<table border='0px';><tr><th><a href='http://localhost:8080'>Home</a></th><th><a href='http://localhost:8080/bgnet'>Statistics Report</a></th><th>%s</th</tr></table>"
         "<h1>%s</h1>";
     char cTime[256];
     time_t t;
@@ -388,7 +522,9 @@ static char* html_device_end(char *Buffer) {
 static char* html_ACP_top(char *Buffer) {
     const char *cACPTop =
         "<h3>ACP status</h3>"
-        "<table><tr><th>Status</th><th>Display</th></tr>";
+        "<table>"
+        "<tr><th rowspan='2'>Parameter</th><th colspan='3'>Display</th></tr>"
+        "<tr><th>Value</th><th>Sec</th><th>Source</th></tr>";
     strcpy(Buffer, cACPTop);
     return(Buffer);
 }
@@ -396,33 +532,42 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
     char cSTAT[2][5] = {"STBY","AUTO"};
     char cMODE[8][8] = {"---0","COMP","---2","NAV","VANE","---5","JOYSTICK","---7"};
+    char cBY[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","NA","NA"};
+    time_t t;
     struct tm * ptmInfo;
     char asciibuffer[256];
-    const char *cACPRowS =
-        "<tr><td>%s</td><td>%s</td></tr>";
-    const char *cACPRowD =
-        "<tr><td>%s</td><td>%d</td></tr>";
+    // some variables have different datatypes, so we use different format specifiers
+    const char *cACPRowSSDS =
+        "<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>";
+    const char *cACPRowSDDS =
+        "<tr><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+    const char *cACPRowSFDS =
+        "<tr><td>%s</td><td>%.1f</td><td>%d</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
-
-
+    time(&t);
 
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
-    //snprintf (cLine, sizeof(cLine), cACPRowS, "Running since", asctime(ptmInfo));
-    snprintf (cLine, sizeof(cLine), cACPRowS, "Running since", asciibuffer);
+    snprintf (cLine, sizeof(cLine), cACPRowSSDS, "Running since", asciibuffer, t-pCtrl->ACP.tTimestamp, "HOST");
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowS, "Status AUTO/STBY", cSTAT[pCtrl->ACP.ucSTATE]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "Status [AUTO/STBY]", cSTAT[pCtrl->ACP.STATE.value.nByte], t-pCtrl->ACP.STATE.timestamp, cBY[pCtrl->ACP.STATE.source]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowS, "MODE COMP/NAV/VANE", cMODE[pCtrl->ACP.ucMODE]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE/JOYSTICK]", cMODE[pCtrl->ACP.MODE.value.nByte], t-pCtrl->ACP.MODE.timestamp, cBY[pCtrl->ACP.MODE.source]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowD, "Backlight 0/1/2/3", pCtrl->ACP.ucLight);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight [OFF/LOW/MEDIUM/HIGH]", pCtrl->ACP.BackLight.value.nByte, t-pCtrl->ACP.BackLight.timestamp, cBY[pCtrl->ACP.BackLight.source]);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Memory [stored Course]", pCtrl->ACP.Memory.value.nLong, t-pCtrl->ACP.Memory.timestamp, cBY[pCtrl->ACP.Memory.source]);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", ((double)(pCtrl->ACP.StoredLogNM.value.nLong)/10), t-pCtrl->ACP.StoredLogNM.timestamp, cBY[pCtrl->ACP.StoredLogNM.source]);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", ((double)(pCtrl->ACP.TripLogNM.value.nLong)/10), t-pCtrl->ACP.TripLogNM.timestamp, cBY[pCtrl->ACP.TripLogNM.source]);
     strcat(Buffer, cLine);
 
     return(Buffer);
 }
-static char* html_ACP_end(char *Buffer) {
+static char* html_ACP_end(char *Buffer) { 
     const char *cACPEnd =
         "</table>";
     strcpy(Buffer, cACPEnd);
@@ -439,7 +584,7 @@ static char* html_command_top(char *Buffer) {
     return(Buffer);
 }
 static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
-    char cCMD[7][10] = {"UNKNOWN","DATA", "LABEL", "SUBSCRIBE", "POWERUP", "KEEPALIVE", "LIGHTS"};
+    char cCMD[9][16] = {"UNKNOWN","DATA", "LABEL", "SUBSCRIBE", "POWERUP", "KEEPALIVE", "LIGHTS", "PILOT AUTO/STBY", "COMMAND ACK"};
     int x;
     switch(ucCMD) {
         case BGNET_FRAME_CMD_DATA:
@@ -459,6 +604,12 @@ static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
             break;
         case BGNET_FRAME_CMD_BACKLIGHT:
             x = 6;  // LIGHTS
+            break;
+        case BGNET_FRAME_CMD_PILOT_AM:
+            x = 7;  // PILOT AUTO/OFF key pressed
+            break;
+        case BGNET_FRAME_CMD_ACK:
+            x = 8;  // Command ACK
             break;
         default:
             x = 0; // UNKNOWN
@@ -529,7 +680,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
         if (pCtrl->DATA[i].iCounter < 1) {
             // it was never touched
         } else {
-            y = ChannelByteLength(pCtrl, pCtrl->DATA[i].ucRAW[BGN_VALUE_FMT]);
+            y = ChannelByteLength(pCtrl, (union CH*)pCtrl->DATA[i].ucRAW);
             byte2ascii(asciibuf, sizeof(asciibuf), pCtrl->DATA[i].ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine, sizeof(cLine), cDevRow, i, 
                                                     pCtrl->DATA[i].iCounter,
@@ -554,6 +705,7 @@ static char* html_channel_end(char *Buffer) {
 static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
 {
     char htmlbuffer[8192], workbuffer[4096];
+
     strcpy(htmlbuffer, ""); // initialize the empty buffer
 
     strcat(htmlbuffer, html_head(workbuffer, sizeof(workbuffer)));
@@ -561,7 +713,20 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
 
     strcat(htmlbuffer, html_help(workbuffer, sizeof(workbuffer), pCtrl->pCfg->web_port));
 
+    strcat(htmlbuffer, html_tail(workbuffer, sizeof(workbuffer)));
+    log_debug("webserver: / page size: %d, %d", strlen(htmlbuffer), strlen(workbuffer));
+    send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
+}
+
 #ifdef BGN_ENABLE_REPORT
+static void handle_bgnet_html(int client_fd, BGNET_CTRL *pCtrl)
+{
+    char htmlbuffer[8192], workbuffer[4096];
+
+    strcpy(htmlbuffer, ""); // initialize the empty buffer
+
+    strcat(htmlbuffer, html_head(workbuffer, sizeof(workbuffer)));
+    strcat(htmlbuffer, html_title(workbuffer, sizeof(workbuffer)));
 
     strcat(htmlbuffer, html_interface_top(workbuffer));
     strcat(htmlbuffer, html_interface_row(workbuffer, pCtrl));
@@ -571,9 +736,6 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_device_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_device_end(workbuffer));
 
-    send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
-    strcpy(htmlbuffer, ""); // initialize the empty buffer
-
     strcat(htmlbuffer, html_ACP_top(workbuffer));
     strcat(htmlbuffer, html_ACP_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_ACP_end(workbuffer));
@@ -582,20 +744,16 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_command_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_command_end(workbuffer));
 
-    send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
-    strcpy(htmlbuffer, ""); // initialize the empty buffer
-
     strcat(htmlbuffer, html_channel_top(workbuffer));
     strcat(htmlbuffer, html_channel_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_channel_end(workbuffer));
 
 #endif
 
-strcat(htmlbuffer, html_tail(workbuffer));
-
+    strcat(htmlbuffer, html_tail(workbuffer, sizeof(workbuffer)));
+    log_debug("webserver: /bgnet page size: %d, %d", strlen(htmlbuffer), strlen(workbuffer));
     send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
-    // check in the logfiles how much buffer space is used/left.
-    log_info("Webserver: pagesize %d bytes", strlen(htmlbuffer));
+
 }
 
 void *webserver_thread(void *arg)
@@ -608,7 +766,7 @@ void *webserver_thread(void *arg)
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
-        log_error("Web socket: %s", strerror(errno));
+        log_error("webserver: Web socket: %s", strerror(errno));
         return NULL;
     }
     // make listerner socket non-blocking
@@ -625,18 +783,18 @@ void *webserver_thread(void *arg)
     addr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-        log_error("Web bind: %s", strerror(errno));
+        log_error("webserver: Web bind: %s", strerror(errno));
         close(server_fd);
         return NULL;
     }
 
     if (listen(server_fd, 5) < 0) {
-        log_error("Web listen: %s", strerror(errno));
+        log_error("webserver: Web listen: %s", strerror(errno));
         close(server_fd);
         return NULL;
     }
 
-    log_info("Web listening on http://localhost:%d", cfg->web_port);
+    log_info("webserver: Web listening on http://localhost:%d", cfg->web_port);
 
     while (g_running) {
         int client_fd = accept(server_fd, NULL, NULL);
@@ -645,9 +803,9 @@ void *webserver_thread(void *arg)
                 usleep(MSEC1);
                 continue;
             }
-        if (!g_running) break;
-        log_error("Web accept: %s", strerror(errno));
-        continue;
+            if (!g_running) break;
+            log_error("Web accept: %s", strerror(errno));
+            continue;
         }
         // make client socket non-blocking
         int cflags = fcntl(client_fd, F_GETFL, 0);
@@ -680,6 +838,7 @@ void *webserver_thread(void *arg)
 
         char method[8], path[256];
         if (sscanf(req, "%7s %255s", method, path) != 2) {
+            log_info("webserver: req=%s, does not have the 'method' and 'path'", req);
             handle_root_html(client_fd, pCtrl);
             close(client_fd);
             continue;
@@ -699,14 +858,21 @@ void *webserver_thread(void *arg)
                 send(client_fd, err, strlen(err), 0);
             }
         } else {
-            handle_root_html(client_fd, pCtrl);
+            log_info("webserver: req=%s", req);
+            log_info("webserver: method=%s", method);
+            log_info("webserver: path=%s", path);
+            if (strcmp(path,"/bgnet") == 0) {
+                handle_bgnet_html(client_fd, pCtrl);
+            } else {
+                handle_root_html(client_fd, pCtrl);
+            }
         }
         usleep(MSEC1);
         close(client_fd);
     }
 
     close(server_fd);
-    log_info("Webserver: thread exiting");
+    log_info("webserver: thread exiting");
     return NULL;
 }
 
