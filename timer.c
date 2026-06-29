@@ -11,6 +11,7 @@ void *timer_thread(void *arg)
 {
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
     Config *cfg = pCtrl->pCfg;
+    time_t t;
 
     unsigned char RxBuf[BGNET_RXTXRAW_SIZE], TxBuf[BGNET_RXTXRAW_SIZE]; // local read buffer
     size_t RxBufLen = 0, TxBufLen = 0;
@@ -19,6 +20,7 @@ void *timer_thread(void *arg)
     char asciibuf[2048]; // store ascii for logging
 
     while (g_running) {
+        time(&t);
         pthread_mutex_lock(&g_data_mutex);
         
         if (g_serial_data_lenRx>0) {
@@ -88,9 +90,24 @@ void *timer_thread(void *arg)
         if (pCtrl->iDeviceCounter > 0) {
           pCtrl->iDeviceCounter--;
         } else {
-          log_info("Device Processing %d", pCtrl->iDeviceRun);
+            log_info("Device Processing %d", pCtrl->iDeviceRun);
 
-          // device processing
+            // count-down PILOT flunk counter
+            if (pCtrl->ACP.PILOT.value.nLong > 0) {
+              pCtrl->ACP.PILOT.value.nLong--;
+              pCtrl->ACP.PILOT.source = BGN_SOURCE_NONE;
+              pCtrl->ACP.PILOT.timestamp = t;
+            } else {
+              // force controller into STBY/COMP
+              pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
+              pCtrl->ACP.STATE.source = BGN_SOURCE_NONE;
+              pCtrl->ACP.STATE.timestamp = t;
+              pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
+              pCtrl->ACP.MODE.source = BGN_SOURCE_NONE;
+              pCtrl->ACP.MODE.timestamp = t;
+            }
+
+            // device processing
           TxBufLen = bgn_net_process(pCtrl, TxBuf, sizeof(TxBuf));
           pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
 

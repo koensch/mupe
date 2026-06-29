@@ -408,7 +408,7 @@ static char* html_tail(char *Buffer, size_t MaxBuf) {
 
 static char* html_title(char *Buffer, size_t MaxBuf) {
     const char *cTitle =
-        //"<table border='0px';><tr><th><a href='http://localhost:8080'>Home</a></th><th><a href='http://localhost:8080/bgnet'>Statistics Report</a></th><th>%s</th</tr></table>"
+        "<table border='0px';><tr><th><a href='http://localhost:8080/'>Home</a></th><th><a href='http://localhost:8080/bgnet/'>Statistics Report</a></th><th>%s</th</tr></table>"
         "<h1>%s</h1>";
     char cTime[256];
     time_t t;
@@ -532,7 +532,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
     char cSTAT[2][5] = {"STBY","AUTO"};
     char cMODE[8][8] = {"---0","COMP","---2","NAV","VANE","---5","JOYSTICK","---7"};
-    char cBY[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","NA","NA"};
+    char cSOURCE[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","ACP","NA"};
     time_t t;
     struct tm * ptmInfo;
     char asciibuffer[256];
@@ -548,21 +548,23 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(Buffer, "");
     time(&t);
 
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "PILOT WATCHDOG", pCtrl->ACP.PILOT.value.nLong, t-pCtrl->ACP.PILOT.timestamp, cSOURCE[pCtrl->ACP.PILOT.source]);
+    strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
     snprintf (cLine, sizeof(cLine), cACPRowSSDS, "Running since", asciibuffer, t-pCtrl->ACP.tTimestamp, "HOST");
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "Status [AUTO/STBY]", cSTAT[pCtrl->ACP.STATE.value.nByte], t-pCtrl->ACP.STATE.timestamp, cBY[pCtrl->ACP.STATE.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATUS      [AUTO/STBY]", cSTAT[pCtrl->ACP.STATE.value.nByte], t-pCtrl->ACP.STATE.timestamp, cSOURCE[pCtrl->ACP.STATE.source]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE/JOYSTICK]", cMODE[pCtrl->ACP.MODE.value.nByte], t-pCtrl->ACP.MODE.timestamp, cBY[pCtrl->ACP.MODE.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE        [COMP/NAV/VANE/JOYSTICK]", cMODE[pCtrl->ACP.MODE.value.nByte], t-pCtrl->ACP.MODE.timestamp, cSOURCE[pCtrl->ACP.MODE.source]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight [OFF/LOW/MEDIUM/HIGH]", pCtrl->ACP.BackLight.value.nByte, t-pCtrl->ACP.BackLight.timestamp, cBY[pCtrl->ACP.BackLight.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight   [OFF/LOW/MEDIUM/HIGH]", pCtrl->ACP.BackLight.value.nByte, t-pCtrl->ACP.BackLight.timestamp, cSOURCE[pCtrl->ACP.BackLight.source]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Memory [stored Course]", pCtrl->ACP.Memory.value.nLong, t-pCtrl->ACP.Memory.timestamp, cBY[pCtrl->ACP.Memory.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Memory [stored Course]", pCtrl->ACP.Memory.value.nLong, t-pCtrl->ACP.Memory.timestamp, cSOURCE[pCtrl->ACP.Memory.source]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", ((double)(pCtrl->ACP.StoredLogNM.value.nLong)/10), t-pCtrl->ACP.StoredLogNM.timestamp, cBY[pCtrl->ACP.StoredLogNM.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", ((double)(pCtrl->ACP.StoredLogNM.value.nLong)/10), t-pCtrl->ACP.StoredLogNM.timestamp, cSOURCE[pCtrl->ACP.StoredLogNM.source]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", ((double)(pCtrl->ACP.TripLogNM.value.nLong)/10), t-pCtrl->ACP.TripLogNM.timestamp, cBY[pCtrl->ACP.TripLogNM.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", ((double)(pCtrl->ACP.TripLogNM.value.nLong)/10), t-pCtrl->ACP.TripLogNM.timestamp, cSOURCE[pCtrl->ACP.TripLogNM.source]);
     strcat(Buffer, cLine);
 
     return(Buffer);

@@ -42,11 +42,13 @@ extern int  g_serial_mode;
 // behaves when there is a malfunction. This allows us to apply 'quality' check on a per-parameter basis.
 #define BGN_SOURCE_NONE     0
 #define BGN_SOURCE_API      1
-#define BGN_SOURCE_BGNIO    2
+#define BGN_SOURCE_BGNET    2
 #define BGN_SOURCE_NMEA     3
 #define BGN_SOURCE_SIGNALK  4
 // used when a derived/calculated value used mixed sources
 #define BGN_SOURCE_MIXED    5
+#define BGN_SOURCE_ACP      6
+
 union VALUE {
     double dValue;    // used for floatingpoint values
     uint8_t nByte;    // state/byte

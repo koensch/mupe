@@ -108,6 +108,11 @@
 // When 1 device sends 2 frames, these can be combined into 1 transmission. We should expect that received frames consists
 // of multiple 'sub-frames'.
 
+// GENERIC defines
+
+// use this macro to convert a floating point value (double) to integer with round-off
+#define DTOIROUND(d) ((int)(d >= 0.0 ? (d + 0.5) : (d - 0.5)))
+
 // FRAME definitions
 
 // realize that the CR uses a different seed for HEADER or BODY
@@ -197,7 +202,7 @@
                                              //(no firmware version number is included in NETWORK series)
 #define BGNET_FRAME_CMD_0C              0x0C //unknown
 #define BGNET_FRAME_CMD_KEEPALIVE       0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
-                                             // PILOT: "00 51 00 0E A1"
+                                             // PILOT: "00 51 00 0E A1" (no payload)
                                              // Copilot came up with this suggestion for a ACP response. This turns out to be not applicable for
                                              // the NETWORK series:
                                              // ACP:   "50 00 07 8E XX 01 07 2C FF D8 00 00 5A"
@@ -428,12 +433,22 @@ union CV {
 // this is the complete channel structure
 union CH {
     uint8_t B[14]; // sufficient space for the largest one (2 bytes header + max 12 bytes in data)
+    uint64_t RAW[1]; // used to detect a 'change' when receiving new data
     struct {
         uint8_t CH;             // channel number
         uint8_t FMT;            // format byte
         union CV cv;            // packed data
     } s;
 };
+// change detection: when receiving lots of frames, decoding and conversion causes much processing. When we receive a channel (via a DATA frame)
+// we will compare the new channel with the previous channel via the RAW element in our union. We could also do a 'memcmp', but again, this will
+// cost also resources. If we do compare the new 'RAW' vs the existing we will compare 8 bytes. This covers everything, except the FMT_07, but that
+// risk i'm willing to take.
+// if we compare to many bytes (most of the channels are only 4 bytes), the ultimate consequence is that we are processing a channel unnecscery,
+// what we also would do if we would not attempt to reduce processing channels that dit not habe a significant change.
+// NOTE: this only works for 64bit CPU's. Because we want to be compabitble with 32bits CPU, we compare by uL[0]
+//
+// conclusion: upon processing new channel data we do a "RAW compare" existing vs new. When both RAW values are the same, we skip processing
 #pragma pack()
 
 // divisor may be used to scale the value to more digits
@@ -493,37 +508,38 @@ typedef struct {
 
 // register device statistics
 typedef struct {
-    int iCSError_Header;
-    int iCSError_Frame;
+    int iNewDevice; // New DEVICE data might have been received
     int iCounterRx;
-    int iCounterTx;
     time_t tTimestampRx;
     time_t tCounterResetRx;
+    int iCSError_Header;
+    int iCSError_Frame;
+    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
+    int iCounterTx;
     time_t tTimestampTx;
     time_t tCounterResetTx;
-    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
     unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
 } BGN_DEVICE;
 
 // register Command statistics
 typedef struct {
-    int iNewCommand; // a new command was received
+    int iNewCommand; // new COMMAND was received
     int iCounterRx; // everytime we receive this command, we increment this (with wrap-around)
     time_t tTimestampRx; // timestamp of last update
     time_t tCounterResetRx; // when ww wrap-around the counter
+    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
     int iCounterTx; // everytime we send this command, we increment this (with wrap-around)
     time_t tTimestampTx; // timestamp of last update
     time_t tCounterResetTx; // when ww wrap-around the counter
-    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
     unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
 } BGN_COMMAND;
 
 typedef struct {
     unsigned char ucFROM; // the station that transmitted the channel 
     // we store the raw byte sequence for this channel. From the FMT character, you can derive the length of the channel sequence
-    unsigned char ucRAW[16]; // raw data (for diagnostic purposes)
+    unsigned char ucRAW[sizeof(union CH)]; // raw data (for diagnostic purposes)
     // we store the channel value in ASCII for display purposes
-    char cValue[16]; // ascii formatted value string (for display purposes)
+    char cValue[sizeof(union CV)]; // ascii formatted value string (for display purposes)
     int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
     int iNewChannel; // some new channel data was received
     time_t tTimestamp; // timestamp of last update
@@ -532,10 +548,17 @@ typedef struct {
 
 typedef struct {
     int iNewACP;
-    time_t tTimestamp; // timestamp of startup
+    time_t tTimestamp;          // timestamp of startup
+    uint8_t CommandACK;         // counter for ack messages, increment after each use.
+    
+#define BGN_PILOT_SET   10
+    NMEA2K_VALUE PILOT;         // flunk timer. every KEEPALIVE we set this to 100, the timer counts it down
+                                // when 0, ACP generates an error and sets JOYSTICK mode.
     NMEA2K_VALUE STATE;
     NMEA2K_VALUE MODE;
 
+#define BGN_JOYSTICK_ON     1
+#define BGN_JOYSTICK_OFF    0
     NMEA2K_VALUE Joystick;      // 0=Off, >0=ON
     NMEA2K_VALUE BackLight;     // 0=Off, 1-3=ON
     NMEA2K_VALUE Memory;        // value 0x0123 = 291
@@ -560,7 +583,9 @@ typedef struct {
     BGNET_FMTDT* pFMTDT; // format definitions
     Config* pCfg;    // config structure
 
-    int iNewDevice; // some new DEVICE data was received
+    int iNewDevice;     // any new DEVICE data was received (scan though DEV structure)
+    int iNewCommand;    // any new COMMAND was received (scan though CMD structure)
+    int iNewChannel;    // any new CHANNEL data was received (scan though CHANNEL structure)
     BGN_ACP ACP; // ACP status
     BGN_DEVICE DEV[BGNET_DEVICE_MAX]; // device statistics
     BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // commands statistics
