@@ -133,7 +133,7 @@
 #define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (checksum)
 
 // FROM/TO adresses
-#define BGNET_DEVICE_MAX                0xFF
+#define BGN_DEVICE_MAX                0xFF
 
 // TO 'group' broadcast adresses (byte 0)
 #define BGNET_FRAME_TO_ACP              0x00 // PILOT uses this to send KEEPALIVE command, possibly this is the ACP
@@ -176,7 +176,7 @@
 #define BGNET_ADDRESS_ME                0x00
 
 // command (byte 3)
-#define BGNET_COMMAND_MAX               0xFF
+#define BGN_COMMAND_MAX               0xFF
 #define BGNET_FRAME_CMD_DATA            0x01 //DATA broadcast, variable length, instrument readings.
 #define BGNET_FRAME_CMD_LABEL           0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
                                              //  Ch#+3x bytes numerical+ascii string (variable length)+CS
@@ -212,6 +212,7 @@
                                              //                                       00 = Alarms = No {off-course|drive fail|compass fail}
                                              //                                          00 = Drive = Idle {port|starboard|idle}
                                              // i leave this info here, possibly for more modern equipment this might be applicable.
+                                             // PILOT broadcasts this command in 'normal' mode, but also in 'demo' mode.
 #define BGNET_FRAME_CMD_POWEROFF        0xC8 //shutdown system, no payload. Does not work on NETWORK series devices "FF 70 00 C8 C9"
 #define BGNET_FRAME_CMD_BACKLIGHT       0xC9 //LIGHTS button pressed (any module) -> header+2 bytes: {0|1|2|3},0x20. Message format:
                                              // FF 70 01 C9 C7 00 AA
@@ -350,7 +351,7 @@
 #define BGN_CNR_AF_AP_OFFCOURSE     0xAF
 #define BGN_CNR_B3_COMPASSCAL       0xB3
 #define BGN_CNR_B4_UNKNOWN          0xB4
-#define BGN_CNR_B5_AP_MODE          0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
+#define BGN_CNR_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
                                          // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
                                          // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
     #define BGN_AP_MODE1_MASK_STATE 0x01 // DATA1 - STATE (0=STBY, 1=AUTO) 
@@ -390,7 +391,7 @@
 #define BGN_CNR_EB_SOGKT            0xEB  // Speed Over Ground, KT
 #define BGN_CNR_EC_VMG2W            0xEC
 #define BGN_CNR_ED_TIMETOWP         0xED
-#define BGN_CNR_EE_CROSSTRACKERR    0xEE
+#define BGN_CNR_EE_XTE              0xEE
 #define BGN_CNR_EF_REMOTE0          0xEF
 #define BGN_CNR_F0_REMOTE1          0xF0
 #define BGN_CNR_F1_REMOTE2          0xF1
@@ -433,7 +434,6 @@ union CV {
 // this is the complete channel structure
 union CH {
     uint8_t B[14]; // sufficient space for the largest one (2 bytes header + max 12 bytes in data)
-    uint64_t RAW[1]; // used to detect a 'change' when receiving new data
     struct {
         uint8_t CH;             // channel number
         uint8_t FMT;            // format byte
@@ -504,7 +504,7 @@ typedef struct {
     char cSKdef[32];            // SignalK reference string 
 } BGNET_CHNDT;
 
-#define BGN_FRAME_SIZE    1024
+#define BGN_FRAME_SIZE    2048
 
 // register device statistics
 typedef struct {
@@ -519,6 +519,7 @@ typedef struct {
     time_t tTimestampTx;
     time_t tCounterResetTx;
     unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
+    size_t source;
 } BGN_DEVICE;
 
 // register Command statistics
@@ -583,13 +584,16 @@ typedef struct {
     BGNET_FMTDT* pFMTDT; // format definitions
     Config* pCfg;    // config structure
 
+
+    BGN_ACP ACP; // ACP status
+    BGN_DEVICE DEV[BGN_DEVICE_MAX]; // device statistics
+    BGN_COMMAND CMD[BGN_COMMAND_MAX]; // commands statistics
+    BGN_CHANNEL CHN[BGN_CHANNEL_MAX]; // channels statistics
+#define BGN_NEW_SET     1
+#define BGN_NEW_RESET   0
     int iNewDevice;     // any new DEVICE data was received (scan though DEV structure)
     int iNewCommand;    // any new COMMAND was received (scan though CMD structure)
     int iNewChannel;    // any new CHANNEL data was received (scan though CHANNEL structure)
-    BGN_ACP ACP; // ACP status
-    BGN_DEVICE DEV[BGNET_DEVICE_MAX]; // device statistics
-    BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // commands statistics
-    BGN_CHANNEL DATA[BGN_CHANNEL_MAX]; // channels statistics
 } BGNET_CTRL;
 
 // prototypes

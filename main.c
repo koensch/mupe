@@ -255,7 +255,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN B2",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN B3",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN B4",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_B5_AP_MODE,       "AP MODE",         BGN_FMT_08, BGNET_TYPE_NETPILOT,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_B5_AP_STATUS,     "AP STATUS",       BGN_FMT_08, BGNET_TYPE_NETPILOT,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN B6",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN B7",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN B8",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -306,13 +306,13 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN E5",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN E6",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN E7",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {0,                        "UNKNOWN E8",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_E8_WAYPDISTGYRO,  "WPD GYRO",        BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN E9",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN EA",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN EB",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN EC",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN ED",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {0,                        "UNKNOWN EE",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_EE_XTE,           "XTE",             BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN EF",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN F0",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN F1",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -363,6 +363,7 @@ BGNET_FMTDT FMTDT[16] = {       { 0,-1, ""}, \
 int main(void)
 {
     int i;
+    char cHostName[32];
     // assign signal handler
     signal(SIGINT, handle_sigint);
 
@@ -375,7 +376,10 @@ int main(void)
         return 1;
     }
     logger_init(cfg.log_file, cfg.log_level);
-    log_info("Starting %s", ApplicationName);
+
+    gethostname(cHostName, sizeof(cHostName));
+    log_info("Starting %s on %s (%d bits)", ApplicationName, cHostName, (sizeof(char*)*__CHAR_BIT__));
+    //log_info("version %s", GITREF);
 
     //allocate space for shared data
     BGNET_CTRL* pBGNET_ctrl;
@@ -452,7 +456,7 @@ int main(void)
     // print report
     log_info("Statistics report");
     log_info("   FROM       CounterRx    CounterTx  DeviceType");
-    for (i=0; i<BGNET_DEVICE_MAX; i++) {
+    for (i=0; i<BGN_DEVICE_MAX; i++) {
         if ((pBGNET_ctrl->DEV[i].iCounterRx < 1) & (pBGNET_ctrl->DEV[i].iCounterTx < 1)) {
             // it was never touched
         } else {
@@ -460,7 +464,7 @@ int main(void)
         }
     }
     log_info("    CMD       CounterRx    CounterTx");
-    for (i=0; i<BGNET_COMMAND_MAX; i++) {
+    for (i=0; i<BGN_COMMAND_MAX; i++) {
         if ((pBGNET_ctrl->CMD[i].iCounterRx < 1) & (pBGNET_ctrl->CMD[i].iCounterTx < 1)) {
             // it was never touched
         } else {
@@ -469,10 +473,10 @@ int main(void)
     }
     log_info("Channel         Counter    Label");
     for (i=0; i<BGN_CHANNEL_MAX; i++) {
-        if (pBGNET_ctrl->DATA[i].iCounter < 1) {
+        if (pBGNET_ctrl->CHN[i].iCounter < 1) {
             // it was never touched
         } else {
-            log_info("  0x%02X        %8d     %s", i, pBGNET_ctrl->DATA[i].iCounter, pBGNET_ctrl->pCHNDT[i].cLabel);
+            log_info("  0x%02X        %8d     %s", i, pBGNET_ctrl->CHN[i].iCounter, pBGNET_ctrl->pCHNDT[i].cLabel);
         }
     }
     log_info("End of report");

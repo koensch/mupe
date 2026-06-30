@@ -474,8 +474,8 @@ static char* html_device_top(char *Buffer) {
     const char *cDevTop =
         "<h3>External Devices</h3>"
         "<table>"
-        "<tr><th colspan='2'>Device</th><th colspan='3'>Rx (received FROM)</th><th colspan='3'>Tx (send TO)</th><th colspan='2'>Checksum Errors</th></th></tr>"
-        "<tr><th>Node</th><th>Type</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Head</th><th>Frame</th></tr>";
+        "<tr><th colspan='2'>Device</th><th colspan='5'>Rx (input FROM interface)</th><th colspan='3'>Tx (output TO interface)</th></th></tr>"
+        "<tr><th>Node</th><th>Type</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Err/Head</th><th>Err/Frame</th><th>Counter</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -484,29 +484,28 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     time_t t;
     char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII];
     const char *cDevRow =
-        "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td></tr>";
+        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
     time(&t);
-    for (i=0; i<BGNET_DEVICE_MAX; i++) {
+    for (i=0; i<BGN_DEVICE_MAX; i++) {
         if ((pCtrl->DEV[i].iCounterRx < 1) & (pCtrl->DEV[i].iCounterTx < 1)) {
             // it was never touched
         } else {
             CommandToAscii(asciibufRx, sizeof(asciibufRx), pCtrl->DEV[i].ucFrameRx);
             CommandToAscii(asciibufTx, sizeof(asciibufTx), pCtrl->DEV[i].ucFrameTx);
-            snprintf(cLine, sizeof(cLine), cDevRow,
+            snprintf(cLine, sizeof(cLine), cDevRow, ((pCtrl->DEV[i].source==BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
                                                      i,
                                                      pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName,
                                                      pCtrl->DEV[i].iCounterRx,
-                                                     t - pCtrl->DEV[i].tTimestampRx,
+                                                     (t - pCtrl->DEV[i].tTimestampRx),
                                                      asciibufRx,
-                                                     pCtrl->DEV[i].iCounterTx,
-                                                     t - pCtrl->DEV[i].tTimestampTx,
-                                                     asciibufTx,
                                                      pCtrl->DEV[i].iCSError_Header, 
-                                                     pCtrl->DEV[i].iCSError_Frame
-                                                    );
+                                                     pCtrl->DEV[i].iCSError_Frame,
+                                                     pCtrl->DEV[i].iCounterTx,
+                                                     (t - pCtrl->DEV[i].tTimestampTx),
+                                                     asciibufTx);
             strcat(Buffer, cLine);
         }
     }
@@ -586,7 +585,7 @@ static char* html_command_top(char *Buffer) {
     return(Buffer);
 }
 static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
-    char cCMD[9][16] = {"UNKNOWN","DATA", "LABEL", "SUBSCRIBE", "POWERUP", "KEEPALIVE", "LIGHTS", "PILOT AUTO/STBY", "COMMAND ACK"};
+    char cCMD[12][16] = {"UNKNOWN","DATA", "LABEL", "SUBSCRIBE", "POWERUP", "KEEPALIVE", "LIGHTS", "PILOT AUTO/OFF", "COMMAND ACK", "PILOT MODE", "PILOT SPEED", "PILOT STEP +/-"};
     int x;
     switch(ucCMD) {
         case BGNET_FRAME_CMD_DATA:
@@ -613,6 +612,15 @@ static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
         case BGNET_FRAME_CMD_ACK:
             x = 8;  // Command ACK
             break;
+        case BGNET_FRAME_CMD_PILOT_MODE:
+            x = 9;  // PILOT <MODE> key pressed
+            break;
+        case BGNET_FRAME_CMD_PILOT_SPEED:
+            x = 10;  // PILOT <MODE> key pressed
+            break;
+        case BGNET_FRAME_CMD_PILOT_STEP:
+            x = 11;  // PILOT <MODE> key pressed
+            break;
         default:
             x = 0; // UNKNOWN
             break;
@@ -631,7 +639,7 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(cLine, "");
     strcpy(Buffer, "");
     time(&t);
-    for (i=0; i<BGNET_COMMAND_MAX; i++) {
+    for (i=0; i<BGN_COMMAND_MAX; i++) {
         if ((pCtrl->CMD[i].iCounterRx < 1) & (pCtrl->CMD[i].iCounterTx < 1)) {
             // it was never touched
         } else {
@@ -673,24 +681,25 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
     time_t t;
     char cLine[1024], asciibuf[256];
     const char *cDevRow =
-        "<tr><td>0x%02X</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
+        "<tr %s><td>0x%02X</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
     time(&t);
     for (i=0; i<BGN_CHANNEL_MAX; i++) {
-        if (pCtrl->DATA[i].iCounter < 1) {
+        if (pCtrl->CHN[i].iCounter < 1) {
             // it was never touched
         } else {
-            y = ChannelByteLength(pCtrl, (union CH*)pCtrl->DATA[i].ucRAW);
-            byte2ascii(asciibuf, sizeof(asciibuf), pCtrl->DATA[i].ucRAW, y, BYTE2ASCII_SPACED);
-            snprintf(cLine, sizeof(cLine), cDevRow, i, 
-                                                    pCtrl->DATA[i].iCounter,
-                                                    t - pCtrl->DATA[i].tTimestamp,
+            y = ChannelByteLength(pCtrl, (union CH*)pCtrl->CHN[i].ucRAW);
+            byte2ascii(asciibuf, sizeof(asciibuf), pCtrl->CHN[i].ucRAW, y, BYTE2ASCII_SPACED);
+            snprintf(cLine, sizeof(cLine), cDevRow, ((pCtrl->CHN[i].iNewChannel==BGN_NEW_RESET)?"":"bgcolor='lightblue'"),
+                                                    i, 
+                                                    pCtrl->CHN[i].iCounter,
+                                                    (t - pCtrl->CHN[i].tTimestamp),
                                                     asciibuf,
                                                     pCtrl->pCHNDT[i].cLabel,
-                                                    pCtrl->DATA[i].ucFROM,
-                                                    pCtrl->DATA[i].cValue);
+                                                    pCtrl->CHN[i].ucFROM,
+                                                    pCtrl->CHN[i].cValue);
             strcat(Buffer, cLine);  // warning: this could overflow the buffer
         }
     }
