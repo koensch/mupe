@@ -393,7 +393,7 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
         "<html>\r\n"
-        "<head><style>h3 {margin-left: 40px;}\r\ntable {border-collapse: collapse; width: 80%; margin: 20px auto;}\r\nth, td {border:1px solid #ccc; padding: 10px; text-align: left;}</style><title>%s</title><link rel='shortcut icon' href='#' /></head>\r\n"
+        "<head><style>body, table, td {font-family: Verdana; font-size: 14px;}\r\nh3 {margin-left: 40px;}\r\ntable {border-collapse: collapse; width: 90%; margin: 10px auto;}\r\nth, td {border:1px solid #ccc; padding: 10px; text-align: left;}</style><title>%s</title><link rel='shortcut icon' href='#' /></head>\r\n"
         "<body>\r\n";
     snprintf(Buffer, MaxBuf, cHead, ApplicationName);
     return(Buffer);
@@ -475,7 +475,7 @@ static char* html_device_top(char *Buffer) {
         "<h3>External Devices</h3>"
         "<table>"
         "<tr><th colspan='2'>Device</th><th colspan='5'>Rx (input FROM interface)</th><th colspan='3'>Tx (output TO interface)</th></th></tr>"
-        "<tr><th>Node</th><th>Type</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Err/Head</th><th>Err/Frame</th><th>Counter</th><th>Sec</th><th>LastRaw</th></tr>";
+        "<tr><th>Node</th><th>Type</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Err/Head</th><th>Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -495,17 +495,19 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
         } else {
             CommandToAscii(asciibufRx, sizeof(asciibufRx), pCtrl->DEV[i].ucFrameRx);
             CommandToAscii(asciibufTx, sizeof(asciibufTx), pCtrl->DEV[i].ucFrameTx);
-            snprintf(cLine, sizeof(cLine), cDevRow, ((pCtrl->DEV[i].source==BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
-                                                     i,
-                                                     pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName,
-                                                     pCtrl->DEV[i].iCounterRx,
-                                                     (t - pCtrl->DEV[i].tTimestampRx),
-                                                     asciibufRx,
-                                                     pCtrl->DEV[i].iCSError_Header, 
-                                                     pCtrl->DEV[i].iCSError_Frame,
-                                                     pCtrl->DEV[i].iCounterTx,
-                                                     (t - pCtrl->DEV[i].tTimestampTx),
-                                                     asciibufTx);
+            snprintf(cLine, sizeof(cLine), cDevRow,
+                        ((pCtrl->DEV[i].source==BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
+                        i,
+                        pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName,
+                        pCtrl->DEV[i].iCounterRx,
+                        (t - pCtrl->DEV[i].tTimestampRx),
+                        asciibufRx,
+                        pCtrl->DEV[i].iCSError_Header, 
+                        pCtrl->DEV[i].iCSError_Frame,
+                        pCtrl->DEV[i].iCounterTx,
+                        (t - pCtrl->DEV[i].tTimestampTx),
+                        asciibufTx
+                    );
             strcat(Buffer, cLine);
         }
     }
@@ -553,13 +555,13 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
     snprintf (cLine, sizeof(cLine), cACPRowSSDS, "Running since", asciibuffer, t-pCtrl->ACP.tTimestamp, "HOST");
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATUS      [AUTO/STBY]", cSTAT[pCtrl->ACP.STATE.value.nByte], t-pCtrl->ACP.STATE.timestamp, cSOURCE[pCtrl->ACP.STATE.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATE [AUTO/STBY]", cSTAT[pCtrl->ACP.STATE.value.nByte], t-pCtrl->ACP.STATE.timestamp, cSOURCE[pCtrl->ACP.STATE.source]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE        [COMP/NAV/VANE/JOYSTICK]", cMODE[pCtrl->ACP.MODE.value.nByte], t-pCtrl->ACP.MODE.timestamp, cSOURCE[pCtrl->ACP.MODE.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE]", cMODE[pCtrl->ACP.MODE.value.nByte], t-pCtrl->ACP.MODE.timestamp, cSOURCE[pCtrl->ACP.MODE.source]);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight   [OFF/LOW/MEDIUM/HIGH]", pCtrl->ACP.BackLight.value.nByte, t-pCtrl->ACP.BackLight.timestamp, cSOURCE[pCtrl->ACP.BackLight.source]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Memory [stored Course]", pCtrl->ACP.Memory.value.nLong, t-pCtrl->ACP.Memory.timestamp, cSOURCE[pCtrl->ACP.Memory.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "CourseTarget", pCtrl->ACP.CourseTarget.value.nLong, t-pCtrl->ACP.CourseTarget.timestamp, cSOURCE[pCtrl->ACP.CourseTarget.source]);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", ((double)(pCtrl->ACP.StoredLogNM.value.nLong)/10), t-pCtrl->ACP.StoredLogNM.timestamp, cSOURCE[pCtrl->ACP.StoredLogNM.source]);
     strcat(Buffer, cLine);
@@ -580,12 +582,12 @@ static char* html_command_top(char *Buffer) {
         "<h3>Commands</h3>"
         "<table>"
         "<tr><th colspan='2'>Command</th><th colspan='3'>Rx</th><th colspan='3'>Tx</th></tr>"
-        "<tr><th>Code</th><th>Label</th><th>Counter</th><th>Sec</th><th>LastRaw</th><th>Counter</th><th>Sec</th><th>LastRaw</th></tr>";
+        "<tr><th>Code</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
-    char cCMD[12][16] = {"UNKNOWN","DATA", "LABEL", "SUBSCRIBE", "POWERUP", "KEEPALIVE", "LIGHTS", "PILOT AUTO/OFF", "COMMAND ACK", "PILOT MODE", "PILOT SPEED", "PILOT STEP +/-"};
+    char cCMD[13][16] = {"UNKNOWN","DATA", "LABEL", "SUBSCRIBE", "POWERUP", "PILOT HELLO", "LIGHTS", "PILOT STATE", "COMMAND ACK", "PILOT MODE", "PILOT SPEED", "PILOT STEP +/-", "PILOT ADJUST"};
     int x;
     switch(ucCMD) {
         case BGNET_FRAME_CMD_DATA:
@@ -600,7 +602,7 @@ static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
         case BGNET_FRAME_CMD_POWERUP:
             x = 4;  // POWERUP
             break;
-        case BGNET_FRAME_CMD_KEEPALIVE:
+        case BGNET_FRAME_CMD_PILOT_HELLO:
             x = 5;  // KEEPALIVE
             break;
         case BGNET_FRAME_CMD_BACKLIGHT:
@@ -620,6 +622,9 @@ static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
             break;
         case BGNET_FRAME_CMD_PILOT_STEP:
             x = 11;  // PILOT <MODE> key pressed
+            break;
+        case BGNET_FRAME_CMD_PILOT_ADJUST:
+            x = 12;
             break;
         default:
             x = 0; // UNKNOWN
@@ -672,7 +677,7 @@ static char* html_channel_top(char *Buffer) {
         "<h3>Channels (broadcast via DATA command by Node)</h3>"
         "<table>"
         "<tr><th rowspan='2'>Channel</th><th colspan='3'>Rx</th><th rowspan='2'>Label</th><th rowspan='2'>Node</th><th rowspan='2'>Display</th></tr>"
-        "<tr><th>Counter</th><th>Sec</th><th>LastRaw</th></tr>";
+        "<tr><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -869,9 +874,9 @@ void *webserver_thread(void *arg)
                 send(client_fd, err, strlen(err), 0);
             }
         } else {
-            log_info("webserver: req=%s", req);
-            log_info("webserver: method=%s", method);
-            log_info("webserver: path=%s", path);
+            //log_info("webserver: req=%s", req);
+            //log_info("webserver: method=%s", method);
+            //log_info("webserver: path=%s", path);
             if (strcmp(path,"/bgnet") == 0) {
                 handle_bgnet_html(client_fd, pCtrl);
             } else {

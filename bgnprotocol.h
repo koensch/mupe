@@ -42,21 +42,29 @@
 // - NET PILOT: appears to use the address range 0x50-0x5F (at least the NETWORK series)
 // - NET PILOT: when it observes a duplicate address it immediately increments its own address (0x50-0x5F) and
 //   continues as normal
-// - NET PILOT:
-//    - normally sends 4 channels: 49 (Heading, 0/360), 0B (Rudder angle, -45/+45), 51 (AW angle, -180/+180), 41 (Speed KT, 0/99.9)
-//    - when any button is pressed (except SPEED or SETUP) it transmits 4 channels, appearently to synchronize with the ACP and other
-//      PILOT modules on the network: B5 (AP mode), 53 (Target TWA), A6 (AP Target Course), A7 (AP WP Bearing). The message is only send once.
-// - NET PILOT: at startup (without ACP), the message "No Pilot" is displayed and it only sends a KEEPALIVE command (0x0E) TO 0x00. This is
+// - NET PILOT: in demo mode sends 4 channels: 0x49/Heading, 0x0B/Rudder, 0x51/AWA and 0x41/Speed
+// - NET PILOT: at startup (without ACP), the message "No Pilot" is displayed and it only sends a 0x0E/HELLO command TO 0x00. This is
 //   repeated every 3.8sec. If a reply is not received (within 5sec), "No Pilot" is displayed.
-//   If the PILOT recives the B5 (AP mode), 53 (Target TWA), A6 (AP Target Course), A7 (AP WP Bearing), same as transmitted in 'demo', the 
-//   message "No Pilot" disappears. Possibly the "WND OFF" message is displayed. Place your WIND unit in demo mode and PILOT comes in
-//   normal service.
+//   If the PILOT receives a DATA command with atleast 0xB5/AP_STATUS, the message "No Pilot" disappears. You might seeb some errors
+//    ("WND OFF", "NO COMP"), because some critical channels are not present at the PILOT.
 // - NET PILOT sends a CMD (3x) when a button is pressed:
 //    - AUTO or OFF button:   TO FROM 05 D3 CS 00 B5 01 00 00 CS
 //    - MODE button:          TO FROM 05 D4 CS 00 A6 01 00 01 CS
 //    - <10,>10,<1,>1 button: TO FROM 02 DC CS 00 A6 CS
-//   if no response message is received, PILOT starts to beep. What the response message should be is unclear.
-//   The 2nd byte of the payload appears to be a channel number.
+//   if no response message is received, PILOT starts to beep. The response shall be a ACK command with 1 payload byte: the first byte of the
+//    received command shall be returned as confirmation. This number increments every time it is used and after powerup it's 0x00.
+//   The 2nd byte of the payload is a channel number of the affected channel. Observe that the FMT is different than used in DATA commands. If
+//   this is intentional or not could not be found out. DATA transmission use FMT_08, D3/D4/DC commands use FMT_01
+// - NET PILOT: WA (Watch Alarm) and OC (Off Course Alarm) are a 'local alarm'. In only beeps on PILOT and can not be reset
+//   on other (even on 'alarm capable' units). No alarm data is send over the network
+// - NET PILOT: has a 2 (or 3) pins female connector at the backside for NMEA 0183/RS442/4800/N/8/1 interface. There is a limited set of supported
+//   sentences and is build against specification v1.5 (about 1985). Newer revisions have made the most important sentences incompatible and useless.
+//   Pin arrangement (looking from the backside): 1 (Left) = Tx-, 2 (Top) = Shield, 3 (Right) = Tx+
+//   It might take a few sec before the the channel value is transmitted on the network (via a 0x01/DATA command). Once the NMEA stream stops,
+//   it may take some 10-15 sec before the network retransmits is stopped.
+// - Sending NMEA sentences for testingi found the easiest way to make a textfile with sentences and send them via a command prompt:
+//   on a windows machine: ECHO {sentence}  > COM6
+// - NET PILOT: it has been observed that somtimes PILOT sends erroneous FRAME CHECKSUMs. resetting the PILOT cleared the phenomenon.
 // - When a DATA or QUAD-r does not receive a value (every 10 seconds) it displays "OFF" 
 // - NET ACP: supports a joystick, directly connected to the ACP, engage/disengaged by a switch connected to the ACP. When engaged, the
 //   joystick controls the rudder directly. When engaged, the PILOT displays "JOYSTICK".
@@ -126,6 +134,19 @@
 #define BGNET_FRAME_HEAD_SIZE           2   //position of SIZE byte (payload in the BODY, 0 if no body)
 #define BGNET_FRAME_HEAD_CMD            3   //position of CMD byte
 #define BGNET_FRAME_HEAD_CS             4   //position of CS byte
+
+typedef struct {        // for the FRAME header we use a pointer
+    uint8_t TO;
+    uint8_t FROM;
+    uint8_t PL;         // payload length
+    uint8_t CMD;        // Command
+    uint8_t CSH;        // Checksum HEAD
+    uint8_t payload[];  // payload (variable size)
+    //uint8_t CSF;      // Checksum FRAME (variable position, can not be included in struct)
+} FRAME_H;
+typedef struct {        // for the FRAME tail we need a seperate pointer (because of the variable length of the payload)
+    uint8_t CSF;        // Checksum FRAME
+} FRAME_T;
 
 // BODY layout
 
@@ -200,8 +221,8 @@
 #define BGNET_FRAME_CMD_POWERUP         0x0A //at startup all stations (QUAD/30, PILOT/50, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
                                              //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
                                              //(no firmware version number is included in NETWORK series)
-#define BGNET_FRAME_CMD_0C              0x0C //unknown
-#define BGNET_FRAME_CMD_KEEPALIVE       0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
+//#define BGNET_FRAME_CMD_0C              0x0C //unknown
+#define BGNET_FRAME_CMD_PILOT_HELLO     0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
                                              // PILOT: "00 51 00 0E A1" (no payload)
                                              // Copilot came up with this suggestion for a ACP response. This turns out to be not applicable for
                                              // the NETWORK series:
@@ -213,6 +234,7 @@
                                              //                                          00 = Drive = Idle {port|starboard|idle}
                                              // i leave this info here, possibly for more modern equipment this might be applicable.
                                              // PILOT broadcasts this command in 'normal' mode, but also in 'demo' mode.
+#define BGNET_FRAME_CMD_PILOT_ADJUST    0xB1 // STEP/ADJUST -10/-1/+1/+10, 5 bytes payload (00 A6 01 FF F6) = -10
 #define BGNET_FRAME_CMD_POWEROFF        0xC8 //shutdown system, no payload. Does not work on NETWORK series devices "FF 70 00 C8 C9"
 #define BGNET_FRAME_CMD_BACKLIGHT       0xC9 //LIGHTS button pressed (any module) -> header+2 bytes: {0|1|2|3},0x20. Message format:
                                              // FF 70 01 C9 C7 00 AA
@@ -288,8 +310,8 @@
 #define BGN_CNR_3B_LINEAR4          0x3B
 #define BGN_CNR_3C_ROLLRATE         0x3C
 #define BGN_CNR_40_FORESTAY         0x40
-#define BGN_CNR_41_BOATSPEEDKT      0x41
-#define BGN_CNR_42_BOATSPEEDRAW     0x42 // signal from the paddlewheel, prior correction or calibration
+#define BGN_CNR_41_BOATSPEEDKT      0x41 // from SPEED or QUAD (corrected), but also from PILOT/NMEA/VHW/#5
+#define BGN_CNR_42_BOATSPEEDRAW     0x42 // from SPEED or QUAD (uncorrected), but also from PILOT/NMEA/VHW/#5
 #define BGN_CNR_43_BOATSPEEDMS      0x43
 #define BGN_CNR_44_YAWRATE          0x44
 #define BGN_CNR_46_AP_SPEEDKT       0x46 // displayed when SPEED button is pressed on a PILOT
@@ -339,6 +361,9 @@
 #define BGN_CNR_8A_UNKNOWN          0x8A
 #define BGN_CNR_8D_BATTVOLT         0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
                                          // displayed by DATA (if 'OPTIONS' button is pressed)
+#define BGN_CNR_98_UNKNOWN          0x98 // When a PILOT/NMEA/APB message is received this channel is observed with FMT_00 and
+                                         // and only 2 bytes, no data. I do not know if this is on purpose or a undesired feature
+                                         // if the XTE parameters are left empty; this channel does not appear.
 #define BGN_CNR_9A_HEADINGNEXTTACK  0x9A
 #define BGN_CNR_9B_FOREAFTTRIM      0x9B
 #define BGN_CNR_9C_MASTANGLE        0x9C
@@ -362,7 +387,7 @@
     #define BGN_AP_MODE2_COMP       0x01
     #define BGN_AP_MODE2_NAV        0x03
     #define BGN_AP_MODE2_VANE       0x04
-    #define BGN_AP_MODE2_JOYSTICK   0x06
+    #define BGN_AP_MODE2_JOYSTICK   0x06 // set by ACP when joystick is engaged. disengagment via button (on joystick, but also OFF button on PILOT)
 #define BGN_CNR_BA_UNKNOWN          0xBA
 #define BGN_CNR_BB_LATITUDE         0xBB
 #define BGN_CNR_BC_LONGITUDE        0xBC
@@ -376,7 +401,7 @@
 #define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_DC_LOCALTIME        0xDC
 #define BGN_CNR_DD_UTCTIME          0xDD
-#define BGN_CNR_DE_UNKNOWN          0xDE
+#define BGN_CNR_DE_WPB              0xDE // WP Bearing (via PILOT/NMEA/APB/#11 en PILOT/NMEA/RMB/#11)
 #define BGN_CNR_E0_BRGW2WRUMBTRUE   0xE0
 #define BGN_CNR_E1_BRGW2WRUMBMAG    0xE1
 #define BGN_CNR_E2_LAYLINEDIST      0xE2
@@ -385,10 +410,10 @@
 #define BGN_CNR_E5_BRG2WGYROTRUE    0xE5
 #define BGN_CNR_E6_BRG2WGYROMAG     0xE6
 #define BGN_CNR_E7_WAYPDISTRUMB     0xE7
-#define BGN_CNR_E8_WAYPDISTGYRO     0xE8
-#define BGN_CNR_E9_COGTRUE          0xE9  // Course Over Ground, True
-#define BGN_CNR_EA_COGMAG           0xEA  // Course Over Ground, Magnetic
-#define BGN_CNR_EB_SOGKT            0xEB  // Speed Over Ground, KT
+#define BGN_CNR_E8_WPD              0xE8 // WP Distance (via PILOT/NMEA/RMB/#10)
+#define BGN_CNR_E9_COGTRUE          0xE9 // Course Over Ground, True
+#define BGN_CNR_EA_COGMAG           0xEA // Course Over Ground, Magnetic
+#define BGN_CNR_EB_SOGKT            0xEB // Speed Over Ground, KT (via PILOT/NMEA/VTG/#5)
 #define BGN_CNR_EC_VMG2W            0xEC
 #define BGN_CNR_ED_TIMETOWP         0xED
 #define BGN_CNR_EE_XTE              0xEE
@@ -434,6 +459,7 @@ union CV {
 // this is the complete channel structure
 union CH {
     uint8_t B[14]; // sufficient space for the largest one (2 bytes header + max 12 bytes in data)
+    uint32_t uRaW[3];
     struct {
         uint8_t CH;             // channel number
         uint8_t FMT;            // format byte
@@ -469,7 +495,7 @@ union CH {
                                     // confirmed (press any key on a ALARM capable device) or the alarm state is returned to normal
                                     // (a null-string) is send.
 #define BGN_FMT_08      0x08        // 16 bit unsigned register (0-999), optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
-
+#define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
 // FMT Definition Table
 typedef struct {
     int iIndex;
@@ -562,7 +588,7 @@ typedef struct {
 #define BGN_JOYSTICK_OFF    0
     NMEA2K_VALUE Joystick;      // 0=Off, >0=ON
     NMEA2K_VALUE BackLight;     // 0=Off, 1-3=ON
-    NMEA2K_VALUE Memory;        // value 0x0123 = 291
+    NMEA2K_VALUE CourseTarget;  // value 0x0123 = 291
     NMEA2K_VALUE StoredLogNM;   // channel CD (stored log) is stored as 4-byte register
     NMEA2K_VALUE TripLogNM;     // channel CF (trip log NM) is stored as a 2 byte register
 } BGN_ACP;

@@ -144,7 +144,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 43",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 44",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 45",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {0,                        "UNKNOWN 46",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_46_AP_SPEEDKT,    "AP SPEEDKT",      BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 47",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 48",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {BGN_CNR_49_HEADING,       "HEADING M",       BGN_FMT_08, BGNET_TYPE_NETPILOT,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -296,7 +296,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN DB",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN DC",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN DD",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {0,                        "UNKNOWN DE",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_DE_WPB,           "NAV/NMEA/APB/WPB",BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN DF",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN E0",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN E1",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -306,13 +306,13 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN E5",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN E6",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN E7",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_E8_WAYPDISTGYRO,  "WPD GYRO",        BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_E8_WPD,           "NAV/NMEA/RMB/WPD",BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN E9",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN EA",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {0,                        "UNKNOWN EB",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_EB_SOGKT,         "GPS/NMEA/VTG/SOG",BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN EC",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN ED",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_EE_XTE,           "XTE",             BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_EE_XTE,           "NAV/NMEA/APB/XTE",BGN_FMT_01, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN EF",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN F0",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN F1",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -336,22 +336,22 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
 // -1 = not defined
 // 0 = variable string, look for the null-byte
 // 1-n = fixed length
-BGNET_FMTDT FMTDT[16] = {       { 0,-1, ""}, \
-                                { 1, 4, "2 bytes, signed 16bit register"}, \
-                                { 2, 6, "4 bytes, unsigned 32bit register (used by STOREDLOG)"}, \
-                                { 3, 5, "3 bytes, timer value (HH,MM,SS, displayed as 'H:MM:SS')"}, \
-                                { 4, 6, "4 bytes, text (00+3 bytes, like ' T ',' F ','OFF','ON ','---')"}, \
-                                { 5,-1, ""}, \
-                                { 6,-1, ""}, \
-                                { 7, 0, " variable characters + 1 null-byte"}, \
-                                { 8, 4, "2 bytes, unsigned 16bit register"}, \
-                                { 9,-1, ""}, \
-                                {10,-1, ""}, \
-                                {11,-1, ""}, \
-                                {12,-1, ""}, \
-                                {13,-1, ""}, \
-                                {14,-1, ""}, \
-                                {15,-1, ""}
+BGNET_FMTDT FMTDT[16] = {       {0x00, 2, " odd one found on PILOT/NMEA"}, \
+                                {0x01, 4, "2 bytes, signed 16bit register"}, \
+                                {0x02, 6, "4 bytes, unsigned 32bit register (used by STOREDLOG)"}, \
+                                {0x03, 5, "3 bytes, timer value (HH,MM,SS, displayed as 'H:MM:SS')"}, \
+                                {0x04, 6, "4 bytes, text (00+3 bytes, like ' T ',' F ','OFF','ON ','---')"}, \
+                                {0x05,-1, ""}, \
+                                {0x06,-1, ""}, \
+                                {0x07, 0, " variable characters + 1 null-byte"}, \
+                                {0x08, 4, "2 bytes, unsigned 16bit register"}, \
+                                {0x09,-1, ""}, \
+                                {0x0A,-1, ""}, \
+                                {0x0B,-1, ""}, \
+                                {0x0C, 5, "3 bytes text (like 'INV')"}, \
+                                {0x0D,-1, ""}, \
+                                {0x0E,-1, ""}, \
+                                {0x0F,-1, ""}
                                 };
 
 #define BGN_ENABLE_SERIAL

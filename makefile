@@ -3,6 +3,7 @@ CC      = gcc
 CFLAGS  = -Wall -Wextra -std=gnu99 -pthread 
 #LDFLAGS = -pthread -lcjson
 LDFLAGS = -pthread -lcjson -lcrypto
+GITREF = $(shell git show -s --format=%ci)
 
 SRC = main.c \
       config.c \
@@ -30,7 +31,7 @@ OBJ = $(SRC:.c=.o)
 all: app
 
 app: $(OBJ) $(H)
-	$(CC) $(CFLAGS) -o app $(OBJ) $(LDFLAGS)
+	$(CC) $(CFLAGS) -DGITREF="$(GITREF)" -o app $(OBJ) $(LDFLAGS)
 
 clean:
 	rm -f $(OBJ) app

@@ -51,6 +51,9 @@ void *timer_thread(void *arg)
             byte2ascii(asciibuf, sizeof(asciibuf), RxBuf, RxBufLen, BYTE2ASCII_SPACED);
             log_debug("Timer %d msec, %d bytes: %s", RxCounter, RxBufLen, asciibuf);
 
+            CommandToAscii(asciibuf, sizeof(asciibuf), RxBuf);
+            log_debug("timer: %s", asciibuf);      
+
             /* do here the incoming message handling
             - until no we have only processed streams of data bytes coming from the serial port. In this protocol
               messages are separated by 'silence', typically around 45msec.
