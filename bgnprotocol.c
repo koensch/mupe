@@ -110,12 +110,12 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
             pCtrl->DEV[i].iCSError_Header = 0;
             pCtrl->DEV[i].iCSError_Frame = 0;
             // packet counters & timestamps
-            pCtrl->DEV[i].iCounterRx = 0;
-            pCtrl->DEV[i].iCounterTx = 0;
-            pCtrl->DEV[i].tTimestampRx = t;
-            pCtrl->DEV[i].tCounterResetRx = t;
-            pCtrl->DEV[i].tTimestampTx = t;
-            pCtrl->DEV[i].tCounterResetTx = t;
+            pCtrl->DEV[i].CounterRx.iCounter = 0;
+            pCtrl->DEV[i].CounterRx.tTimestamp = t;
+            pCtrl->DEV[i].CounterRx.tCounterReset = t;
+            pCtrl->DEV[i].CounterTx.iCounter = 0;
+            pCtrl->DEV[i].CounterTx.tTimestamp = t;
+            pCtrl->DEV[i].CounterTx.tCounterReset = t;
             memset(pCtrl->DEV[i].ucFrameRx, 0, BGN_FRAME_SIZE);
             memset(pCtrl->DEV[i].ucFrameTx, 0, BGN_FRAME_SIZE);
             pCtrl->DEV[i].source = BGN_SOURCE_NONE;
@@ -125,13 +125,13 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->iNewCommand = BGN_NEW_RESET; // no new data available
         for (i=0; i<BGN_COMMAND_MAX; i++) {
             pCtrl->CMD[i].iNewCommand = BGN_NEW_RESET;
-            pCtrl->CMD[i].iCounterRx = 0;
-            pCtrl->CMD[i].tTimestampRx = t;
-            pCtrl->CMD[i].tCounterResetRx = t;
-            pCtrl->CMD[i].iCounterTx = 0;
-            pCtrl->CMD[i].tTimestampTx = t;
-            pCtrl->CMD[i].tCounterResetTx = t;
+            pCtrl->CMD[i].CounterRx.iCounter = 0;
+            pCtrl->CMD[i].CounterRx.tTimestamp = t;
+            pCtrl->CMD[i].CounterRx.tCounterReset = t;
             memset(pCtrl->CMD[i].ucFrameRx, 0, BGN_FRAME_SIZE);
+            pCtrl->CMD[i].CounterTx.iCounter = 0;
+            pCtrl->CMD[i].CounterTx.tTimestamp = t;
+            pCtrl->CMD[i].CounterTx.tCounterReset = t;
             memset(pCtrl->CMD[i].ucFrameTx, 0, BGN_FRAME_SIZE);
         }
 
@@ -139,12 +139,20 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->iNewChannel = BGN_NEW_RESET; // no new data available
         for (i=0; i<BGN_CHANNEL_MAX; i++) {
             pCtrl->CHN[i].iNewChannel = BGN_NEW_RESET;
-            pCtrl->CHN[i].ucFROM = 0;
-            memset(pCtrl->CHN[i].ucRAW, 0, sizeof(pCtrl->CHN[i].ucRAW));
-            strcpy(pCtrl->CHN[i].cValue, "");
-            pCtrl->CHN[i].iCounter = 0;
-            pCtrl->CHN[i].tTimestamp = t;
-            pCtrl->CHN[i].tCounterReset = t;
+
+            pCtrl->CHN[i].x01.ucFROM = 0;
+            memset(pCtrl->CHN[i].x01.ucRAW, 0, sizeof(pCtrl->CHN[i].x01.ucRAW));
+            strcpy(pCtrl->CHN[i].x01.cValue, "");
+            pCtrl->CHN[i].x01.CounterRx.iCounter = 0;
+            pCtrl->CHN[i].x01.CounterRx.tTimestamp = t;
+            pCtrl->CHN[i].x01.CounterRx.tCounterReset = t;
+
+            memset(pCtrl->CHN[i].x02.ucRAW, 0, sizeof(pCtrl->CHN[i].x02.ucRAW));
+            strcpy(pCtrl->CHN[i].x02.cValue, "");
+            pCtrl->CHN[i].x02.CounterRx.iCounter = 0;
+            pCtrl->CHN[i].x02.CounterRx.tTimestamp = t;
+            pCtrl->CHN[i].x02.CounterRx.tCounterReset = t;
+
         }
         log_debug("bgn_net_initialize: Done");
     }
@@ -737,53 +745,53 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
 // update timestamp and increment counter (with wrap-around)
 void CounterUpDATA(BGN_CHANNEL *pCH, time_t t) {
-    pCH->tTimestamp = t;
+    pCH->x01.CounterRx.tTimestamp = t;
     // update counter (with wrap-around)
-    if (pCH->iCounter < SHRT_MAX) {
-        pCH->iCounter++;
+    if (pCH->x01.CounterRx.iCounter < SHRT_MAX) {
+        pCH->x01.CounterRx.iCounter++;
     } else {
-        pCH->iCounter = 1;
-        pCH->tCounterReset = t;
+        pCH->x01.CounterRx.iCounter = 1;
+        pCH->x01.CounterRx.tCounterReset = t;
     }
 }
 void CounterRxUpCMD(BGN_COMMAND *pCMD, time_t t) {
-    pCMD->tTimestampRx = t;
+    pCMD->CounterRx.tTimestamp = t;
     // update counter (with wrap-around)
-    if (pCMD->iCounterRx < SHRT_MAX) {
-        pCMD->iCounterRx++;
+    if (pCMD->CounterRx.iCounter < SHRT_MAX) {
+        pCMD->CounterRx.iCounter++;
     } else {
-        pCMD->iCounterRx = 1;
-        pCMD->tCounterResetRx = t;
+        pCMD->CounterRx.iCounter = 1;
+        pCMD->CounterRx.tCounterReset = t;
     }
 }
 void CounterTxUpCMD(BGN_COMMAND *pCMD, time_t t) {
-    pCMD->tTimestampTx = t;
+    pCMD->CounterTx.tTimestamp = t;
     // update counter (with wrap-around)
-    if (pCMD->iCounterTx < SHRT_MAX) {
-        pCMD->iCounterTx++;
+    if (pCMD->CounterTx.iCounter < SHRT_MAX) {
+        pCMD->CounterTx.iCounter++;
     } else {
-        pCMD->iCounterTx = 1;
-        pCMD->tCounterResetTx = t;
+        pCMD->CounterTx.iCounter = 1;
+        pCMD->CounterTx.tCounterReset = t;
     }
 }
 void CounterRxUpDEV(BGN_DEVICE *pDEV, time_t t) {
-    pDEV->tTimestampRx = t;
+    pDEV->CounterRx.tTimestamp = t;
     // update counter (with wrap-around)
-    if (pDEV->iCounterRx < SHRT_MAX) {
-        pDEV->iCounterRx++;
+    if (pDEV->CounterRx.iCounter < SHRT_MAX) {
+        pDEV->CounterRx.iCounter++;
     } else {
-        pDEV->iCounterRx = 1;
-        pDEV->tCounterResetRx = t;
+        pDEV->CounterRx.iCounter = 1;
+        pDEV->CounterRx.tCounterReset = t;
     }
 }
 void CounterTxUpDEV(BGN_DEVICE *pDEV, time_t t) {
-    pDEV->tTimestampTx = t;
+    pDEV->CounterTx.tTimestamp = t;
     // update counter (with wrap-around)
-    if (pDEV->iCounterTx < SHRT_MAX) {
-        pDEV->iCounterTx++;
+    if (pDEV->CounterTx.iCounter < SHRT_MAX) {
+        pDEV->CounterTx.iCounter++;
     } else {
-        pDEV->iCounterTx = 1;
-        pDEV->tCounterResetTx = t;
+        pDEV->CounterTx.iCounter = 1;
+        pDEV->CounterTx.tCounterReset = t;
     }
 }
 
@@ -1095,20 +1103,20 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     // scan through frame/subframe
     while (pBuf < pEnd) {
         pCH = (union CH*)(pBuf + BGN_VALUE_CNR);
-        pCtrl->CHN[pCH->s.CH].ucFROM = *(buffer + BGNET_FRAME_HEAD_FROM); // originator of the frame (that included this channel)
+        pCtrl->CHN[pCH->s.CH].x01.ucFROM = *(buffer + BGNET_FRAME_HEAD_FROM); // originator of the frame (that included this channel)
 
         // we need the channel length to advance to the next in this frame
         y = ChannelByteLength(pCtrl, pCH);
 
         // check if existing channel (stored previous time) and the new channel (in the received frame) are equal
-        if (memcpy(((union CH*)pCtrl->CHN[pCH->s.CH].ucRAW), pCH, y) == 0) {
+        if (memcpy(((union CH*)pCtrl->CHN[pCH->s.CH].x01.ucRAW), pCH, y) == 0) {
             // no chnage, do no process this channel
         } else {
 
             // decode channel, get displayed value (this is what we use in the webserver)
-            decode_channel_string(pCtrl->CHN[pCH->s.CH].cValue, pCH);
+            decode_channel_string(pCtrl->CHN[pCH->s.CH].x01.cValue, pCH);
             // copy channel byte sequence (2 purposes: to display via the webserver and to compare new/present data)
-            memcpy(pCtrl->CHN[pCH->s.CH].ucRAW, pCH, y);
+            memcpy(pCtrl->CHN[pCH->s.CH].x01.ucRAW, pCH, y);
 
             pCtrl->CHN[pCH->s.CH].iNewChannel = BGN_NEW_SET; // signal this channel as new/changed
             CounterUpDATA(&pCtrl->CHN[pCH->s.CH], t);
@@ -1191,7 +1199,7 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
                                                                         , pCH->s.CH
                                                                         , pCH->s.FMT
                                                                         , pCtrl->pCHNDT[pCH->s.CH].cLabel
-                                                                        , pCtrl->CHN[pCH->s.CH].cValue
+                                                                        , pCtrl->CHN[pCH->s.CH].x01.cValue
                                                                     );
         }
         pBuf = pBuf + y; // advance to next channel in this frame
@@ -1208,16 +1216,33 @@ void decode_command_SUBSCRIBE(unsigned char *buffer) {
     return;
 }
 // routine to advertise values that can be subscribed
-void decode_command_LABEL(unsigned char *buffer) {
+void decode_command_LABEL(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     unsigned char string[255];
+    unsigned char ucCHN;
     size_t len;
+    time_t t;
+    time(&t);
+
     // this type of frame has a variable payload: Ch#, 3 bytes data, nbytes ascii
-    if ((buffer[BGNET_FRAME_HEAD_SIZE] > 4) & (buffer[BGNET_FRAME_HEAD_SIZE] < 12)) {
-        len=buffer[BGNET_FRAME_HEAD_SIZE]-4;
+    ucCHN = buffer[BGNET_FRAME_HEAD + 0]; // first payload byte is channel ID
+    pCtrl->CHN[ucCHN].iNewChannel = BGN_NEW_SET;
+    if ((buffer[BGNET_FRAME_HEAD_SIZE] > 4) & (buffer[BGNET_FRAME_HEAD_SIZE] < sizeof(pCtrl->CHN[ucCHN].x02.ucRAW))) {
+        pCtrl->CHN[ucCHN].x02.CounterRx.iCounter++;
+        pCtrl->CHN[ucCHN].x02.CounterRx.tTimestamp = t;
+        // copy the frame
+        len = BGNET_FRAME_HEAD + buffer[BGNET_FRAME_HEAD_SIZE] + BGNET_FRAME_TAIL_CS;
+        memcpy(pCtrl->CHN[ucCHN].x02.ucRAW, buffer, len);
+        // copy the label
+        len = buffer[BGNET_FRAME_HEAD_SIZE] - 4;
+        strncpy(pCtrl->CHN[ucCHN].x02.cValue, (char*)&(pCtrl->CHN[ucCHN].x02.ucRAW[BGNET_FRAME_HEAD + 4]), len);
+        pCtrl->CHN[ucCHN].x02.cValue[len] = '\0';
+
         log_debug("  1st=%02X, len= %ld", buffer[BGNET_FRAME_HEAD+4], len);
         memcpy(string, &buffer[BGNET_FRAME_HEAD+4], len);
         string[len] = 0x00;
         log_debug("    Ch=%02X, advertised by %02X to %02X, value= %s", buffer[BGNET_FRAME_HEAD+0], buffer[BGNET_FRAME_HEAD_FROM], buffer[BGNET_FRAME_HEAD_TO], string);
+    } else {
+        strcpy(pCtrl->CHN[ucCHN].x02.cValue, "???");
     }
     return;
 }
@@ -1356,7 +1381,7 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 break;
                             case BGNET_FRAME_CMD_LABEL:
                                 // process message (only at startup, only by DATA)
-                                decode_command_LABEL(pBuf);
+                                decode_command_LABEL(pCtrl, pBuf);
                                 log_info("  Command %02X (with payload) LABEL", ucCMD);
                                 break;
                             case BGNET_FRAME_CMD_SUBSCRIBE:
@@ -1403,7 +1428,7 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                             // against our current heading.
                                             // After switching to AUTO, the AP can (slowly) get the boat on our
                                             // desired course.
-                                            pCtrl->ACP.CourseTarget.value.nLong = ntohs(((union CH*)(pCtrl->CHN[BGN_CNR_49_HEADING].ucRAW))->s.cv.uW[0]);
+                                            pCtrl->ACP.CourseTarget.value.nLong = ntohs(((union CH*)(pCtrl->CHN[BGN_CNR_49_HEADING].x01.ucRAW))->s.cv.uW[0]);
                                             pCtrl->ACP.CourseTarget.timestamp = t;
                                             pCtrl->ACP.CourseTarget.source = BGN_SOURCE_ACP;
                                         }

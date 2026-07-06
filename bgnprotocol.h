@@ -200,7 +200,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGNET_ADDRESS_ME                0x00
 
 // command (byte 3)
-#define BGN_COMMAND_MAX               0xFF
+#define BGN_COMMAND_MAX                 0xFF
 #define BGNET_FRAME_CMD_DATA            0x01 //DATA broadcast, variable length, instrument readings.
 #define BGNET_FRAME_CMD_LABEL           0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
                                              //  Ch#+3x bytes numerical+ascii string (variable length)+CS
@@ -505,6 +505,12 @@ typedef struct {
     char cLabel[64];
 } BGNET_FMTDT;
 
+typedef struct {
+    int iCounter;
+    time_t tTimestamp;
+    time_t tCounterReset;
+} BGNET_COUNT;
+
 // 16 NETWORK devices exist, the first one (index=0) is used for devices we are unable to identify
 #define BGNET_TYPE_MAX            17
 // Device Definition Table
@@ -544,15 +550,11 @@ typedef struct {
 // register device statistics
 typedef struct {
     int iNewDevice; // New DEVICE data might have been received
-    int iCounterRx;
-    time_t tTimestampRx;
-    time_t tCounterResetRx;
+    BGNET_COUNT CounterRx;
     int iCSError_Header;
     int iCSError_Frame;
     unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
-    int iCounterTx;
-    time_t tTimestampTx;
-    time_t tCounterResetTx;
+    BGNET_COUNT CounterTx;
     unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
     size_t source;
 } BGN_DEVICE;
@@ -560,26 +562,33 @@ typedef struct {
 // register Command statistics
 typedef struct {
     int iNewCommand; // new COMMAND was received
-    int iCounterRx; // everytime we receive this command, we increment this (with wrap-around)
-    time_t tTimestampRx; // timestamp of last update
-    time_t tCounterResetRx; // when ww wrap-around the counter
+    BGNET_COUNT CounterRx;
     unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
-    int iCounterTx; // everytime we send this command, we increment this (with wrap-around)
-    time_t tTimestampTx; // timestamp of last update
-    time_t tCounterResetTx; // when ww wrap-around the counter
+    BGNET_COUNT CounterTx;
     unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
 } BGN_COMMAND;
 
 typedef struct {
-    unsigned char ucFROM; // the station that transmitted the channel 
-    // we store the raw byte sequence for this channel. From the FMT character, you can derive the length of the channel sequence
-    unsigned char ucRAW[sizeof(union CH)]; // raw data (for diagnostic purposes)
-    // we store the channel value in ASCII for display purposes
-    char cValue[sizeof(union CV)]; // ascii formatted value string (for display purposes)
-    int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
     int iNewChannel; // some new channel data was received
-    time_t tTimestamp; // timestamp of last update
-    time_t tCounterReset; // when ww wrap-around the counter
+    struct {
+        unsigned char ucFROM; // the station that transmitted the channel
+        // we store the raw byte sequence for this channel. From the FMT character, you can derive the length of the channel sequence
+        unsigned char ucRAW[sizeof(union CH)]; // raw data (for diagnostic purposes)
+        // we store the channel value in ASCII for display purposes
+        char cValue[sizeof(union CV)]; // ascii formatted value string (for display purposes)
+        BGNET_COUNT CounterRx;
+        //int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
+        //time_t tTimestamp; // timestamp of last update
+        //time_t tCounterReset; // when ww wrap-around the counter
+    } x01;
+    struct {
+        unsigned char ucRAW[30]; // raw data (for diagnostic purposes), usually 18 bytes payload (=24 bytes complete frame)
+        char cValue[24]; // payload - 4 bytes + 1 null terminator, usually 15 bytes maximum      
+        BGNET_COUNT CounterRx;
+        //int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
+        //time_t tTimestamp; // timestamp of last update
+        //time_t tCounterReset; // when ww wrap-around the counter
+    } x02;
 } BGN_CHANNEL;
 
 typedef struct {

@@ -24,8 +24,6 @@
 
 #define MAX_WS_CLIENTS 10
 
-#define BGN_ENABLE_REPORT
-
 static int ws_clients[MAX_WS_CLIENTS];
 static pthread_mutex_t ws_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -435,7 +433,6 @@ static char* html_help(char *Buffer, size_t MaxBuf, int iPort) {
     return(Buffer);
 }
 
-#ifdef BGN_ENABLE_REPORT
 static char* html_interface_top(char *Buffer) {
     const char *cDevTop =
         "<h2>B&G Network Statistics</h2>"
@@ -479,6 +476,7 @@ static char* html_device_top(char *Buffer) {
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
+
 static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     time_t t;
@@ -490,22 +488,22 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(Buffer, "");
     time(&t);
     for (i=0; i<BGN_DEVICE_MAX; i++) {
-        if ((pCtrl->DEV[i].iCounterRx < 1) & (pCtrl->DEV[i].iCounterTx < 1)) {
+        if ((pCtrl->DEV[i].CounterRx.iCounter < 1) & (pCtrl->DEV[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
             CommandToAscii(asciibufRx, sizeof(asciibufRx), pCtrl->DEV[i].ucFrameRx);
             CommandToAscii(asciibufTx, sizeof(asciibufTx), pCtrl->DEV[i].ucFrameTx);
             snprintf(cLine, sizeof(cLine), cDevRow,
-                        ((pCtrl->DEV[i].source==BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
+                        ((pCtrl->DEV[i].source == BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
                         i,
                         pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName,
-                        pCtrl->DEV[i].iCounterRx,
-                        (t - pCtrl->DEV[i].tTimestampRx),
+                        pCtrl->DEV[i].CounterRx.iCounter,
+                        (t - pCtrl->DEV[i].CounterRx.tTimestamp),
                         asciibufRx,
                         pCtrl->DEV[i].iCSError_Header, 
                         pCtrl->DEV[i].iCSError_Frame,
-                        pCtrl->DEV[i].iCounterTx,
-                        (t - pCtrl->DEV[i].tTimestampTx),
+                        pCtrl->DEV[i].CounterTx.iCounter,
+                        (t - pCtrl->DEV[i].CounterTx.tTimestamp),
                         asciibufTx
                     );
             strcat(Buffer, cLine);
@@ -553,7 +551,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
-//    #ifdef Koen
+
     snprintf (cLine, sizeof(cLine), cACPRowSSDS, "Running since", t-pCtrl->ACP.tTimestamp, "HOST", asciibuffer);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATE [AUTO/STBY]", t-pCtrl->ACP.STATE.timestamp, cSOURCE[pCtrl->ACP.STATE.source], cSTAT[pCtrl->ACP.STATE.value.nByte]);
@@ -568,7 +566,6 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", t-pCtrl->ACP.TripLogNM.timestamp, cSOURCE[pCtrl->ACP.TripLogNM.source], (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/10.0));
     strcat(Buffer, cLine);
- //   #endif
 
     return(Buffer);
 }
@@ -584,12 +581,12 @@ static char* html_command_top(char *Buffer) {
         "<h3>Commands</h3>"
         "<table>"
         "<tr><th colspan='2'>Command</th><th colspan='3'>Rx</th><th colspan='3'>Tx</th></tr>"
-        "<tr><th>Code</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
+        "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
-    char cCMD[13][16] = {"UNKNOWN","DATA", "LABEL", "SUBSCRIBE", "POWERUP", "PILOT HELLO", "LIGHTS", "PILOT STATE", "COMMAND ACK", "PILOT MODE", "PILOT SPEED", "PILOT STEP +/-", "PILOT ADJUST"};
+    char cCMD[13][16] = {"UNKNOWN","BROADCAST", "LABEL", "SUBSCRIBE", "POWERUP", "PILOT HELLO", "LIGHTS", "PILOT STATE", "COMMAND ACK", "PILOT MODE", "PILOT SPEED", "PILOT STEP +/-", "PILOT ADJUST"};
     int x;
     switch(ucCMD) {
         case BGNET_FRAME_CMD_DATA:
@@ -647,7 +644,7 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(Buffer, "");
     time(&t);
     for (i=0; i<BGN_COMMAND_MAX; i++) {
-        if ((pCtrl->CMD[i].iCounterRx < 1) & (pCtrl->CMD[i].iCounterTx < 1)) {
+        if ((pCtrl->CMD[i].CounterRx.iCounter < 1) & (pCtrl->CMD[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
             CommandToAscii(asciibufRx, sizeof(asciibufRx), pCtrl->CMD[i].ucFrameRx);
@@ -655,11 +652,11 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
             snprintf(cLine, sizeof(cLine), cDevRow,
                                                     i,
                                                     StrCommandLabel(asciibufCMD, i),
-                                                    pCtrl->CMD[i].iCounterRx,
-                                                    t - pCtrl->CMD[i].tTimestampRx,
+                                                    pCtrl->CMD[i].CounterRx.iCounter,
+                                                    t - pCtrl->CMD[i].CounterRx.tTimestamp,
                                                     asciibufRx,
-                                                    pCtrl->CMD[i].iCounterTx,
-                                                    t - pCtrl->CMD[i].tTimestampTx,
+                                                    pCtrl->CMD[i].CounterTx.iCounter,
+                                                    t - pCtrl->CMD[i].CounterTx.tTimestamp,
                                                     asciibufTx
                                                 );
             strcat(Buffer, cLine);
@@ -678,36 +675,55 @@ static char* html_channel_top(char *Buffer) {
     const char *cDevTop =
         "<h3>Channel Information</h3>"
         "<table>"
-        "<tr><th colspan='2'>Channel</th><th colspan='5'>Command 0x01/DATA</th></tr>"
-        "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th></tr>";
+        "<tr><th colspan='2'>Channel</th><th colspan='5'>Command 0x01/BROADCAST</th><th colspan='4'>Command 0x02/LABEL</th></tr>"
+        "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Label</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i,y;
     time_t t;
-    char cLine[1024], asciibuf[256];
+    char cLine[2048], asciibuf01[256], asciibuf02[256];
     const char *cDevRow =
-        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
+        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
     time(&t);
     for (i=0; i<BGN_CHANNEL_MAX; i++) {
-        if (pCtrl->CHN[i].iCounter < 1) {
+        if ((pCtrl->CHN[i].x01.CounterRx.iCounter < 1) & (pCtrl->CHN[i].x02.CounterRx.iCounter < 1)) {
             // it was never touched
         } else {
-            y = ChannelByteLength(pCtrl, (union CH*)pCtrl->CHN[i].ucRAW);
-            byte2ascii(asciibuf, sizeof(asciibuf), pCtrl->CHN[i].ucRAW, y, BYTE2ASCII_SPACED);
+            y = ChannelByteLength(pCtrl, (union CH*)pCtrl->CHN[i].x01.ucRAW);
+            if (pCtrl->CHN[i].x01.ucRAW[0] == 0) {
+                // no channel ID, must be empty
+                strcpy(asciibuf01, "");
+            } else {
+                byte2ascii(asciibuf01, sizeof(asciibuf01), pCtrl->CHN[i].x01.ucRAW, y, BYTE2ASCII_SPACED);
+            }
+            if (pCtrl->CHN[i].x02.ucRAW[1] == 0) {
+                // no FROM, mus be empty
+                strcpy(asciibuf02, "");
+            } else {
+                byte2ascii(asciibuf02, sizeof(asciibuf02), pCtrl->CHN[i].x02.ucRAW, (BGNET_FRAME_HEAD + pCtrl->CHN[i].x02.ucRAW[BGNET_FRAME_HEAD_SIZE] + BGNET_FRAME_TAIL_CS), BYTE2ASCII_SPACED);
+            }
             snprintf(cLine, sizeof(cLine), cDevRow, ((pCtrl->CHN[i].iNewChannel==BGN_NEW_RESET)?"":"bgcolor='lightblue'"),
-                                                    i, 
+                                                    i,
                                                     pCtrl->pCHNDT[i].cLabel,
-                                                    pCtrl->CHN[i].iCounter,
-                                                    (t - pCtrl->CHN[i].tTimestamp),
-                                                    asciibuf,
-                                                    pCtrl->CHN[i].ucFROM,
-                                                    pCtrl->CHN[i].cValue);
+
+                                                    pCtrl->CHN[i].x01.CounterRx.iCounter,
+                                                    (t - pCtrl->CHN[i].x01.CounterRx.tTimestamp),
+                                                    asciibuf01,
+                                                    pCtrl->CHN[i].x01.ucFROM,
+                                                    pCtrl->CHN[i].x01.cValue,
+
+                                                    pCtrl->CHN[i].x02.CounterRx.iCounter,
+                                                    (t - pCtrl->CHN[i].x02.CounterRx.tTimestamp),
+                                                    asciibuf02,
+                                                    pCtrl->CHN[i].x02.cValue
+                                                );
             strcat(Buffer, cLine);  // warning: this could overflow the buffer
+            log_debug("webserver/channel: strlen(Buffer)= %d, strlen(cLine)=%d", strlen(Buffer), strlen(cLine));
         }
     }
     return(Buffer);
@@ -718,11 +734,10 @@ static char* html_channel_end(char *Buffer) {
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
-#endif
 
 static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
 {
-    char htmlbuffer[8192], workbuffer[4096];
+    char htmlbuffer[1024], workbuffer[1024];
 
     strcpy(htmlbuffer, ""); // initialize the empty buffer
 
@@ -736,10 +751,11 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
     send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
 }
 
-#ifdef BGN_ENABLE_REPORT
+// warning: if you make changes to the report, realise that output might get larger, overflowing the buffers
+// 
 static void handle_bgnet_html(int client_fd, BGNET_CTRL *pCtrl)
 {
-    char htmlbuffer[8192], workbuffer[4096];
+    char htmlbuffer[8192], workbuffer[8196];
 
     strcpy(htmlbuffer, ""); // initialize the empty buffer
 
@@ -750,25 +766,35 @@ static void handle_bgnet_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_interface_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_interface_end(workbuffer));
 
+    send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
+    strcpy(htmlbuffer, ""); // initialize the empty buffer
+
     strcat(htmlbuffer, html_device_top(workbuffer));
     strcat(htmlbuffer, html_device_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_device_end(workbuffer));
+
 
     strcat(htmlbuffer, html_ACP_top(workbuffer));
     strcat(htmlbuffer, html_ACP_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_ACP_end(workbuffer));
 
+
     strcat(htmlbuffer, html_command_top(workbuffer));
     strcat(htmlbuffer, html_command_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_command_end(workbuffer));
+
+
+    send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
+    strcpy(htmlbuffer, ""); // initialize the empty buffer
 
     strcat(htmlbuffer, html_channel_top(workbuffer));
     strcat(htmlbuffer, html_channel_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_channel_end(workbuffer));
 
-#endif
+//#endif
 
     strcat(htmlbuffer, html_tail(workbuffer, sizeof(workbuffer)));
+
     log_debug("webserver: /bgnet page size: %d, %d", strlen(htmlbuffer), strlen(workbuffer));
     send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
 

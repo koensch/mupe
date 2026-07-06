@@ -451,26 +451,26 @@ int main(void)
     log_info("Statistics report");
     log_info("   FROM       CounterRx    CounterTx  DeviceType");
     for (i=0; i<BGN_DEVICE_MAX; i++) {
-        if ((pBGNET_ctrl->DEV[i].iCounterRx < 1) & (pBGNET_ctrl->DEV[i].iCounterTx < 1)) {
+        if ((pBGNET_ctrl->DEV[i].CounterRx.iCounter < 1) & (pBGNET_ctrl->DEV[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
-            log_info("  0x%02X        %8d     %8d     %s", i, pBGNET_ctrl->DEV[i].iCounterRx, pBGNET_ctrl->DEV[i].iCounterTx, pBGNET_ctrl->pDEVDT[bgn_FindDeviceIndex(pBGNET_ctrl, i)].sProdName);
+            log_info("  0x%02X        %8d     %8d     %s", i, pBGNET_ctrl->DEV[i].CounterRx.iCounter, pBGNET_ctrl->DEV[i].CounterTx.iCounter, pBGNET_ctrl->pDEVDT[bgn_FindDeviceIndex(pBGNET_ctrl, i)].sProdName);
         }
     }
     log_info("    CMD       CounterRx    CounterTx");
     for (i=0; i<BGN_COMMAND_MAX; i++) {
-        if ((pBGNET_ctrl->CMD[i].iCounterRx < 1) & (pBGNET_ctrl->CMD[i].iCounterTx < 1)) {
+        if ((pBGNET_ctrl->CMD[i].CounterRx.iCounter < 1) & (pBGNET_ctrl->CMD[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
-            log_info("  0x%02X        %8d     %8d", i, pBGNET_ctrl->CMD[i].iCounterRx, pBGNET_ctrl->CMD[i].iCounterTx, pBGNET_ctrl->CMD[i].iCounterTx);
+            log_info("  0x%02X        %8d     %8d", i, pBGNET_ctrl->CMD[i].CounterRx.iCounter, pBGNET_ctrl->CMD[i].CounterTx.iCounter);
         }
     }
     log_info("Channel         Counter    Label");
     for (i=0; i<BGN_CHANNEL_MAX; i++) {
-        if (pBGNET_ctrl->CHN[i].iCounter < 1) {
+        if (pBGNET_ctrl->CHN[i].x01.CounterRx.iCounter < 1) {
             // it was never touched
         } else {
-            log_info("  0x%02X        %8d     %s", i, pBGNET_ctrl->CHN[i].iCounter, pBGNET_ctrl->pCHNDT[i].cLabel);
+            log_info("  0x%02X        %8d     %s", i, pBGNET_ctrl->CHN[i].x01.CounterRx.iCounter, pBGNET_ctrl->pCHNDT[i].cLabel);
         }
     }
     log_info("End of report");
