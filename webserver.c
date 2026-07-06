@@ -171,7 +171,7 @@ static void handle_api_state(int client_fd)
  //   memcpy(ethernet_data, g_last_ethernet_data, sizeof(ethernet_data));
     pthread_mutex_unlock(&g_data_mutex);
 
-    // convert Rx/Tx data to readable format
+    // convert Rx/Tx data to human readable format
     CommandToAscii(asciibufRx, sizeof(asciibufRx), serial_dataRx);
     CommandToAscii(asciibufTx, sizeof(asciibufTx), serial_dataTx);
 
@@ -525,7 +525,7 @@ static char* html_ACP_top(char *Buffer) {
         "<h3>ACP status</h3>"
         "<table>"
         "<tr><th rowspan='2'>Parameter</th><th colspan='3'>Display</th></tr>"
-        "<tr><th>Value</th><th>Sec</th><th>Source</th></tr>";
+        "<tr><th>Sec</th><th>Source</th><th>Value</th></tr>";
     strcpy(Buffer, cACPTop);
     return(Buffer);
 }
@@ -539,34 +539,36 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char asciibuffer[256];
     // some variables have different datatypes, so we use different format specifiers
     const char *cACPRowSSDS =
-        "<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>";
+        "<tr><td>%s</td><td>%d</td><td>%s</td><td>%s</td></tr>";
     const char *cACPRowSDDS =
-        "<tr><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+        "<tr><td>%s</td><td>%d</td><td>%s</td><td>%d</td></tr>";
     const char *cACPRowSFDS =
-        "<tr><td>%s</td><td>%.1f</td><td>%d</td><td>%s</td></tr>";
+        "<tr><td>%s</td><td>%d</td><td>%s</td><td>%.1f</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
     time(&t);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "PILOT WATCHDOG", pCtrl->ACP.PILOT.value.nLong, t-pCtrl->ACP.PILOT.timestamp, cSOURCE[pCtrl->ACP.PILOT.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "PILOT WATCHDOG", t-pCtrl->ACP.PILOT.timestamp, cSOURCE[pCtrl->ACP.PILOT.source], pCtrl->ACP.PILOT.value.nLong);
     strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
-    snprintf (cLine, sizeof(cLine), cACPRowSSDS, "Running since", asciibuffer, t-pCtrl->ACP.tTimestamp, "HOST");
+//    #ifdef Koen
+    snprintf (cLine, sizeof(cLine), cACPRowSSDS, "Running since", t-pCtrl->ACP.tTimestamp, "HOST", asciibuffer);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATE [AUTO/STBY]", cSTAT[pCtrl->ACP.STATE.value.nByte], t-pCtrl->ACP.STATE.timestamp, cSOURCE[pCtrl->ACP.STATE.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATE [AUTO/STBY]", t-pCtrl->ACP.STATE.timestamp, cSOURCE[pCtrl->ACP.STATE.source], cSTAT[pCtrl->ACP.STATE.value.nByte]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE]", cMODE[pCtrl->ACP.MODE.value.nByte], t-pCtrl->ACP.MODE.timestamp, cSOURCE[pCtrl->ACP.MODE.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE]", t-pCtrl->ACP.MODE.timestamp, cSOURCE[pCtrl->ACP.MODE.source], cMODE[pCtrl->ACP.MODE.value.nByte]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight   [OFF/LOW/MEDIUM/HIGH]", pCtrl->ACP.BackLight.value.nByte, t-pCtrl->ACP.BackLight.timestamp, cSOURCE[pCtrl->ACP.BackLight.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight   [OFF/LOW/MEDIUM/HIGH]", t-pCtrl->ACP.BackLight.timestamp, cSOURCE[pCtrl->ACP.BackLight.source], pCtrl->ACP.BackLight.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "CourseTarget", pCtrl->ACP.CourseTarget.value.nLong, t-pCtrl->ACP.CourseTarget.timestamp, cSOURCE[pCtrl->ACP.CourseTarget.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "CourseTarget", t-pCtrl->ACP.CourseTarget.timestamp, cSOURCE[pCtrl->ACP.CourseTarget.source], pCtrl->ACP.CourseTarget.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", ((double)(pCtrl->ACP.StoredLogNM.value.nLong)/10), t-pCtrl->ACP.StoredLogNM.timestamp, cSOURCE[pCtrl->ACP.StoredLogNM.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", t-pCtrl->ACP.StoredLogNM.timestamp, cSOURCE[pCtrl->ACP.StoredLogNM.source], (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/10.0));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", ((double)(pCtrl->ACP.TripLogNM.value.nLong)/10), t-pCtrl->ACP.TripLogNM.timestamp, cSOURCE[pCtrl->ACP.TripLogNM.source]);
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", t-pCtrl->ACP.TripLogNM.timestamp, cSOURCE[pCtrl->ACP.TripLogNM.source], (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/10.0));
     strcat(Buffer, cLine);
+ //   #endif
 
     return(Buffer);
 }
@@ -674,10 +676,10 @@ static char* html_command_end(char *Buffer) {
 
 static char* html_channel_top(char *Buffer) {
     const char *cDevTop =
-        "<h3>Channels (broadcast via DATA command by Node)</h3>"
+        "<h3>Channel Information</h3>"
         "<table>"
-        "<tr><th rowspan='2'>Channel</th><th colspan='3'>Rx</th><th rowspan='2'>Label</th><th rowspan='2'>Node</th><th rowspan='2'>Display</th></tr>"
-        "<tr><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
+        "<tr><th colspan='2'>Channel</th><th colspan='5'>Command 0x01/DATA</th></tr>"
+        "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -686,7 +688,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
     time_t t;
     char cLine[1024], asciibuf[256];
     const char *cDevRow =
-        "<tr %s><td>0x%02X</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
+        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -699,10 +701,10 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             byte2ascii(asciibuf, sizeof(asciibuf), pCtrl->CHN[i].ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine, sizeof(cLine), cDevRow, ((pCtrl->CHN[i].iNewChannel==BGN_NEW_RESET)?"":"bgcolor='lightblue'"),
                                                     i, 
+                                                    pCtrl->pCHNDT[i].cLabel,
                                                     pCtrl->CHN[i].iCounter,
                                                     (t - pCtrl->CHN[i].tTimestamp),
                                                     asciibuf,
-                                                    pCtrl->pCHNDT[i].cLabel,
                                                     pCtrl->CHN[i].ucFROM,
                                                     pCtrl->CHN[i].cValue);
             strcat(Buffer, cLine);  // warning: this could overflow the buffer
@@ -852,12 +854,20 @@ void *webserver_thread(void *arg)
             continue;
         }
 
-        char method[8], path[256];
+        char method[8], path[256], Xmethod[8], Xpath[256];
         if (sscanf(req, "%7s %255s", method, path) != 2) {
             log_info("webserver: req=%s, does not have the 'method' and 'path'", req);
             handle_root_html(client_fd, pCtrl);
             close(client_fd);
             continue;
+        }
+
+        if ((strcmp(method,Xmethod)==0) & (strcmp(path,Xpath)==0)) {
+            // no change, no log
+        } else {
+            log_info("webserver: req=%s, method= %s, path= %s", req, method, path);
+            strcpy(Xpath, path);
+            strcpy(Xmethod, method);
         }
 
         if (strcmp(method, "GET") == 0 && strcmp(path, "/api/state") == 0) {
@@ -874,10 +884,10 @@ void *webserver_thread(void *arg)
                 send(client_fd, err, strlen(err), 0);
             }
         } else {
-            //log_info("webserver: req=%s", req);
-            //log_info("webserver: method=%s", method);
-            //log_info("webserver: path=%s", path);
-            if (strcmp(path,"/bgnet") == 0) {
+            log_info("webserver: req=%s", req);
+            log_info("webserver: method=%s", method);
+            log_info("webserver: path=%s", path);
+            if (strcmp(path,"/bgnet/") == 0) {
                 handle_bgnet_html(client_fd, pCtrl);
             } else {
                 handle_root_html(client_fd, pCtrl);

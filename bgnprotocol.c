@@ -92,6 +92,8 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.CourseTarget.source = BGN_SOURCE_ACP;
         pCtrl->ACP.CourseTarget.timestamp = t;
 
+        // we do NOT use a floating point value; otherwise we get all kind or rounding errors. Just keep it as handled within the
+        // B&G system: as an integer*10 (so we get 1 decimal)
         pCtrl->ACP.StoredLogNM.value.nLong = 12345*10+6; // channel CD/STORELOGNM (on the real system this is stored in non-volitile memory)
         pCtrl->ACP.StoredLogNM.source = BGN_SOURCE_ACP;
         pCtrl->ACP.StoredLogNM.timestamp = t;
@@ -1002,7 +1004,9 @@ int decode_channel_numeric(union CH* puCH) {
 }
 char* decode_channel_string(char* pStr, union CH* puCH) {
     int iRawValue;
-    int iValid; // 0= invalid DataType, set to "???", 1= Numerical, convert iValue byte sequence, 2= ASCII, already set (text, timer, hex)
+    int iValid; // 0= invalid DataType, set to "???"
+                // 1= Numerical, convert RawValue byte sequence (with optional scaling)
+                // 2= ASCII, already set (text, timer, hex)
     unsigned int d;
     const double fDiv[4]    = { 1.0,   10.0,  100.0, 1000.0};
     const char cPrint[4][6] = {"%d", "%.1f", "%.2f", "%.3f"};
@@ -1020,8 +1024,8 @@ char* decode_channel_string(char* pStr, union CH* puCH) {
             iValid = 1;
             break;
         case BGN_FMT_03: // 3 bytes timer value (0x75, timer)
-                         // note: QUAD displays H:MM:SS maximum (left digit is not displayed
-                         //       DATA displays H:MM only (seconds are displayed in the topline)
+                         // note: QUAD displays H:MM:SS maximum (left digit is not displayed)
+                         //       DATA displays H:MM, SS is displayed in the topline
             sprintf(pStr,"%02d:%02d:%02d", puCH->s.cv.uB[0], puCH->s.cv.uB[1], puCH->s.cv.uB[2]);
             iValid = 2;
             break;
@@ -1067,7 +1071,7 @@ char* decode_channel_string(char* pStr, union CH* puCH) {
             case 2:
             case 3:
                 // convert to a real value, apply divisor (1.0-1000.0)
-                sprintf(pStr, cPrint[d], ((double)iRawValue)/fDiv[d]);
+                sprintf(pStr, cPrint[d], ITOD(iRawValue)/fDiv[d]);
                 break;
             default: // non-scaled value is printed a integer
                 sprintf(pStr, cPrint[d], iRawValue);
@@ -1075,14 +1079,6 @@ char* decode_channel_string(char* pStr, union CH* puCH) {
         }
     }
     return(pStr);
-}
-
-// returns 0 if both channels are equal; use it to compare new channel against present channel
-// we compare the first 4 bytes. We also use the CH and FMT for comparison, because we would miss
-// a zero value against an cleared/initialized buffer
-int CompareChannelRaw(union CH* pA, union CH* pB) {
-   //return (((pA->uRaW[0] == pB->uRaW[0]))?0:1);
-   return(1);
 }
 
 // routine to process values in the body. A body might contain multiple values
@@ -1104,15 +1100,14 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
         // we need the channel length to advance to the next in this frame
         y = ChannelByteLength(pCtrl, pCH);
 
-        // check if new value is the same as the existing one
-        if (CompareChannelRaw(((union CH*)pCtrl->CHN[pCH->s.CH].ucRAW), pCH) == 0) {
-        //if (((union CH*)pCtrl->CHN[pCH->s.CH].ucRAW)->s.cv.uW[0] == pCH->s.cv.uW[0]) {
-            // do no process this channel, no change
+        // check if existing channel (stored previous time) and the new channel (in the received frame) are equal
+        if (memcpy(((union CH*)pCtrl->CHN[pCH->s.CH].ucRAW), pCH, y) == 0) {
+            // no chnage, do no process this channel
         } else {
 
             // decode channel, get displayed value (this is what we use in the webserver)
             decode_channel_string(pCtrl->CHN[pCH->s.CH].cValue, pCH);
-            // copy channel byte sequence (to detect changed channel)
+            // copy channel byte sequence (2 purposes: to display via the webserver and to compare new/present data)
             memcpy(pCtrl->CHN[pCH->s.CH].ucRAW, pCH, y);
 
             pCtrl->CHN[pCH->s.CH].iNewChannel = BGN_NEW_SET; // signal this channel as new/changed
@@ -1137,6 +1132,58 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
                     pCtrl->ACP.TripLogNM.value.nLong = ntohs(pCH->s.cv.uW[0]);
                     pCtrl->ACP.TripLogNM.timestamp = t;
                     pCtrl->ACP.TripLogNM.source = BGN_SOURCE_BGNET;
+                    break;
+                case BGN_CNR_A6_AP_CTARGET:
+                    pCtrl->ACP.CourseTarget.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->ACP.CourseTarget.timestamp = t;
+                    pCtrl->ACP.CourseTarget.source = BGN_SOURCE_BGNET;
+                    break;
+            }
+            if (pCtrl->pCHNDT[y].iImpExpEnable) {
+
+            }
+            switch(pCtrl->pCHNDT[pCH->s.CH].iImpExpEnable) {
+                case BGN_CNR_IMPEXP_NONE:
+                    // value not designed to be import/exportable
+                    break;
+                case BGN_CNR_IMPEXP_NMEA:
+                    // because we are here processing channels from the BGN interface, we are going to export it
+                    // (importing does not make sense because we already have it)
+                    // if (later) NMEA has this data incoming, it will overwrite it (and we will not write it again)
+                    // we do not need to lock/unlock it, as NMEA already does that and will cancel us out anyway
+                    switch(pCH->s.CH) {
+                        case BGN_CNR_0B_RUDDER:
+                            if ((g_n2kdata.boat.rudder.source == BGN_SOURCE_NMEA) | (g_n2kdata.boat.rudder.source == BGN_SOURCE_SIGNALK)) {
+                                // is was already written by NMEA/SIGNALK interface; do not overwrite
+                            } else {
+                                // BGN sends rudder position in angle/degrees (signed, -45/+45). NMEA stores rudder
+                                // position as radian. Multiply by PI/180 to get radians
+                                g_n2kdata.boat.rudder.value.dValue = ITOD(ntohs(pCH->s.cv.sW[0])) * BGNET_PI/180;
+                                g_n2kdata.boat.rudder.timestamp = t;
+                                g_n2kdata.boat.rudder.source = BGN_SOURCE_BGNET;
+                            }
+                            break;
+                    }
+                    break;
+                case BGN_CNR_IMPEXP_SIGNALK:
+                    // because we are here processing channels from the BGN interface, we are going to export it
+                    // (importing does not make sense because we already have it)
+                    // if (later) SIGNAL has this data incoming, it will overwrite it (and we will not write it again)
+                    // we do not need to lock/unlock it, as SIGNAL already does that and will cancel us out anyway
+                    switch(pCH->s.CH) {
+                        case BGN_CNR_0B_RUDDER:
+                            if ((g_n2kdata.boat.rudder.source == BGN_SOURCE_NMEA) | (g_n2kdata.boat.rudder.source == BGN_SOURCE_SIGNALK)) {
+                                // is was already written by NMEA/SIGNAL interface; do not overwrite
+                            } else {
+                                // BGN sends rudder position in angle/degrees (signed, -45/+45). NMEA stores rudder
+                                // position as radian. Multiply by PI/180 to get radians
+                                g_n2kdata.boat.rudder.value.dValue = ITOD(ntohs(pCH->s.cv.sW[0])) * BGNET_PI/180;
+                                g_n2kdata.boat.rudder.timestamp = t;
+                                g_n2kdata.boat.rudder.source = BGN_SOURCE_BGNET;
+                            }
+                            break;
+                    }
+                    break;
                     break;
             }
 
@@ -1200,7 +1247,7 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
     time_t t;
     unsigned char payload[1024], TxBuf[1024];
     int len_pl, len_msg, TxSize;
-    union CH* pCH;
+    union CH *pCH;
 
     pBuf = buffer; // gets incremented as we go
     pEnd = buffer+len; // end of buffer
@@ -1295,9 +1342,6 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                         memcpy(pCtrl->CMD[ucCMD].ucFrameRx, pBuf, RxSize);
                         CounterRxUpCMD(&pCtrl->CMD[ucCMD], t);
                     }
-                } else if (*(pBuf+BGNET_FRAME_HEAD_SIZE) < 2) {  // payload too small
-                    RxSize = BGNET_FRAME_HEAD + *(pBuf+BGNET_FRAME_HEAD_SIZE) + BGNET_FRAME_TAIL_CS; // expected framesize = head (including CR), body, and frame CR
-                    log_error ("payload too small");
                 } else {
                     RxSize = BGNET_FRAME_HEAD + *(pBuf+BGNET_FRAME_HEAD_SIZE) + BGNET_FRAME_TAIL_CS; // expected framesize = head (including CR), body, and frame CR
                     //iIsValid = 1;
@@ -1351,6 +1395,19 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 // handle the contents of the COMMAND
                                 switch(*(pBuf+BGNET_FRAME_HEAD+1)) {
                                     case BGN_CNR_B5_AP_STATUS:
+                                        // we go from AUTO to STBY or VV
+                                        if (pCtrl->ACP.STATE.value.nByte == BGN_AP_MODE1_STBY) {
+                                            // our current state is STBY; this means we go from STBY to AUTO
+                                            // In AUTO, the CTARGET is used by the AP to steer. To prevent a
+                                            // drastic manouvre when switching to AUTO, we initialize CTARGET
+                                            // against our current heading.
+                                            // After switching to AUTO, the AP can (slowly) get the boat on our
+                                            // desired course.
+                                            pCtrl->ACP.CourseTarget.value.nLong = ntohs(((union CH*)(pCtrl->CHN[BGN_CNR_49_HEADING].ucRAW))->s.cv.uW[0]);
+                                            pCtrl->ACP.CourseTarget.timestamp = t;
+                                            pCtrl->ACP.CourseTarget.source = BGN_SOURCE_ACP;
+                                        }
+
                                         pCtrl->ACP.STATE.value.nByte = (1 - pCtrl->ACP.STATE.value.nByte);
                                         pCtrl->ACP.STATE.timestamp = t;
                                         pCtrl->ACP.STATE.source = BGN_SOURCE_BGNET;

@@ -119,7 +119,10 @@
 // GENERIC defines
 
 // use this macro to convert a floating point value (double) to integer with round-off
-#define DTOIROUND(d) ((int)(d >= 0.0 ? (d + 0.5) : (d - 0.5)))
+// sometimes it's trivial, but using defines makes it easier to locate where what conversions are done
+#define DTOIROUND(d)                    ((int)(d >= 0.0 ? (d + 0.5) : (d - 0.5)))
+#define ITOD(i)                         (double)i
+#define BGNET_PI                        3.14159
 
 // FRAME definitions
 
@@ -317,7 +320,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_46_AP_SPEEDKT       0x46 // displayed when SPEED button is pressed on a PILOT
 #define BGN_CNR_47_LONLAT           0x47 //send in ASCII via CMD03
 #define BGN_CNR_48_LONLAT           0x48 //send in ASCII via CMD03
-#define BGN_CNR_49_HEADING          0x49
+#define BGN_CNR_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
 #define BGN_CNR_4A_HEADINGRAW       0x4A // signal from the FLUX compass, prior correction or calibration
 #define BGN_CNR_4D_AWINDSPEEDKT     0x4D
 #define BGN_CNR_4E_AWINDSPEEDRAW    0x4E // signal from the paddlewheel, prior correction or calibration 
@@ -349,9 +352,9 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_77_ROLLTIMER        0x77
 #define BGN_CNR_7C_POLARPERFORMANCE 0x7C
 #define BGN_CNR_7D_TARGETBOATSPEED  0x7D
-#define BGN_CNR_7F_VMGKT            0x7F
+#define BGN_CNR_7F_VMGKT            0x7F //calculted by WIND, displayed on DATA (only when WIND is present)
 #define BGN_CNR_80_UNKNOWN          0x80
-#define BGN_CNR_81_TRIPLOGNM        0x81
+#define BGN_CNR_81_TRIPLOGNM        0x81 // QUAD/SPEED: distance traveled, resettable
 #define BGN_CNR_82_LEEWAY           0x82
 #define BGN_CNR_83_TIDALDRIFT       0x83
 #define BGN_CNR_84_TIDALSET         0x84
@@ -397,7 +400,6 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_C4_DEPTHM           0xC4 // displayed by QUAD, or "---" incase no measurement
 #define BGN_CNR_CD_STORLOGNM        0xCD // QUAD/SPEED: saved in non-volitile memory; retained over the lifespan of the unit
 #define BGN_CNR_CF_DR_DISTNM        0xCF // Dead Reckoned Distance, displayed by SPEED and DATA, reset via QUAD
-#define BGN_CNR_81_TRIPLOGNM        0x81 // QUAD/SPEED: distance traveled, resettable
 #define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_DC_LOCALTIME        0xDC
 #define BGN_CNR_DD_UTCTIME          0xDD
@@ -515,6 +517,13 @@ typedef struct {
     int iEnable;
     int iDeviceType;
 } BGNET_DEVDT;
+
+
+// allow import/export definitions for NMEA & Signal K. import or export is exclusive. When you import from one, you can not
+// export to the other You can't have it both ways.
+#define BGN_CNR_IMPEXP_NONE         0       // no provisions for import/export
+#define BGN_CNR_IMPEXP_NMEA         1       // import from or export to NMEA2000
+#define BGN_CNR_IMPEXP_SIGNALK      2       // import from or export to SignalK
 
 // Channel Definition Table
 typedef struct {

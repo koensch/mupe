@@ -16,7 +16,7 @@
 
 #include "bgnprotocol.h"
 
-static int set_interface_attribs(int fd, int speed, int databits, int stopbits, const char *parity)
+static int set_interface_attribs(int fd, int speed, int databits, int stopbits, const char *parity, const char *mode)
 {
     struct termios2 tty;
     int r;
@@ -72,7 +72,7 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
 
     r = ioctl(fd, TCSETS2, &tty);
     if (r == 0) {
-        log_info("Serial settings: %d baud, %d databits, %d stopbits, %s parity, %s mode", speed, databits, stopbits, parity);
+        log_info("Serial settings: %d baud, %d databits, %d stopbits, %s parity, %s mode", speed, databits, stopbits, parity, mode);
     } else {
         log_error("Serial settings: ioctl error %d", r);
         return -1;
@@ -94,7 +94,7 @@ void *serial_thread(void *arg)
         return NULL;
     }
 
-    if (set_interface_attribs(fd, cfg->baudrate, cfg->databits,cfg->stopbits, cfg->parity) != 0) {
+    if (set_interface_attribs(fd, cfg->baudrate, cfg->databits,cfg->stopbits, cfg->parity, cfg->mode) != 0) {
         log_error("Serial: set_interface_attribs(): %s", strerror(errno));
         close(fd);
         return NULL;

@@ -50,12 +50,6 @@ BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 
 
 
-// allow import/export definitions for NMEA & Signal K. import or export is exclusive. When you import from one, you can not
-// export to the other You can't have it both ways.
-#define BGN_CNR_IMPEXP_NONE 0       // no provisions for import/export
-#define BGN_CNR_IMPEXP_PGN  1       // import from or export to NMEA2000
-#define BGN_CNR_IMPEXP_SK   2       // import from or export to SignalK
-
 // this lookup table allows us:
 // - to lookup the channel label (looks nice in styatistics report)
 // - to obtain the format specifier (when making a output message, see note below)
