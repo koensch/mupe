@@ -352,9 +352,9 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_77_ROLLTIMER        0x77
 #define BGN_CNR_7C_POLARPERFORMANCE 0x7C
 #define BGN_CNR_7D_TARGETBOATSPEED  0x7D
-#define BGN_CNR_7F_VMGKT            0x7F //calculted by WIND, displayed on DATA (only when WIND is present)
+#define BGN_CNR_7F_VMGKT            0x7F // calculted by WIND, displayed on DATA (only when WIND is present) under the WIND button
 #define BGN_CNR_80_UNKNOWN          0x80
-#define BGN_CNR_81_DRDNM            0x81 // QUAD/SPEED: distance traveled, resettable
+#define BGN_CNR_81_DRDNM            0x81 // QUAD/SPEED: Dead Recogning Distance travelled, resettable
 #define BGN_CNR_82_LEEWAY           0x82
 #define BGN_CNR_83_TIDALDRIFT       0x83
 #define BGN_CNR_84_TIDALSET         0x84
@@ -505,12 +505,6 @@ typedef struct {
     char cLabel[64];
 } BGNET_FMTDT;
 
-typedef struct {
-    int iCounter;
-    time_t tTimestamp;
-    time_t tCounterReset;
-} BGNET_COUNT;
-
 // 16 NETWORK devices exist, the first one (index=0) is used for devices we are unable to identify
 #define BGNET_TYPE_MAX            17
 // Device Definition Table
@@ -647,6 +641,8 @@ void bgn_net_initialize_reset(BGNET_CTRL*);
 void bgn_net_initialize(BGNET_CTRL*);
 int bgn_FindDeviceIndex(BGNET_CTRL*, unsigned char);
 int ChannelByteLength(BGNET_CTRL*, union CH*);
+void CounterInit(BGNET_COUNT*, time_t);
+void CounterUp(BGNET_COUNT*, time_t);
 
 // convert Command Frame to ASCII for display purposes
 #define BGN_CMD_ASCII              48

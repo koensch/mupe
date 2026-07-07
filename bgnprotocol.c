@@ -86,37 +86,37 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.tTimestamp = t; // time of startup
         pCtrl->ACP.PILOT.value.nLong = BGN_PILOT_SET;
         pCtrl->ACP.PILOT.source = BGN_SOURCE_ACP;
-        pCtrl->ACP.PILOT.timestamp = t;
+        CounterInit(&pCtrl->ACP.PILOT.Counter, t);
 
         pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_AUTO;
         pCtrl->ACP.STATE.source = BGN_SOURCE_ACP;
-        pCtrl->ACP.STATE.timestamp = t;
+        CounterInit(&pCtrl->ACP.STATE.Counter, t);
 
         pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
         pCtrl->ACP.MODE.source = BGN_SOURCE_ACP;
-        pCtrl->ACP.MODE.timestamp = t;
+        CounterInit(&pCtrl->ACP.MODE.Counter, t);
 
         pCtrl->ACP.Joystick.value.nByte = BGN_JOYSTICK_OFF; // overrides PILOT control
         pCtrl->ACP.Joystick.source = BGN_SOURCE_ACP;
-        pCtrl->ACP.Joystick.timestamp = t;
+        CounterInit(&pCtrl->ACP.Joystick.Counter, t);
 
         pCtrl->ACP.BackLight.value.nByte = 0; // backlight (0=OFF, 3-1=ON)
         pCtrl->ACP.BackLight.source = BGN_SOURCE_ACP;
-        pCtrl->ACP.BackLight.timestamp = t;
+        CounterInit(&pCtrl->ACP.BackLight.Counter, t);
 
         pCtrl->ACP.CourseTarget.value.nLong = 123; // Course Target, calculated by the Autopilot (0-359)
         pCtrl->ACP.CourseTarget.source = BGN_SOURCE_ACP;
-        pCtrl->ACP.CourseTarget.timestamp = t;
+        CounterInit(&pCtrl->ACP.CourseTarget.Counter, t);
 
         // we do NOT use a floating point value; otherwise we get all kind or rounding errors. Just keep it as handled within the
         // B&G system: as an integer*10 (so we get 1 decimal)
         pCtrl->ACP.StoredLogNM.value.nLong = 12345*10+6; // channel CD/STORELOGNM (on the real system this is stored in non-volitile memory)
         pCtrl->ACP.StoredLogNM.source = BGN_SOURCE_ACP;
-        pCtrl->ACP.StoredLogNM.timestamp = t;
+        CounterInit(&pCtrl->ACP.StoredLogNM.Counter, t);
 
         pCtrl->ACP.TripLogNM.value.nLong = 1234*10+5; // channel CD/STORELOGNM (on the real system this is stored in non-volitile memory)
         pCtrl->ACP.TripLogNM.source = BGN_SOURCE_ACP;
-        pCtrl->ACP.TripLogNM.timestamp = t;
+        CounterInit(&pCtrl->ACP.TripLogNM.Counter, t);
 
         // stage 1 - initialize device list
         pCtrl->iNewDevice = BGN_NEW_RESET;
@@ -1133,26 +1133,27 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
             switch(pCH->s.CH) {
                 case BGN_CNR_B5_AP_STATUS:
                     pCtrl->ACP.STATE.value.nByte = (pCH->s.cv.uB[0] & BGN_AP_MODE1_MASK_STATE);  // get AUTO/STBY state into ACP
-                    pCtrl->ACP.STATE.timestamp = t;
                     pCtrl->ACP.STATE.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->ACP.STATE.Counter, t);
+
                     pCtrl->ACP.MODE.value.nByte  = (pCH->s.cv.uB[1] & BGN_AP_MODE2_MASK_MODE);   // get COMP/NAV/VANE mode into ACP
-                    pCtrl->ACP.MODE.timestamp = t;
                     pCtrl->ACP.MODE.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->ACP.MODE.Counter, t);
                     break;
                 case BGN_CNR_CD_STORLOGNM:
                     pCtrl->ACP.StoredLogNM.value.nLong = ntohl(pCH->s.cv.uL[0]);
-                    pCtrl->ACP.StoredLogNM.timestamp = t;
                     pCtrl->ACP.StoredLogNM.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->ACP.StoredLogNM.Counter, t);
                     break;
-                case BGN_CNR_CF_TRIPNM:
+                case BGN_CNR_81_DRDNM:
                     pCtrl->ACP.TripLogNM.value.nLong = ntohs(pCH->s.cv.uW[0]);
-                    pCtrl->ACP.TripLogNM.timestamp = t;
                     pCtrl->ACP.TripLogNM.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->ACP.TripLogNM.Counter, t);
                     break;
                 case BGN_CNR_A6_AP_CTARGET:
                     pCtrl->ACP.CourseTarget.value.nLong = ntohs(pCH->s.cv.uW[0]);
-                    pCtrl->ACP.CourseTarget.timestamp = t;
                     pCtrl->ACP.CourseTarget.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->ACP.CourseTarget.Counter, t);
                     break;
             }
             if (pCtrl->pCHNDT[y].iImpExpEnable) {
@@ -1175,8 +1176,8 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
                                 // BGN sends rudder position in angle/degrees (signed, -45/+45). NMEA stores rudder
                                 // position as radian. Multiply by PI/180 to get radians
                                 g_n2kdata.boat.rudder.value.dValue = ITOD(ntohs(pCH->s.cv.sW[0])) * BGNET_PI/180;
-                                g_n2kdata.boat.rudder.timestamp = t;
                                 g_n2kdata.boat.rudder.source = BGN_SOURCE_BGNET;
+                                CounterUp(&g_n2kdata.boat.rudder.Counter, t);
                             }
                             break;
                     }
@@ -1194,8 +1195,8 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
                                 // BGN sends rudder position in angle/degrees (signed, -45/+45). NMEA stores rudder
                                 // position as radian. Multiply by PI/180 to get radians
                                 g_n2kdata.boat.rudder.value.dValue = ITOD(ntohs(pCH->s.cv.sW[0])) * BGNET_PI/180;
-                                g_n2kdata.boat.rudder.timestamp = t;
                                 g_n2kdata.boat.rudder.source = BGN_SOURCE_BGNET;
+                                CounterUp(&g_n2kdata.boat.rudder.Counter, t);
                             }
                             break;
                     }
@@ -1317,10 +1318,9 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                             // set the counter (count down done by timer thread)
                             pthread_mutex_lock(&g_data_mutex);
                             pCtrl->ACP.PILOT.value.nLong = BGN_PILOT_SET;
-                            pCtrl->ACP.PILOT.timestamp = t;
                             pCtrl->ACP.PILOT.source = BGN_SOURCE_BGNET;
+                            CounterUp(&pCtrl->ACP.PILOT.Counter, t);
                             pthread_mutex_unlock(&g_data_mutex);
-                            //msg_offset = 0;
 
                             len_pl = makeACPresponseMINI(pCtrl, payload);
                             len_msg = bgn_net_makemessage(&TxBuf[TxSize], BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
@@ -1390,8 +1390,8 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                             case BGNET_FRAME_CMD_BACKLIGHT:
                                 // some station, LIGHTS button was pressed; 1 byte payload (intensity 0-3)
                                 pCtrl->ACP.BackLight.value.nByte = *(pBuf+BGNET_FRAME_HEAD+0); // first byte is the LIGHTS state
-                                pCtrl->ACP.BackLight.timestamp = t;
                                 pCtrl->ACP.BackLight.source = BGN_SOURCE_BGNET;
+                                CounterUp(&g_n2kdata.boat.rudder.Counter, t);
 
                                 log_info("  Command %02X (with payload) BACKLIGHT (BY: %02X, %s, LEVEL: %02X)",
                                                     *(pBuf+BGNET_FRAME_HEAD_CMD),
@@ -1427,13 +1427,13 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                             // After switching to AUTO, the AP can (slowly) get the boat on our
                                             // desired course.
                                             pCtrl->ACP.CourseTarget.value.nLong = ntohs(((union CH*)(pCtrl->CHN[BGN_CNR_49_HEADING].x01.ucRAW))->s.cv.uW[0]);
-                                            pCtrl->ACP.CourseTarget.timestamp = t;
                                             pCtrl->ACP.CourseTarget.source = BGN_SOURCE_ACP;
+                                            CounterUp(&pCtrl->ACP.CourseTarget.Counter, t);
                                         }
 
                                         pCtrl->ACP.STATE.value.nByte = (1 - pCtrl->ACP.STATE.value.nByte);
-                                        pCtrl->ACP.STATE.timestamp = t;
                                         pCtrl->ACP.STATE.source = BGN_SOURCE_BGNET;
+                                        CounterUp(&pCtrl->ACP.STATE.Counter, t);
                                         break;
                                 }
 
@@ -1493,13 +1493,13 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                             pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
                                             break;
                                     }
-                                    pCtrl->ACP.MODE.timestamp = t;
-                                    pCtrl->ACP.MODE.timestamp = BGN_SOURCE_BGNET;
+                                    pCtrl->ACP.MODE.source = BGN_SOURCE_BGNET;
+                                    CounterUp(&pCtrl->ACP.MODE.Counter, t);
                                 } else {
                                     // Joystick engaged, disengage it
                                     pCtrl->ACP.Joystick.value.nByte = BGN_JOYSTICK_OFF;
-                                    pCtrl->ACP.Joystick.timestamp = t;
                                     pCtrl->ACP.Joystick.source = BGN_SOURCE_BGNET;
+                                    CounterUp(&pCtrl->ACP.Joystick.Counter, t);
                                 }
 
                                 // create ACK response

@@ -99,15 +99,15 @@ void *timer_thread(void *arg)
             if (pCtrl->ACP.PILOT.value.nLong > 0) {
               pCtrl->ACP.PILOT.value.nLong--;
               pCtrl->ACP.PILOT.source = BGN_SOURCE_NONE;
-              pCtrl->ACP.PILOT.timestamp = t;
+              CounterUp(&pCtrl->ACP.PILOT.Counter, t);
             } else {
               // force controller into STBY/COMP
               pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
               pCtrl->ACP.STATE.source = BGN_SOURCE_NONE;
-              pCtrl->ACP.STATE.timestamp = t;
+              CounterUp(&pCtrl->ACP.STATE.Counter, t);
               pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
               pCtrl->ACP.MODE.source = BGN_SOURCE_NONE;
-              pCtrl->ACP.MODE.timestamp = t;
+              CounterUp(&pCtrl->ACP.MODE.Counter, t);
             }
 
             // device processing

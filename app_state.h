@@ -55,11 +55,19 @@ union VALUE {
     uint64_t nLong;   // large integer value
     char cString[12]; // character string
 };
+
+typedef struct {
+    int iCounter;
+    time_t tTimestamp;
+    time_t tCounterReset;
+} BGNET_COUNT;
+
 // most values we store are 'real' (floating point) values, but sometimes 
 // we need other datatype.
 typedef struct {
     uint8_t datatype;
-    time_t timestamp;
+    BGNET_COUNT Counter;
+    //time_t timestamp;
     size_t source;
     union VALUE value;
 } NMEA2K_VALUE;

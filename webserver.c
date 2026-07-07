@@ -278,104 +278,104 @@ static void handle_api_update(int client_fd, const char *body)
     // position information, usually from GPS
     if (latitude) {
         g_n2kdata.pos.lat.value.dValue = latitude->valuedouble;
-        g_n2kdata.pos.lat.timestamp = t;
         g_n2kdata.pos.lat.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.lat.Counter, t);
     } 
     if (longitude) {
         g_n2kdata.pos.lon.value.dValue = longitude->valuedouble;
-        g_n2kdata.pos.lon.timestamp = t;
         g_n2kdata.pos.lon.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.lon.Counter, t);
     }
     if (altitude) {
         g_n2kdata.pos.alt.value.dValue = altitude->valuedouble;
-        g_n2kdata.pos.alt.timestamp = t;
         g_n2kdata.pos.alt.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.alt.Counter, t);
     }
     if (cog) {
         g_n2kdata.pos.cog.value.dValue = cog->valuedouble;
-        g_n2kdata.pos.cog.timestamp = t;
         g_n2kdata.pos.cog.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.cog.Counter, t);
     }
     if (sog) {
         g_n2kdata.pos.sog.value.dValue = sog->valuedouble;
-        g_n2kdata.pos.sog.timestamp = t;
         g_n2kdata.pos.sog.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.sog.Counter, t);
     }
 
     // boat information from instruments onboard
     if (stw) {
         g_n2kdata.boat.stw.value.dValue = stw->valuedouble;
-        g_n2kdata.boat.stw.timestamp = t;
         g_n2kdata.boat.stw.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.stw.Counter, t);
     }
     if (depth) {
         g_n2kdata.boat.depth.value.dValue = depth->valuedouble;
-        g_n2kdata.boat.depth.timestamp = t;
         g_n2kdata.boat.depth.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.depth.Counter, t);
     }
     if (seatemp) {
         g_n2kdata.boat.seatemp.value.dValue = seatemp->valuedouble;
-        g_n2kdata.boat.seatemp.timestamp = t;
         g_n2kdata.boat.seatemp.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.seatemp.Counter, t);
     }
     if (rudder) {
         g_n2kdata.boat.rudder.value.dValue = rudder->valuedouble;
-        g_n2kdata.boat.rudder.timestamp = t;
         g_n2kdata.boat.rudder.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.rudder.Counter, t);
     }
     if (heading) {
         g_n2kdata.boat.heading.value.dValue = heading->valuedouble;
-        g_n2kdata.boat.heading.timestamp = t;
         g_n2kdata.boat.heading.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.heading.Counter, t);
     }
 
     // wind information from masttop sensor
     if (twa) {
         g_n2kdata.wind.twa.value.dValue = twa->valuedouble;
-        g_n2kdata.wind.twa.timestamp = t;
         g_n2kdata.wind.twa.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.wind.twa.Counter, t);
     }
     if (tws) {
         g_n2kdata.wind.tws.value.dValue = tws->valuedouble;
-        g_n2kdata.wind.tws.timestamp = t;
         g_n2kdata.wind.tws.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.wind.tws.Counter, t);
     }
     if (awa) {
         g_n2kdata.wind.awa.value.dValue = awa->valuedouble;
-        g_n2kdata.wind.awa.timestamp = t;
         g_n2kdata.wind.awa.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.wind.awa.Counter, t);
     }
     if (aws) {
         g_n2kdata.wind.aws.value.dValue = aws->valuedouble;
-        g_n2kdata.wind.aws.timestamp = t;
         g_n2kdata.wind.aws.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.wind.aws.Counter, t);
     }
     if (airtemp) {
         g_n2kdata.wind.airtemp.value.dValue = airtemp->valuedouble;
-        g_n2kdata.wind.airtemp.timestamp = t;
         g_n2kdata.wind.airtemp.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.wind.airtemp.Counter, t);
     }
     if (baro) {
         g_n2kdata.wind.baro.value.dValue = baro->valuedouble;
-        g_n2kdata.wind.baro.timestamp = t;
         g_n2kdata.wind.baro.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.wind.baro.Counter, t);
     }
 
     // pilot information from navigation systems, autopilot, trip planners
     if (cts) {
         g_n2kdata.pilot.cts.value.dValue = cts->valuedouble;
-        g_n2kdata.pilot.cts.timestamp = t;
         g_n2kdata.pilot.cts.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pilot.cts.Counter, t);
     }
     if (triplog) {
         g_n2kdata.pilot.triplog.value.dValue = triplog->valuedouble;
-        g_n2kdata.pilot.triplog.timestamp = t;
         g_n2kdata.pilot.triplog.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pilot.triplog.Counter, t);
     }
     if (vmg) {
         g_n2kdata.pilot.vmg.value.dValue = vmg->valuedouble;
-        g_n2kdata.pilot.vmg.timestamp = t;
         g_n2kdata.pilot.vmg.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pilot.vmg.Counter, t);
     }
 
     pthread_mutex_unlock(&g_data_mutex);
@@ -547,24 +547,24 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(Buffer, "");
     time(&t);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "PILOT WATCHDOG", t-pCtrl->ACP.PILOT.timestamp, cSOURCE[pCtrl->ACP.PILOT.source], pCtrl->ACP.PILOT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "PILOT WATCHDOG", t-pCtrl->ACP.PILOT.Counter.tTimestamp, cSOURCE[pCtrl->ACP.PILOT.source], pCtrl->ACP.PILOT.value.nLong);
     strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
 
     snprintf (cLine, sizeof(cLine), cACPRowSSDS, "Running since", t-pCtrl->ACP.tTimestamp, "HOST", asciibuffer);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATE [AUTO/STBY]", t-pCtrl->ACP.STATE.timestamp, cSOURCE[pCtrl->ACP.STATE.source], cSTAT[pCtrl->ACP.STATE.value.nByte]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATE [AUTO/STBY]", t-pCtrl->ACP.STATE.Counter.tTimestamp, cSOURCE[pCtrl->ACP.STATE.source], cSTAT[pCtrl->ACP.STATE.value.nByte]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE]", t-pCtrl->ACP.MODE.timestamp, cSOURCE[pCtrl->ACP.MODE.source], cMODE[pCtrl->ACP.MODE.value.nByte]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE]", t-pCtrl->ACP.MODE.Counter.tTimestamp, cSOURCE[pCtrl->ACP.MODE.source], cMODE[pCtrl->ACP.MODE.value.nByte]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight   [OFF/LOW/MEDIUM/HIGH]", t-pCtrl->ACP.BackLight.timestamp, cSOURCE[pCtrl->ACP.BackLight.source], pCtrl->ACP.BackLight.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight   [OFF/LOW/MEDIUM/HIGH]", t-pCtrl->ACP.BackLight.Counter.tTimestamp, cSOURCE[pCtrl->ACP.BackLight.source], pCtrl->ACP.BackLight.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "CourseTarget", t-pCtrl->ACP.CourseTarget.timestamp, cSOURCE[pCtrl->ACP.CourseTarget.source], pCtrl->ACP.CourseTarget.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "CourseTarget", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, cSOURCE[pCtrl->ACP.CourseTarget.source], pCtrl->ACP.CourseTarget.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", t-pCtrl->ACP.StoredLogNM.timestamp, cSOURCE[pCtrl->ACP.StoredLogNM.source], (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/10.0));
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, cSOURCE[pCtrl->ACP.StoredLogNM.source], (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/10.0));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", t-pCtrl->ACP.TripLogNM.timestamp, cSOURCE[pCtrl->ACP.TripLogNM.source], (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/10.0));
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, cSOURCE[pCtrl->ACP.TripLogNM.source], (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/10.0));
     strcat(Buffer, cLine);
 
     return(Buffer);
@@ -580,7 +580,7 @@ static char* html_command_top(char *Buffer) {
     const char *cDevTop =
         "<h3>Commands</h3>"
         "<table>"
-        "<tr><th colspan='2'>Command</th><th colspan='3'>Rx</th><th colspan='3'>Tx</th></tr>"
+        "<tr><th colspan='2'>Command</th><th colspan='3'>Rx (input FROM interface)</th><th colspan='3'>Tx (output TO interface)</th></tr>"
         "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
@@ -706,8 +706,8 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
                 // no FROM, must be empty
                 strcpy(asciibuf02, "");
             } else {
-                // only show the first 9 bytes of the frame (5x header, ChannelID, 3xunused)
-                byte2ascii(asciibuf02, sizeof(asciibuf02), pCtrl->CHN[i].x02.ucRAW, (BGNET_FRAME_HEAD + 5 + BGNET_FRAME_TAIL_CS), BYTE2ASCII_SPACED);
+                // only show the first 4 payload bytes (ChannelID, + 3x unknown)
+                byte2ascii(asciibuf02, sizeof(asciibuf02), pCtrl->CHN[i].x02.ucRAW, (BGNET_FRAME_HEAD + 4), BYTE2ASCII_SPACED);
             }
             if (pCtrl->CHN[i].x06.ucRAW[BGNET_FRAME_HEAD_FROM] == 0) {
                 // no FROM, must be empty
@@ -738,7 +738,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                                     pCtrl->CHN[i].x06.ucFROM
                                                 );
             strcat(Buffer, cLine);  // warning: this could overflow the buffer
-            log_debug("webserver/channel: strlen(Buffer)= %d, strlen(cLine)=%d", strlen(Buffer), strlen(cLine));
+            //log_debug("webserver/channel: strlen(Buffer)= %d, strlen(cLine)=%d", strlen(Buffer), strlen(cLine));
         }
     }
     return(Buffer);
@@ -762,7 +762,7 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_help(workbuffer, sizeof(workbuffer), pCtrl->pCfg->web_port));
 
     strcat(htmlbuffer, html_tail(workbuffer, sizeof(workbuffer)));
-    log_debug("webserver: / page size: %d, %d", strlen(htmlbuffer), strlen(workbuffer));
+    //log_debug("webserver: / page size: %d, %d", strlen(htmlbuffer), strlen(workbuffer));
     send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
 }
 
@@ -895,7 +895,7 @@ void *webserver_thread(void *arg)
 
         char method[8], path[256], Xmethod[8], Xpath[256];
         if (sscanf(req, "%7s %255s", method, path) != 2) {
-            log_info("webserver: req=%s, does not have the 'method' and 'path'", req);
+            log_error("webserver: req=%s, does not have the 'method' and 'path'", req);
             handle_root_html(client_fd, pCtrl);
             close(client_fd);
             continue;
@@ -904,7 +904,7 @@ void *webserver_thread(void *arg)
         if ((strcmp(method,Xmethod)==0) & (strcmp(path,Xpath)==0)) {
             // no change, no log
         } else {
-            log_info("webserver: req=%s, method= %s, path= %s", req, method, path);
+            //log_debug("webserver: req=%s, method= %s, path= %s", req, method, path);
             strcpy(Xpath, path);
             strcpy(Xmethod, method);
         }
@@ -923,9 +923,9 @@ void *webserver_thread(void *arg)
                 send(client_fd, err, strlen(err), 0);
             }
         } else {
-            log_info("webserver: req=%s", req);
-            log_info("webserver: method=%s", method);
-            log_info("webserver: path=%s", path);
+            //log_info("webserver: req=%s", req);
+            //log_info("webserver: method=%s", method);
+            //log_info("webserver: path=%s", path);
             if (strcmp(path,"/bgnet/") == 0) {
                 handle_bgnet_html(client_fd, pCtrl);
             } else {
