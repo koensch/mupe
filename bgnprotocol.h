@@ -643,6 +643,7 @@ int bgn_FindDeviceIndex(BGNET_CTRL*, unsigned char);
 int ChannelByteLength(BGNET_CTRL*, union CH*);
 void CounterInit(BGNET_COUNT*, time_t);
 void CounterUp(BGNET_COUNT*, time_t);
+void NMEAinit(NMEA2K_VALUE*, time_t);
 
 // convert Command Frame to ASCII for display purposes
 #define BGN_CMD_ASCII              48

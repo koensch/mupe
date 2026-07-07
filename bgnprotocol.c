@@ -52,6 +52,13 @@ void CounterUp(BGNET_COUNT *Counter, time_t t) {
         Counter->tCounterReset = t;
     }
 }
+void NMEAinit(NMEA2K_VALUE* pNMEA, time_t t) {
+    pNMEA->source = BGN_SOURCE_NONE;
+    pNMEA->value.nLong = 0;
+    pNMEA->value.dValue = 0.0;
+    CounterInit(&pNMEA->Counter, t);
+    return;
+}
 
 // a reset is usually done:
 // - at startup of this driver
@@ -161,6 +168,7 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
             memset(pCtrl->CHN[i].x06.ucRAW, 0, sizeof(pCtrl->CHN[i].x06.ucRAW));
             CounterInit(&pCtrl->CHN[i].x06.CounterRx, t);
         }
+
         log_debug("bgn_net_initialize: Done");
     }
 };

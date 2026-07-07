@@ -26,6 +26,9 @@ NMEA2K_DATA g_n2kdata;
 
 void app_state_init(void)
 {
+    time_t t;
+    time(&t);
+
     pthread_mutex_init(&g_data_mutex, NULL);
     memset(g_last_serial_dataRx, 0, sizeof(g_last_serial_dataRx));
     memset(g_last_serial_dataTx, 0, sizeof(g_last_serial_dataRx));
@@ -37,6 +40,33 @@ void app_state_init(void)
 
     // erase datablock
     memset(&g_n2kdata, 0, sizeof(g_n2kdata));
+
+        NMEAinit(&g_n2kdata.pos.lat, t);
+        NMEAinit(&g_n2kdata.pos.lon, t);
+        NMEAinit(&g_n2kdata.pos.alt, t);
+        NMEAinit(&g_n2kdata.pos.cog, t);
+        NMEAinit(&g_n2kdata.pos.sog, t);
+
+        NMEAinit(&g_n2kdata.boat.stw, t);
+        NMEAinit(&g_n2kdata.boat.depth, t);
+        NMEAinit(&g_n2kdata.boat.seatemp, t);
+        NMEAinit(&g_n2kdata.boat.rudder, t);
+        NMEAinit(&g_n2kdata.boat.heading, t);
+
+        NMEAinit(&g_n2kdata.wind.twa, t);
+        NMEAinit(&g_n2kdata.wind.tws, t);
+        NMEAinit(&g_n2kdata.wind.awa, t);
+        NMEAinit(&g_n2kdata.wind.aws, t);
+        NMEAinit(&g_n2kdata.wind.airtemp, t);
+        NMEAinit(&g_n2kdata.wind.baro, t);
+
+        NMEAinit(&g_n2kdata.pilot.cts, t);
+        NMEAinit(&g_n2kdata.pilot.triplog, t);
+        NMEAinit(&g_n2kdata.pilot.vmg, t);
+
+
+
+
 }
 
 void app_state_shutdown(void)

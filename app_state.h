@@ -67,7 +67,6 @@ typedef struct {
 typedef struct {
     uint8_t datatype;
     BGNET_COUNT Counter;
-    //time_t timestamp;
     size_t source;
     union VALUE value;
 } NMEA2K_VALUE;
@@ -109,5 +108,8 @@ extern NMEA2K_DATA g_n2kdata;
 
 void app_state_init(void);
 void app_state_shutdown(void);
+void CounterInit(BGNET_COUNT*, time_t);
+void CounterUp(BGNET_COUNT*, time_t);
+void NMEAinit(NMEA2K_VALUE*, time_t);
 
 #endif

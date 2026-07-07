@@ -39,6 +39,16 @@ static void ws_add_client(int fd)
     pthread_mutex_unlock(&ws_mutex);
 }
 
+char* strSource(char* buffer, size_t nSource) {
+    char cSOURCE[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","ACP","NA"};
+    if (nSource > 8) {
+        strcpy(buffer, cSOURCE[0]);
+    } else {
+        strcpy(buffer, cSOURCE[nSource]);
+    }
+    return(buffer);
+}
+
 // appears to be not used
 //static void ws_remove_client(int fd)
 //{
@@ -531,7 +541,8 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
     char cSTAT[2][5] = {"STBY","AUTO"};
     char cMODE[8][8] = {"---0","COMP","---2","NAV","VANE","---5","JOYSTICK","---7"};
-    char cSOURCE[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","ACP","NA"};
+    //char cSOURCE[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","ACP","NA"};
+    char cSource[32];
     time_t t;
     struct tm * ptmInfo;
     char asciibuffer[256];
@@ -547,24 +558,24 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(Buffer, "");
     time(&t);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "PILOT WATCHDOG", t-pCtrl->ACP.PILOT.Counter.tTimestamp, cSOURCE[pCtrl->ACP.PILOT.source], pCtrl->ACP.PILOT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "PILOT WATCHDOG", t-pCtrl->ACP.PILOT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.source), pCtrl->ACP.PILOT.value.nLong);
     strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
 
     snprintf (cLine, sizeof(cLine), cACPRowSSDS, "Running since", t-pCtrl->ACP.tTimestamp, "HOST", asciibuffer);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATE [AUTO/STBY]", t-pCtrl->ACP.STATE.Counter.tTimestamp, cSOURCE[pCtrl->ACP.STATE.source], cSTAT[pCtrl->ACP.STATE.value.nByte]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATE [AUTO/STBY]", t-pCtrl->ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.STATE.source), cSTAT[pCtrl->ACP.STATE.value.nByte]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE]", t-pCtrl->ACP.MODE.Counter.tTimestamp, cSOURCE[pCtrl->ACP.MODE.source], cMODE[pCtrl->ACP.MODE.value.nByte]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE]", t-pCtrl->ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MODE.source), cMODE[pCtrl->ACP.MODE.value.nByte]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight   [OFF/LOW/MEDIUM/HIGH]", t-pCtrl->ACP.BackLight.Counter.tTimestamp, cSOURCE[pCtrl->ACP.BackLight.source], pCtrl->ACP.BackLight.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight   [OFF/LOW/MEDIUM/HIGH]", t-pCtrl->ACP.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.BackLight.source), pCtrl->ACP.BackLight.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "CourseTarget", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, cSOURCE[pCtrl->ACP.CourseTarget.source], pCtrl->ACP.CourseTarget.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "CourseTarget", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CourseTarget.source), pCtrl->ACP.CourseTarget.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, cSOURCE[pCtrl->ACP.StoredLogNM.source], (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/10.0));
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.StoredLogNM.source), (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/10.0));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, cSOURCE[pCtrl->ACP.TripLogNM.source], (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/10.0));
+    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.TripLogNM.source), (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/10.0));
     strcat(Buffer, cLine);
 
     return(Buffer);
@@ -573,6 +584,56 @@ static char* html_ACP_end(char *Buffer) {
     const char *cACPEnd =
         "</table>";
     strcpy(Buffer, cACPEnd);
+    return(Buffer);
+}
+
+static char* html_NMEA_top(char *Buffer) {
+    const char *cNMEATop =
+        "<h3>NMEA variables</h3>"
+        "<table>"
+        "<tr><th>Parameter</th><th>Count</th><th>Sec</th><th>Source</th><th>Value</th></tr>";
+    strcpy(Buffer, cNMEATop);
+    return(Buffer);
+}
+static char* html_NMEA_row(char *Buffer, BGNET_CTRL *pCtrl) {
+    char cLine[512];
+    char cSource[32];
+
+    time_t t;
+    const char *cNMEARow = "<tr><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>";
+ 
+    strcpy(cLine, "");
+    strcpy(Buffer, "");
+    time(&t);
+
+    snprintf(cLine, sizeof(cLine), cNMEARow, "LATITUDE", g_n2kdata.pos.lat.Counter.iCounter, (t - g_n2kdata.pos.lat.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lat.source), g_n2kdata.pos.lat.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "LONGITUDE", g_n2kdata.pos.lon.Counter.iCounter, (t - g_n2kdata.pos.lon.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lon.source), g_n2kdata.pos.lon.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "ALTITUDE", g_n2kdata.pos.alt.Counter.iCounter, (t - g_n2kdata.pos.alt.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.alt.source), g_n2kdata.pos.alt.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "COG", g_n2kdata.pos.cog.Counter.iCounter, (t - g_n2kdata.pos.cog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.cog.source), g_n2kdata.pos.cog.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "SOG", g_n2kdata.pos.sog.Counter.iCounter, (t - g_n2kdata.pos.sog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.sog.source), g_n2kdata.pos.sog.value.dValue);
+    strcat(Buffer, cLine);
+
+    snprintf(cLine, sizeof(cLine), cNMEARow, "STW", g_n2kdata.boat.stw.Counter.iCounter, (t - g_n2kdata.boat.stw.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.stw.source), g_n2kdata.boat.stw.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "DEPTH", g_n2kdata.boat.depth.Counter.iCounter, (t - g_n2kdata.boat.depth.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.depth.source), g_n2kdata.boat.depth.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "SEAWATERTEMP", g_n2kdata.boat.seatemp.Counter.iCounter, (t - g_n2kdata.boat.seatemp.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.seatemp.source), g_n2kdata.boat.seatemp.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "RUDDER", g_n2kdata.boat.rudder.Counter.iCounter, (t - g_n2kdata.boat.rudder.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudder.source), g_n2kdata.boat.rudder.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING", g_n2kdata.boat.heading.Counter.iCounter, (t - g_n2kdata.boat.heading.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.heading.source), g_n2kdata.boat.heading.value.dValue);
+    strcat(Buffer, cLine);
+
+    return(Buffer);
+}
+static char* html_NMEA_end(char *Buffer) { 
+    const char *cNMEAEnd =
+        "</table>";
+    strcpy(Buffer, cNMEAEnd);
     return(Buffer);
 }
 
@@ -793,6 +854,9 @@ static void handle_bgnet_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_ACP_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_ACP_end(workbuffer));
 
+    strcat(htmlbuffer, html_NMEA_top(workbuffer));
+    strcat(htmlbuffer, html_NMEA_row(workbuffer, pCtrl));
+    strcat(htmlbuffer, html_NMEA_end(workbuffer));
 
     strcat(htmlbuffer, html_command_top(workbuffer));
     strcat(htmlbuffer, html_command_row(workbuffer, pCtrl));
