@@ -37,6 +37,22 @@ int bgn_FindDeviceIndex(BGNET_CTRL* pCtrl, unsigned char ucDevAddr) {
     return(r);
 }
 
+void CounterInit(BGNET_COUNT *Counter, time_t t) {
+    Counter->iCounter = 0; // 0 means 'never touched'
+    Counter->tTimestamp = t;
+    Counter->tCounterReset = t;
+}
+void CounterUp(BGNET_COUNT *Counter, time_t t) {
+    Counter->tTimestamp = t;
+    // update counter (with wrap-around)
+    if (Counter->iCounter < SHRT_MAX) {
+        Counter->iCounter++;
+    } else {
+        Counter->iCounter = 1; // start at 1 because 0 means 'never touched'
+        Counter->tCounterReset = t;
+    }
+}
+
 // a reset is usually done:
 // - at startup of this driver
 // - when we observe "POWERUP" message(s) from the NETWORK
@@ -109,14 +125,9 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
             // error counters Checksum
             pCtrl->DEV[i].iCSError_Header = 0;
             pCtrl->DEV[i].iCSError_Frame = 0;
-            // packet counters & timestamps
-            pCtrl->DEV[i].CounterRx.iCounter = 0;
-            pCtrl->DEV[i].CounterRx.tTimestamp = t;
-            pCtrl->DEV[i].CounterRx.tCounterReset = t;
-            pCtrl->DEV[i].CounterTx.iCounter = 0;
-            pCtrl->DEV[i].CounterTx.tTimestamp = t;
-            pCtrl->DEV[i].CounterTx.tCounterReset = t;
+            CounterInit(&pCtrl->DEV[i].CounterRx, t);
             memset(pCtrl->DEV[i].ucFrameRx, 0, BGN_FRAME_SIZE);
+            CounterInit(&pCtrl->DEV[i].CounterTx, t);
             memset(pCtrl->DEV[i].ucFrameTx, 0, BGN_FRAME_SIZE);
             pCtrl->DEV[i].source = BGN_SOURCE_NONE;
         }
@@ -125,13 +136,9 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->iNewCommand = BGN_NEW_RESET; // no new data available
         for (i=0; i<BGN_COMMAND_MAX; i++) {
             pCtrl->CMD[i].iNewCommand = BGN_NEW_RESET;
-            pCtrl->CMD[i].CounterRx.iCounter = 0;
-            pCtrl->CMD[i].CounterRx.tTimestamp = t;
-            pCtrl->CMD[i].CounterRx.tCounterReset = t;
+            CounterInit(&pCtrl->CMD[i].CounterRx, t);
             memset(pCtrl->CMD[i].ucFrameRx, 0, BGN_FRAME_SIZE);
-            pCtrl->CMD[i].CounterTx.iCounter = 0;
-            pCtrl->CMD[i].CounterTx.tTimestamp = t;
-            pCtrl->CMD[i].CounterTx.tCounterReset = t;
+            CounterInit(&pCtrl->CMD[i].CounterTx, t);
             memset(pCtrl->CMD[i].ucFrameTx, 0, BGN_FRAME_SIZE);
         }
 
@@ -143,16 +150,16 @@ void bgn_net_initialize(BGNET_CTRL *pCtrl) {
             pCtrl->CHN[i].x01.ucFROM = 0;
             memset(pCtrl->CHN[i].x01.ucRAW, 0, sizeof(pCtrl->CHN[i].x01.ucRAW));
             strcpy(pCtrl->CHN[i].x01.cValue, "");
-            pCtrl->CHN[i].x01.CounterRx.iCounter = 0;
-            pCtrl->CHN[i].x01.CounterRx.tTimestamp = t;
-            pCtrl->CHN[i].x01.CounterRx.tCounterReset = t;
+            CounterInit(&pCtrl->CHN[i].x01.CounterRx, t);
 
             memset(pCtrl->CHN[i].x02.ucRAW, 0, sizeof(pCtrl->CHN[i].x02.ucRAW));
             strcpy(pCtrl->CHN[i].x02.cValue, "");
-            pCtrl->CHN[i].x02.CounterRx.iCounter = 0;
-            pCtrl->CHN[i].x02.CounterRx.tTimestamp = t;
-            pCtrl->CHN[i].x02.CounterRx.tCounterReset = t;
+            CounterInit(&pCtrl->CHN[i].x02.CounterRx, t);
 
+            pCtrl->CHN[i].x06.ucTO = 0x00;
+            pCtrl->CHN[i].x06.ucFROM = 0x00;
+            memset(pCtrl->CHN[i].x06.ucRAW, 0, sizeof(pCtrl->CHN[i].x06.ucRAW));
+            CounterInit(&pCtrl->CHN[i].x06.CounterRx, t);
         }
         log_debug("bgn_net_initialize: Done");
     }
@@ -295,14 +302,14 @@ int makeQUADresponse2(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
     // the next values are always present 
 
-    c = BGN_CNR_81_TRIPLOGNM;
+    c = BGN_CNR_81_DRDNM;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(333); 
     r = r + ChannelByteLength(pCtrl, puCH);
 
-    c = BGN_CNR_CF_DR_DISTNM;
+    c = BGN_CNR_CF_TRIPNM;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -743,6 +750,7 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     return (r);
 }
 
+#ifdef KOEN
 // update timestamp and increment counter (with wrap-around)
 void CounterUpDATA(BGN_CHANNEL *pCH, time_t t) {
     pCH->x01.CounterRx.tTimestamp = t;
@@ -794,7 +802,7 @@ void CounterTxUpDEV(BGN_DEVICE *pDEV, time_t t) {
         pDEV->CounterTx.tCounterReset = t;
     }
 }
-
+#endif
 // This is the "device processor".
 // We scan through the data stored by the frame decoder.
 // If we want to generate some output for transmission, put the frame in the transmission buffer
@@ -1119,7 +1127,7 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
             memcpy(pCtrl->CHN[pCH->s.CH].x01.ucRAW, pCH, y);
 
             pCtrl->CHN[pCH->s.CH].iNewChannel = BGN_NEW_SET; // signal this channel as new/changed
-            CounterUpDATA(&pCtrl->CHN[pCH->s.CH], t);
+            CounterUp(&pCtrl->CHN[pCH->s.CH].x01.CounterRx, t);
 
             // sometimes we have to do something when some data comes in
             switch(pCH->s.CH) {
@@ -1136,7 +1144,7 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
                     pCtrl->ACP.StoredLogNM.timestamp = t;
                     pCtrl->ACP.StoredLogNM.source = BGN_SOURCE_BGNET;
                     break;
-                case BGN_CNR_81_TRIPLOGNM:
+                case BGN_CNR_CF_TRIPNM:
                     pCtrl->ACP.TripLogNM.value.nLong = ntohs(pCH->s.cv.uW[0]);
                     pCtrl->ACP.TripLogNM.timestamp = t;
                     pCtrl->ACP.TripLogNM.source = BGN_SOURCE_BGNET;
@@ -1208,10 +1216,18 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     return(z); // return number of channels
 }
 // routine to process values in the body. A body might contain multiple values
-void decode_command_SUBSCRIBE(unsigned char *buffer) {
+void decode_command_SUBSCRIBE(BGNET_CTRL* pCtrl, unsigned char *buffer) {
+    unsigned char ucCHN;
+    time_t t;
+    time(&t);
     // this type of frame shall have a payload of 1 byte
     if (buffer[BGNET_FRAME_HEAD_SIZE] == 1) {
-        log_debug("    Ch=%02X, Subscribed by %02X on %02X", buffer[BGNET_FRAME_HEAD+0], buffer[BGNET_FRAME_HEAD_FROM], buffer[BGNET_FRAME_HEAD_TO]);
+        ucCHN = buffer[BGNET_FRAME_HEAD + 0]; // first payoad byte
+        pCtrl->CHN[ucCHN].x06.ucTO = buffer[BGNET_FRAME_HEAD_TO];
+        pCtrl->CHN[ucCHN].x06.ucFROM = buffer[BGNET_FRAME_HEAD_FROM];
+        CounterUp(&pCtrl->CHN[ucCHN].x06.CounterRx, t);
+        memcpy(pCtrl->CHN[ucCHN].x06.ucRAW, buffer, (BGNET_FRAME_HEAD + buffer[BGNET_FRAME_HEAD_SIZE] + BGNET_FRAME_TAIL_CS));
+        log_debug("    Ch=%02X, Subscribed by %02X on %02X", ucCHN, buffer[BGNET_FRAME_HEAD_FROM], buffer[BGNET_FRAME_HEAD_TO]);
     }
     return;
 }
@@ -1247,27 +1263,12 @@ void decode_command_LABEL(BGNET_CTRL* pCtrl, unsigned char *buffer) {
     return;
 }
 
-// returns >0 when this message is for me to process
-int IsMessageForMe(unsigned char *pBuf) {
-    int r = 0; // assume NOT for me
-    if (pBuf[BGNET_FRAME_HEAD_FROM] == BGNET_ADDRESS_ME) {
-        // do not process this message, it's my own
-    } else {
-        // adressed to ALL, ME or MY-TYPE
-        if ((pBuf[BGNET_FRAME_HEAD_TO] == BGNET_FRAME_TO_ALL) | (pBuf[BGNET_FRAME_HEAD_TO] == BGNET_ADDRESS_ME) | ((pBuf[BGNET_FRAME_HEAD_TO] & BGNET_TYPE_MASK) == (BGNET_ADDRESS_ME & BGNET_TYPE_MASK))) {
-            // yes, it's for me
-            r++;
-        }
-    }
-    return(r);
-}
-
 // decode the received buffer, possibly multiple subframes, return number of sub-frames
 size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
     unsigned char cs; // checksum calculated
     unsigned char *pBuf, *pEnd; // pointer to start and end of buffer
     int RxSize, x, z, n;
-    int iIsForMe, iIsValid, iValue;
+    int iIsValid, iValue;
     unsigned char ucCMD, ucFROM;
     time_t t;
     unsigned char payload[1024], TxBuf[1024];
@@ -1292,23 +1293,20 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
         cs = calculate_checksum(pBuf, BGNET_FRAME_CR_HEAD, BGNET_FRAME_HEAD_TO, BGNET_FRAME_HEAD-1); // calculate the checksum over the header (without the CR)
         if (*(pBuf+BGNET_FRAME_HEAD_CS) == cs) {
             // check if this subframe is adressed TO us and not FROM us
-            iIsForMe = IsMessageForMe(pBuf);
-            if (iIsForMe < 1) {
+            if (ucFROM == BGNET_ADDRESS_ME) {
                 RxSize = pEnd - pBuf; // dump the remainder of the frame; it's a readback of my own transmission
             } else {
                 // register FROM as 'active' device on the BGN interface (to prevent other interface writing conflicting channel data)
                 pCtrl->DEV[ucFROM].source = BGN_SOURCE_BGNET;
                 // update DEV statistics
-                CounterRxUpDEV(&pCtrl->DEV[ucFROM], t);
+                CounterUp(&pCtrl->DEV[ucFROM].CounterRx, t);
                 // The HEADER is OK, process it. Note that some CMD's do not have a body and in such case, we should skip the body & CS part.
                 // update DEVICE structure (statistics)
 
                 x = bgn_FindDeviceIndex(pCtrl, *(pBuf+BGNET_FRAME_HEAD_FROM)); // lookup by device address/type, so we can print the device name                          
                 ucCMD = *(pBuf + BGNET_FRAME_HEAD_CMD);
-                //iIsValid = 0;
                 if (*(pBuf+BGNET_FRAME_HEAD_SIZE) == 0) {  // No payload (no frame CS)
                     RxSize = BGNET_FRAME_HEAD;
-                    //iIsValid = 1;
                     switch(ucCMD) {
                         case BGNET_FRAME_CMD_PILOT_HELLO:
                             // when we receive this message, we know that there is atleast 1 active PILOT on the network.
@@ -1327,9 +1325,9 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                             len_pl = makeACPresponseMINI(pCtrl, payload);
                             len_msg = bgn_net_makemessage(&TxBuf[TxSize], BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                             memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].ucFrameTx, &TxBuf[TxSize], len_msg);
-                            CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_DATA], t);
-                            memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                            CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                            CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].CounterTx, t);
+                            memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
+                            CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                             TxSize = TxSize + len_msg;
 
                             // put it for transmission
@@ -1360,12 +1358,12 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                         pCtrl->iNewDevice = BGN_NEW_SET; // signal this device
                         pCtrl->DEV[ucFROM].iNewDevice = BGN_NEW_SET;
                         memcpy(pCtrl->DEV[ucFROM].ucFrameRx, pBuf, RxSize);
-                        CounterRxUpDEV(&pCtrl->DEV[ucFROM], t);
+                        CounterUp(&pCtrl->DEV[ucFROM].CounterRx, t);
 
                         pCtrl->iNewCommand = BGN_NEW_SET; // signal possible CMD change
                         pCtrl->CMD[ucCMD].iNewCommand = BGN_NEW_SET; // signal this command
                         memcpy(pCtrl->CMD[ucCMD].ucFrameRx, pBuf, RxSize);
-                        CounterRxUpCMD(&pCtrl->CMD[ucCMD], t);
+                        CounterUp(&pCtrl->CMD[ucCMD].CounterRx, t);
                     }
                 } else {
                     RxSize = BGNET_FRAME_HEAD + *(pBuf+BGNET_FRAME_HEAD_SIZE) + BGNET_FRAME_TAIL_CS; // expected framesize = head (including CR), body, and frame CR
@@ -1386,7 +1384,7 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 break;
                             case BGNET_FRAME_CMD_SUBSCRIBE:
                                 // process message (only at startup, only by DATA)
-                                decode_command_SUBSCRIBE(pBuf);
+                                decode_command_SUBSCRIBE(pCtrl, pBuf);
                                 log_info("  Command %02X (with payload) SUBSCRIBE", ucCMD);
                                 break;
                             case BGNET_FRAME_CMD_BACKLIGHT:
@@ -1447,9 +1445,9 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 // make ACK frame, update statistics
                                 len_msg = bgn_net_makemessage(&TxBuf[TxSize], *(pBuf + BGNET_FRAME_HEAD_FROM), BGNET_ADDRESS_ME, BGNET_FRAME_CMD_ACK, payload, len_pl);
                                 memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_ACK], t);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].CounterTx, t);
                                 memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                 TxSize = TxSize + len_msg;
 
                                 // make DATA command
@@ -1457,9 +1455,9 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 // make DATA frame, update statistics
                                 len_msg = bgn_net_makemessage(&TxBuf[TxSize], BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                                 memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_DATA], t);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].CounterTx, t);
                                 memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                 TxSize =TxSize + len_msg;
 
                                 // put it for transmission
@@ -1512,9 +1510,9 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 // make ACK frame, update statistics
                                 len_msg = bgn_net_makemessage(&TxBuf[TxSize], *(pBuf + BGNET_FRAME_HEAD_FROM), BGNET_ADDRESS_ME, BGNET_FRAME_CMD_ACK, payload, len_pl);
                                 memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_ACK], t);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].CounterTx, t);
                                 memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                 TxSize = TxSize + len_msg;
 
                                 // make DATA command
@@ -1522,9 +1520,9 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 // make DATA frame, update statistics
                                 len_msg = bgn_net_makemessage(&TxBuf[TxSize], BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                                 memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_DATA], t);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].CounterTx, t);
                                 memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                 TxSize = TxSize + len_msg;
 
                                 // put it for transmission
@@ -1550,9 +1548,9 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 // make ACK frame, update statistics
                                 len_msg = bgn_net_makemessage(&TxBuf[TxSize], *(pBuf + BGNET_FRAME_HEAD_FROM), BGNET_ADDRESS_ME, BGNET_FRAME_CMD_ACK, payload, len_pl);
                                 memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_ACK], t);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].CounterTx, t);
                                 memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                 TxSize = TxSize + len_msg;
 
                                 // make DATA command
@@ -1560,9 +1558,9 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 // make DATA frame, update statistics
                                 len_msg = bgn_net_makemessage(&TxBuf[TxSize], BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                                 memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_DATA], t);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].CounterTx, t);
                                 memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                 TxSize = TxSize + len_msg;
 
                                 // put it for transmission
@@ -1587,9 +1585,9 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 // make ACK frame, update statistics
                                 len_msg = bgn_net_makemessage(&TxBuf[TxSize], *(pBuf + BGNET_FRAME_HEAD_FROM), BGNET_ADDRESS_ME, BGNET_FRAME_CMD_ACK, payload, len_pl);
                                 memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_ACK], t);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].CounterTx, t);
                                 memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                 TxSize = TxSize + len_msg;
 
                                 // put it for transmission
@@ -1628,18 +1626,18 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                                 // make ACK frame, update statistics
                                 len_msg = bgn_net_makemessage(&TxBuf[TxSize], *(pBuf + BGNET_FRAME_HEAD_FROM), BGNET_ADDRESS_ME, BGNET_FRAME_CMD_ACK, payload, len_pl);
                                 memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_ACK], t);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].CounterTx, t);
                                 memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                 TxSize = TxSize + len_msg;
 
                                 // make DATA frame for PILOT
                                 len_pl = makeACPresponseFAST(pCtrl, payload);
                                 len_msg = bgn_net_makemessage(&TxBuf[TxSize], *(pBuf + BGNET_FRAME_HEAD_FROM), BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                                 memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpCMD(&pCtrl->CMD[BGNET_FRAME_CMD_DATA], t);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].CounterTx, t);
                                 memcpy(&pCtrl->DEV[BGNET_ADDRESS_ME].ucFrameTx, &TxBuf[TxSize], len_msg);
-                                CounterTxUpDEV(&pCtrl->DEV[BGNET_ADDRESS_ME], t);
+                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                 TxSize = TxSize + len_msg;
 
                                 // put it for transmission
@@ -1660,12 +1658,12 @@ size_t decode_frame(BGNET_CTRL* pCtrl, unsigned char *buffer, size_t len) {
                             pCtrl->iNewDevice = BGN_NEW_SET; // signal this device
                             pCtrl->DEV[ucFROM].iNewDevice = BGN_NEW_SET;
                             memcpy(pCtrl->DEV[ucFROM].ucFrameRx, pBuf, RxSize);
-                            CounterRxUpDEV(&pCtrl->DEV[ucFROM], t);
+                            CounterUp(&pCtrl->DEV[ucFROM].CounterRx, t);
 
                             pCtrl->iNewCommand = BGN_NEW_SET; // signal possible CMD change
                             pCtrl->CMD[ucCMD].iNewCommand = BGN_NEW_SET; // signal this command
                             memcpy(pCtrl->CMD[ucCMD].ucFrameRx, pBuf, RxSize);
-                            CounterRxUpCMD(&pCtrl->CMD[ucCMD], t);
+                            CounterUp(&pCtrl->CMD[ucCMD].CounterRx, t);
                         }   
                     } else {
                         // CS is bad (only skip this sub-frame, the length is known)

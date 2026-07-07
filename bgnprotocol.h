@@ -354,7 +354,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_7D_TARGETBOATSPEED  0x7D
 #define BGN_CNR_7F_VMGKT            0x7F //calculted by WIND, displayed on DATA (only when WIND is present)
 #define BGN_CNR_80_UNKNOWN          0x80
-#define BGN_CNR_81_TRIPLOGNM        0x81 // QUAD/SPEED: distance traveled, resettable
+#define BGN_CNR_81_DRDNM            0x81 // QUAD/SPEED: distance traveled, resettable
 #define BGN_CNR_82_LEEWAY           0x82
 #define BGN_CNR_83_TIDALDRIFT       0x83
 #define BGN_CNR_84_TIDALSET         0x84
@@ -397,9 +397,9 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_C1_DEPTHM           0xC1
 #define BGN_CNR_C2_DEPTHFT          0xC2
 #define BGN_CNR_C3_DEPTHFM          0xC3
-#define BGN_CNR_C4_DEPTHM           0xC4 // displayed by QUAD, or "---" incase no measurement
+#define BGN_CNR_C4_DEPTHM           0xC4 // displayed by QUAD and DATA, or "---" incase no measurement
 #define BGN_CNR_CD_STORLOGNM        0xCD // QUAD/SPEED: saved in non-volitile memory; retained over the lifespan of the unit
-#define BGN_CNR_CF_DR_DISTNM        0xCF // Dead Reckoned Distance, displayed by SPEED and DATA, reset via QUAD
+#define BGN_CNR_CF_TRIPNM           0xCF // QUAD/SPEED/DATA: TripLog, reset via QUAD
 #define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_DC_LOCALTIME        0xDC
 #define BGN_CNR_DD_UTCTIME          0xDD
@@ -577,18 +577,18 @@ typedef struct {
         // we store the channel value in ASCII for display purposes
         char cValue[sizeof(union CV)]; // ascii formatted value string (for display purposes)
         BGNET_COUNT CounterRx;
-        //int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
-        //time_t tTimestamp; // timestamp of last update
-        //time_t tCounterReset; // when ww wrap-around the counter
     } x01;
     struct {
         unsigned char ucRAW[30]; // raw data (for diagnostic purposes), usually 18 bytes payload (=24 bytes complete frame)
         char cValue[24]; // payload - 4 bytes + 1 null terminator, usually 15 bytes maximum      
         BGNET_COUNT CounterRx;
-        //int iCounter; // everytime we write a value, we increment the 'update counter' (with maximum). initialized to -1 to see if it was ever written
-        //time_t tTimestamp; // timestamp of last update
-        //time_t tCounterReset; // when ww wrap-around the counter
     } x02;
+    struct {
+        unsigned char ucTO;
+        unsigned char ucFROM;
+        unsigned char ucRAW[10]; // raw data (for diagnostic purposes), usually 1 bytes payload (=7 bytes complete frame)
+        BGNET_COUNT CounterRx;
+    } x06;
 } BGN_CHANNEL;
 
 typedef struct {
