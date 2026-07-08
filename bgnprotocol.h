@@ -248,10 +248,13 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
                                              // Note: DR_DISTNM is displayed on SPEED and DATA, not on QUAD.
 
 #define BGNET_FRAME_CMD_PILOT_SPEED     0xD0 // 2 bytes payload (00 46), 46= AP_SPEEDKT
+#define BGNET_FRAME_CMD_PILOT_RESP      0xD1 // 2 bytes payload (00 A6), Steering Response N/E/D (Normal, Economy, Downwind)
 #define BGNET_FRAME_CMD_PILOT_AM        0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5?
 #define BGNET_FRAME_CMD_PILOT_MODE      0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
+                                             //                 (00 46 01 00 XX), 46= channel
 #define BGNET_FRAME_CMD_PILOT_STEP      0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
-
+#define BGNET_FRAME_CMD_PILOT_DE        0xDE // 2 bytes payload (00 76), 76=WA ALARM?
+#define BGNET_FRAME_CMD_PILOT_DF        0xDF // 2 bytes payload (00 AF), AF=OC ALARM?
 #define BGNET_FRAME_CMD_ALARMOFF        0xE7 // alarm silence, 2 byte payload (sequence ID, alarming channel)
 #define BGNET_FRAME_CMD_ALARMTGL        0xE8 // alarm toggle, 2 byte payload (sequence ID, alarming channel)
 #define BGNET_FRAME_CMD_PAGECHANGE      0xF6 // 1 byte payload, pagenumber
@@ -318,6 +321,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_43_BOATSPEEDMS      0x43
 #define BGN_CNR_44_YAWRATE          0x44
 #define BGN_CNR_46_AP_SPEEDKT       0x46 // displayed when SPEED button is pressed on a PILOT
+                                         // channel ID is send in the command 0xD0 when "SPEED" or "SETUP" button is pressed 
 #define BGN_CNR_47_LONLAT           0x47 //send in ASCII via CMD03
 #define BGN_CNR_48_LONLAT           0x48 //send in ASCII via CMD03
 #define BGN_CNR_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
