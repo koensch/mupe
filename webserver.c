@@ -465,7 +465,7 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->stopbits,
                                             pCtrl->pCfg->mode,
                                             BGNET_ADDRESS_ME,
-                                            pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, BGNET_ADDRESS_ME)].sProdName
+                                            pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_ADDRESS_ME)].sProdName
                                         );
     strcpy(Buffer, cLine);
     return(Buffer);
@@ -506,7 +506,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
             snprintf(cLine, sizeof(cLine), cDevRow,
                         ((pCtrl->DEV[i].source == BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
                         i,
-                        pCtrl->pDEVDT[bgn_FindDeviceIndex(pCtrl, i)].sProdName,
+                        pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, i)].sProdName,
                         pCtrl->DEV[i].CounterRx.iCounter,
                         (t - pCtrl->DEV[i].CounterRx.tTimestamp),
                         asciibufRx,
@@ -595,7 +595,7 @@ static char* html_NMEA_top(char *Buffer) {
     strcpy(Buffer, cNMEATop);
     return(Buffer);
 }
-static char* html_NMEA_row(char *Buffer, BGNET_CTRL *pCtrl) {
+static char* html_NMEA_row(char *Buffer) {
     char cLine[512];
     char cSource[32];
 
@@ -646,54 +646,6 @@ static char* html_command_top(char *Buffer) {
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
-static char* StrCommandLabel(char* asciibuf, unsigned char ucCMD) {
-    char cCMD[13][16] = {"UNKNOWN","BROADCAST", "LABEL", "SUBSCRIBE", "POWERUP", "PILOT HELLO", "LIGHTS", "PILOT STATE", "COMMAND ACK", "PILOT MODE", "PILOT SPEED", "PILOT STEP +/-", "PILOT ADJUST"};
-    int x;
-    switch(ucCMD) {
-        case BGNET_FRAME_CMD_DATA:
-            x = 1; // DATA
-            break;
-        case BGNET_FRAME_CMD_LABEL:
-            x = 2;  // LABEL
-            break;
-        case BGNET_FRAME_CMD_SUBSCRIBE:
-            x = 3;  // SUBSCRIBE
-            break;
-        case BGNET_FRAME_CMD_POWERUP:
-            x = 4;  // POWERUP
-            break;
-        case BGNET_FRAME_CMD_PILOT_HELLO:
-            x = 5;  // KEEPALIVE
-            break;
-        case BGNET_FRAME_CMD_BACKLIGHT:
-            x = 6;  // LIGHTS
-            break;
-        case BGNET_FRAME_CMD_PILOT_AM:
-            x = 7;  // PILOT AUTO/OFF key pressed
-            break;
-        case BGNET_FRAME_CMD_ACK:
-            x = 8;  // Command ACK
-            break;
-        case BGNET_FRAME_CMD_PILOT_MODE:
-            x = 9;  // PILOT <MODE> key pressed
-            break;
-        case BGNET_FRAME_CMD_PILOT_SPEED:
-            x = 10;  // PILOT <MODE> key pressed
-            break;
-        case BGNET_FRAME_CMD_PILOT_STEP:
-            x = 11;  // PILOT <MODE> key pressed
-            break;
-        case BGNET_FRAME_CMD_PILOT_ADJUST:
-            x = 12;
-            break;
-        default:
-            x = 0; // UNKNOWN
-            break;
-    }
-    strcpy(asciibuf, cCMD[x]);
-    return(asciibuf);
-}
-
 static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     time_t t;
@@ -712,7 +664,7 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
             CommandToAscii(asciibufTx, sizeof(asciibufTx), pCtrl->CMD[i].ucFrameTx);
             snprintf(cLine, sizeof(cLine), cDevRow,
                                                     i,
-                                                    StrCommandLabel(asciibufCMD, i),
+                                                    strCommandLabel(pCtrl, asciibufCMD, i),
                                                     pCtrl->CMD[i].CounterRx.iCounter,
                                                     t - pCtrl->CMD[i].CounterRx.tTimestamp,
                                                     asciibufRx,
@@ -732,13 +684,15 @@ static char* html_command_end(char *Buffer) {
     return(Buffer);
 }
 
-static char* html_channel_top(char *Buffer) {
-    const char *cDevTop =
+static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
+    char cLine[1024], asciibuf01[24], asciibuf02[24], asciibuf06[24];
+    const char *cChnTop =
         "<h3>Channel Information</h3>"
         "<table>"
-        "<tr><th colspan='2'>Channel</th><th colspan='5'>Command 0x01/BROADCAST</th><th colspan='4'>Command 0x02/LABEL</th><th colspan='5'>Command 0x06/SUBSCRIBE</th></tr>"
+        "<tr><th colspan='2'>Channel</th><th colspan='5'>Command 0x01/%s</th><th colspan='4'>Command 0x02/%s</th><th colspan='5'>Command 0x06/%s</th></tr>"
         "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>TO</th><th>FROM</th></tr>";
-    strcpy(Buffer, cDevTop);
+    snprintf(cLine, sizeof(cLine), cChnTop, strCommandLabel(pCtrl, asciibuf01, BGNET_FRAME_CMD_DATA), strCommandLabel(pCtrl, asciibuf02, BGNET_FRAME_CMD_LABEL), strCommandLabel(pCtrl, asciibuf06, BGNET_FRAME_CMD_SUBSCRIBE));
+    strcpy(Buffer, cLine);
     return(Buffer);
 }
 static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
@@ -756,7 +710,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             // it was never touched by command 0x01, 0x02 or 0x06
             // nothing to show
         } else {
-            y = ChannelByteLength(pCtrl, (union CH*)pCtrl->CHN[i].x01.ucRAW);
+            y = bgnet_channel_length(pCtrl, (union CH*)pCtrl->CHN[i].x01.ucRAW);
             if (pCtrl->CHN[i].x01.ucRAW[0] == 0) {
                 // no channel ID, must be empty
                 strcpy(asciibuf01, "");
@@ -775,7 +729,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
                 strcpy(asciibuf06, "");
             } else {
                 // show the whole frame (just 1 byte payload)
-                byte2ascii(asciibuf06, sizeof(asciibuf06), pCtrl->CHN[i].x06.ucRAW, (BGNET_FRAME_HEAD + pCtrl->CHN[i].x06.ucRAW[BGNET_FRAME_HEAD_SIZE] + BGNET_FRAME_TAIL_CS), BYTE2ASCII_SPACED);
+                byte2ascii(asciibuf06, sizeof(asciibuf06), pCtrl->CHN[i].x06.ucRAW, bgnet_frame_length(pCtrl->CHN[i].x06.ucRAW), BYTE2ASCII_SPACED);
             }
             snprintf(cLine, sizeof(cLine), cDevRow, ((pCtrl->CHN[i].iNewChannel==BGN_NEW_RESET)?"":"bgcolor='lightblue'"),
                                                     i,
@@ -855,7 +809,7 @@ static void handle_bgnet_html(int client_fd, BGNET_CTRL *pCtrl)
     strcat(htmlbuffer, html_ACP_end(workbuffer));
 
     strcat(htmlbuffer, html_NMEA_top(workbuffer));
-    strcat(htmlbuffer, html_NMEA_row(workbuffer, pCtrl));
+    strcat(htmlbuffer, html_NMEA_row(workbuffer));
     strcat(htmlbuffer, html_NMEA_end(workbuffer));
 
     strcat(htmlbuffer, html_command_top(workbuffer));
@@ -866,7 +820,7 @@ static void handle_bgnet_html(int client_fd, BGNET_CTRL *pCtrl)
     send(client_fd, htmlbuffer, strlen(htmlbuffer), 0);
     strcpy(htmlbuffer, ""); // initialize the empty buffer
 
-    strcat(htmlbuffer, html_channel_top(workbuffer));
+    strcat(htmlbuffer, html_channel_top(workbuffer, pCtrl));
     strcat(htmlbuffer, html_channel_row(workbuffer, pCtrl));
     strcat(htmlbuffer, html_channel_end(workbuffer));
 

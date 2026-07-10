@@ -65,6 +65,9 @@
 // - Sending NMEA sentences for testingi found the easiest way to make a textfile with sentences and send them via a command prompt:
 //   on a windows machine: ECHO {sentence}  > COM6
 // - NET PILOT: it has been observed that somtimes PILOT sends erroneous FRAME CHECKSUMs. resetting the PILOT cleared the phenomenon.
+// - NET PILOT: in some cases, after pressing a button, "ERR 18" is observed. This has found to be caused by incorrect CMD/ACK handling
+//   This may be due to incorrect programming by me (the PILOT does not receive the extected return) to Checksum errors, causing our
+//   application to throw-out received commands (and thus never replying what was expected by PILOT)
 // - When a DATA or QUAD-r does not receive a value (every 10 seconds) it displays "OFF" 
 // - NET ACP: supports a joystick, directly connected to the ACP, engage/disengaged by a switch connected to the ACP. When engaged, the
 //   joystick controls the rudder directly. When engaged, the PILOT displays "JOYSTICK".
@@ -224,7 +227,6 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGNET_FRAME_CMD_POWERUP         0x0A //at startup all stations (QUAD/30, PILOT/50, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
                                              //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
                                              //(no firmware version number is included in NETWORK series)
-//#define BGNET_FRAME_CMD_0C              0x0C //unknown
 #define BGNET_FRAME_CMD_PILOT_HELLO     0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
                                              // PILOT: "00 51 00 0E A1" (no payload)
                                              // Copilot came up with this suggestion for a ACP response. This turns out to be not applicable for
@@ -251,10 +253,12 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGNET_FRAME_CMD_PILOT_RESP      0xD1 // 2 bytes payload (00 A6), Steering Response N/E/D (Normal, Economy, Downwind)
 #define BGNET_FRAME_CMD_PILOT_AM        0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5?
 #define BGNET_FRAME_CMD_PILOT_MODE      0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
-                                             //                 (00 46 01 00 XX), 46= channel
-#define BGNET_FRAME_CMD_PILOT_STEP      0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
-#define BGNET_FRAME_CMD_PILOT_DE        0xDE // 2 bytes payload (00 76), 76=WA ALARM?
-#define BGNET_FRAME_CMD_PILOT_DF        0xDF // 2 bytes payload (00 AF), AF=OC ALARM?
+                                             //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRANSMITTER, 1=MAN, 2=SOG)
+#define BGNET_FRAME_CMD_PILOT_D5        0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
+#define BGNET_FRAME_CMD_PILOT_STEP      0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}, is followed by
+                                             // command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
+#define BGNET_FRAME_CMD_PILOT_WA        0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
+#define BGNET_FRAME_CMD_PILOT_OC        0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
 #define BGNET_FRAME_CMD_ALARMOFF        0xE7 // alarm silence, 2 byte payload (sequence ID, alarming channel)
 #define BGNET_FRAME_CMD_ALARMTGL        0xE8 // alarm toggle, 2 byte payload (sequence ID, alarming channel)
 #define BGNET_FRAME_CMD_PAGECHANGE      0xF6 // 1 byte payload, pagenumber
@@ -268,7 +272,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_VALUE_HEAD              2   // number of bytes in VALUE header
 #define BGN_VALUE_CNR               0   // position of channel byte
 #define BGN_VALUE_FMT               1   // position of FMT byte
-// FMT byte is encoded as follows:
+// FMT byte is encoded as follows
 // MSB bit 7,6    : divisor (00=1, 01=10, 10=100, 11=1000)
 //     bit 5,4    : size/padding (00=4, 01=3, 10=2, 11=1)
 // LSB bit 3,2,1,0: datatype (0000-1111, see decoding routine)
@@ -282,7 +286,23 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_00_NODERESET        0X00
 #define BGN_CNR_01_UNKNOWN          0X01
 #define BGN_CNR_03_UNKNOWN          0X03
-#define BGN_CNR_06_UNKNOWN          0X06
+#define BGN_CNR_07_ACP_ERROR        0X07  // causes the PILOT messages (when PILOT receives this channel), range 00-0C (0D-FF not used)
+                                          // 0x00 = "UNCOMIS"
+                                          // 0x01 = "INT CMP"
+                                          // 0x02 = "RUD ERR"
+                                          // 0x03 = "RUD DRV"
+                                          // 0x04 = "NO SPD"
+                                          // 0x05 = "EXT CMP"
+                                          // 0x06 = "NO NMEA"
+                                          // 0x07 = "TYP RES"
+                                          // 0x08 = "BAD XTE"
+                                          // 0x09 = "NO WIND"
+                                          // 0x0A = "NO OPTW"
+                                          // 0x0B = "TRIP"
+                                          // 0x0C = "NET ERR"
+                                          // 0x0D = "ERR ERR"
+                                          // 0x0E = "ERR ERR"
+                                          // 0x0F = "ERR ERR"
 #define BGN_CNR_0B_RUDDER           0X0B  // range (-)<99/>99(+) (maximum that fits the screen)
 #define BGN_CNR_0C_LINEAR5          0x0C
 #define BGN_CNR_0D_LINEAR6          0x0D
@@ -320,8 +340,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_42_BOATSPEEDRAW     0x42 // from SPEED or QUAD (uncorrected), but also from PILOT/NMEA/VHW/#5
 #define BGN_CNR_43_BOATSPEEDMS      0x43
 #define BGN_CNR_44_YAWRATE          0x44
-#define BGN_CNR_46_AP_SPEEDKT       0x46 // displayed when SPEED button is pressed on a PILOT
-                                         // channel ID is send in the command 0xD0 when "SPEED" or "SETUP" button is pressed 
+#define BGN_CNR_46_AP_SPEED         0x46 // SPEED selected (0=Transmitter, 1= Manual, 2=SOG); send by PILOT using command 0x4D/46 
 #define BGN_CNR_47_LONLAT           0x47 //send in ASCII via CMD03
 #define BGN_CNR_48_LONLAT           0x48 //send in ASCII via CMD03
 #define BGN_CNR_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
@@ -379,6 +398,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_A2_UNKNOWN          0xA2
 #define BGN_CNR_A4_BOOMPOS          0xA4
 #define BGN_CNR_A6_AP_CTARGET       0xA6 // send by PILOT upon change/button pressed, Target Course (in AUTO or memory when STBY), fmt=0x08
+                                         // seems to be used to communicate multiple type of values/status from ACP to PILOT
 #define BGN_CNR_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
 #define BGN_CNR_AF_AP_OFFCOURSE     0xAF
 #define BGN_CNR_B3_COMPASSCAL       0xB3
@@ -543,6 +563,11 @@ typedef struct {
     char cSKdef[32];            // SignalK reference string 
 } BGNET_CHNDT;
 
+typedef struct {
+    uint8_t ucCommandIndex;     // Channel index
+    char cLabel[20];            // the label, variable name
+} BGNET_CMDDT;
+
 #define BGN_FRAME_SIZE    2048
 
 // register device statistics
@@ -624,6 +649,7 @@ typedef struct {
     BGNET_DEVDT* pDEVDT; // device definitions
     BGNET_CHNDT* pCHNDT; // channel definitions
     BGNET_FMTDT* pFMTDT; // format definitions
+    BGNET_CMDDT* pCMDDT; // format definitions
     Config* pCfg;    // config structure
 
 
@@ -639,12 +665,15 @@ typedef struct {
 } BGNET_CTRL;
 
 // prototypes
-size_t decode_frame(BGNET_CTRL*, unsigned char*, size_t);
-size_t bgn_net_process(BGNET_CTRL*, unsigned char*, size_t);
-void bgn_net_initialize_reset(BGNET_CTRL*);
-void bgn_net_initialize(BGNET_CTRL*);
-int bgn_FindDeviceIndex(BGNET_CTRL*, unsigned char);
-int ChannelByteLength(BGNET_CTRL*, union CH*);
+size_t bgnet_decode_frame(BGNET_CTRL*, unsigned char*, size_t);
+size_t bgnet_process(BGNET_CTRL*, unsigned char*, size_t);
+void bgnet_initialize_reset(BGNET_CTRL*);
+void bgnet_initialize(BGNET_CTRL*);
+int bgnet_deviceindex(BGNET_CTRL*, unsigned char);
+size_t bgnet_channel_length(BGNET_CTRL*, union CH*);
+size_t bgnet_frame_length(unsigned char*);
+char* strCommandLabel(BGNET_CTRL *, char *, unsigned char);
+
 void CounterInit(BGNET_COUNT*, time_t);
 void CounterUp(BGNET_COUNT*, time_t);
 void NMEAinit(NMEA2K_VALUE*, time_t);

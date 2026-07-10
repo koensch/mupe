@@ -84,8 +84,8 @@ void *timer_thread(void *arg)
             //handle_received_frame(pCtrl, RxBuf, RxBufLen);
             // warning: frame decoder does not lock other threads, because is works on a copy
             // of a completely received frame
-            decode_frame(pCtrl, RxBuf, RxBufLen);
-            RxBufLen=0; // dump contents of local readbuffer, all data is processed
+            bgnet_decode_frame(pCtrl, RxBuf, RxBufLen);
+            RxBufLen = 0; // dump contents of local readbuffer, all data is processed
         }
 
         // we do not wat to execute DEVICE processing every msec. transmisson will also take some count down device counter.
@@ -111,7 +111,7 @@ void *timer_thread(void *arg)
             }
 
             // device processing
-          TxBufLen = bgn_net_process(pCtrl, TxBuf, sizeof(TxBuf));
+          TxBufLen = bgnet_process(pCtrl, TxBuf, sizeof(TxBuf));
           pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
 
           // increment a run counter, wrap around to avoid overruns
