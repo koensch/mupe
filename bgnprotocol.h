@@ -239,6 +239,8 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
                                              //                                          00 = Drive = Idle {port|starboard|idle}
                                              // i leave this info here, possibly for more modern equipment this might be applicable.
                                              // PILOT broadcasts this command in 'normal' mode, but also in 'demo' mode.
+#define BGNET_FRAME_CMD_OCSET           0x20 // 5 bytes payload after SET of WA minutes, CH = AF
+#define BGNET_FRAME_CMD_WASET           0x21 // 5 bytes payload after SET of WA minutes, CH = 76
 #define BGNET_FRAME_CMD_PILOT_ADJUST    0xB1 // STEP/ADJUST -10/-1/+1/+10, 5 bytes payload (00 A6 01 FF F6) = -10
 #define BGNET_FRAME_CMD_POWEROFF        0xC8 //shutdown system, no payload. Does not work on NETWORK series devices "FF 70 00 C8 C9"
 #define BGNET_FRAME_CMD_BACKLIGHT       0xC9 //LIGHTS button pressed (any module) -> header+2 bytes: {0|1|2|3},0x20. Message format:
@@ -249,12 +251,12 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGNET_FRAME_CMD_QUAD_RESET_R    0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
                                              // Note: DR_DISTNM is displayed on SPEED and DATA, not on QUAD.
 
-#define BGNET_FRAME_CMD_PILOT_SPEED     0xD0 // 2 bytes payload (00 46), 46= AP_SPEEDKT
-#define BGNET_FRAME_CMD_PILOT_RESP      0xD1 // 2 bytes payload (00 A6), Steering Response N/E/D (Normal, Economy, Downwind)
+#define BGNET_FRAME_CMD_PILOT_SPEED     0xD0 // 2 bytes payload (00 46), 46= AP_SPEED
+#define BGNET_FRAME_CMD_PILOT_RESPGET   0xD1 // 2 bytes payload (00 A6), Steering Response N/E/D (Normal, Economy, Downwind)
 #define BGNET_FRAME_CMD_PILOT_AM        0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5?
 #define BGNET_FRAME_CMD_PILOT_MODE      0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
-                                             //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRANSMITTER, 1=MAN, 2=SOG)
-#define BGNET_FRAME_CMD_PILOT_D5        0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
+                                             //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRAnsmitter, 1=MANual, 2=SOG)
+#define BGNET_FRAME_CMD_PILOT_RESPSET   0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: RESP MODE (0=Normal, 1=Eco, 2=Downwind)
 #define BGNET_FRAME_CMD_PILOT_STEP      0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}, is followed by
                                              // command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
 #define BGNET_FRAME_CMD_PILOT_WA        0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
@@ -340,7 +342,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_42_BOATSPEEDRAW     0x42 // from SPEED or QUAD (uncorrected), but also from PILOT/NMEA/VHW/#5
 #define BGN_CNR_43_BOATSPEEDMS      0x43
 #define BGN_CNR_44_YAWRATE          0x44
-#define BGN_CNR_46_AP_SPEED         0x46 // SPEED selected (0=Transmitter, 1= Manual, 2=SOG); send by PILOT using command 0x4D/46 
+#define BGN_CNR_46_AP_SPEED         0x46 // SPEED selected (0=TRAnsmitter, 1= MANual, 2=SOG); send by PILOT using command 0x4D/46 
 #define BGN_CNR_47_LONLAT           0x47 //send in ASCII via CMD03
 #define BGN_CNR_48_LONLAT           0x48 //send in ASCII via CMD03
 #define BGN_CNR_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
@@ -371,7 +373,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_70_NEXTLEGBOATSPEED 0x70
 #define BGN_CNR_71_NEXTLEGAWSPEED   0x71
 #define BGN_CNR_75_TIMER            0x75
-#define BGN_CNR_76_UNKNOWN          0x76
+#define BGN_CNR_76_AP_WA_ALARM      0x76
 #define BGN_CNR_77_ROLLTIMER        0x77
 #define BGN_CNR_7C_POLARPERFORMANCE 0x7C
 #define BGN_CNR_7D_TARGETBOATSPEED  0x7D
@@ -385,7 +387,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_86_BAROTREND        0x86
 #define BGN_CNR_87_BARORAW          0x87 // signal from the barometric sensor, prior calibration
 #define BGN_CNR_8A_UNKNOWN          0x8A
-#define BGN_CNR_8D_BATTVOLT         0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
+#define BGN_CNR_8D_BATTERY          0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
                                          // displayed by DATA (if 'OPTIONS' button is pressed)
 #define BGN_CNR_98_UNKNOWN          0x98 // When a PILOT/NMEA/APB message is received this channel is observed with FMT_00 and
                                          // and only 2 bytes, no data. I do not know if this is on purpose or a undesired feature
@@ -400,7 +402,7 @@ typedef struct {        // for the FRAME tail we need a seperate pointer (becaus
 #define BGN_CNR_A6_AP_CTARGET       0xA6 // send by PILOT upon change/button pressed, Target Course (in AUTO or memory when STBY), fmt=0x08
                                          // seems to be used to communicate multiple type of values/status from ACP to PILOT
 #define BGN_CNR_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
-#define BGN_CNR_AF_AP_OFFCOURSE     0xAF
+#define BGN_CNR_AF_AP_OC_ALARM      0xAF
 #define BGN_CNR_B3_COMPASSCAL       0xB3
 #define BGN_CNR_B4_UNKNOWN          0xB4
 #define BGN_CNR_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
@@ -521,6 +523,7 @@ union CH {
                                     // confirmed (press any key on a ALARM capable device) or the alarm state is returned to normal
                                     // (a null-string) is send.
 #define BGN_FMT_08      0x08        // 16 bit unsigned register (0-999), optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
+#define BGN_FMT_18      0x18        // used by WA and OC
 #define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
 // FMT Definition Table
 typedef struct {
@@ -630,7 +633,11 @@ typedef struct {
     NMEA2K_VALUE Joystick;      // 0=Off, >0=ON
     NMEA2K_VALUE BackLight;     // 0=Off, 1-3=ON
     NMEA2K_VALUE CourseTarget;  // value 0x0123 = 291
-    NMEA2K_VALUE StoredLogNM;   // channel CD (stored log) is stored as 4-byte register
+    NMEA2K_VALUE SpeedSelect;   // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
+    NMEA2K_VALUE Response;      // Steering response (Normal/Downwind/Eco)
+    NMEA2K_VALUE WA;            // Watch Alarm
+    NMEA2K_VALUE OC;            // OffCourse Alarm
+    NMEA2K_VALUE StoredLogNM;   // channel CD (stored log) is stored as 3-byte register
     NMEA2K_VALUE TripLogNM;     // channel CF (trip log NM) is stored as a 2 byte register
 } BGN_ACP;
 

@@ -532,7 +532,7 @@ static char* html_ACP_top(char *Buffer) {
     const char *cACPTop =
         "<h3>ACP status</h3>"
         "<table>"
-        "<tr><th rowspan='2'>Parameter</th><th colspan='3'>Display</th></tr>"
+        "<tr><th rowspan='2'>Parameter</th><th rowspan='2'>Nomenclature</th><th colspan='3'>Display</th></tr>"
         "<tr><th>Sec</th><th>Source</th><th>Value</th></tr>";
     strcpy(Buffer, cACPTop);
     return(Buffer);
@@ -547,35 +547,42 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     struct tm * ptmInfo;
     char asciibuffer[256];
     // some variables have different datatypes, so we use different format specifiers
-    const char *cACPRowSSDS =
-        "<tr><td>%s</td><td>%d</td><td>%s</td><td>%s</td></tr>";
-    const char *cACPRowSDDS =
-        "<tr><td>%s</td><td>%d</td><td>%s</td><td>%d</td></tr>";
-    const char *cACPRowSFDS =
-        "<tr><td>%s</td><td>%d</td><td>%s</td><td>%.1f</td></tr>";
+    const char *cACPRowSSDSS = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>%s</td></tr>";
+    const char *cACPRowSSDSD = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>%d</td></tr>";
+    const char *cACPRowSSDSF = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>%.1f</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
     time(&t);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "PILOT WATCHDOG", t-pCtrl->ACP.PILOT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.source), pCtrl->ACP.PILOT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", t-pCtrl->ACP.PILOT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.source), pCtrl->ACP.PILOT.value.nLong);
     strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
 
-    snprintf (cLine, sizeof(cLine), cACPRowSSDS, "Running since", t-pCtrl->ACP.tTimestamp, "HOST", asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "Running since", "Seconds since start", t-pCtrl->ACP.tTimestamp, "HOST", asciibuffer);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "STATE [AUTO/STBY]", t-pCtrl->ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.STATE.source), cSTAT[pCtrl->ACP.STATE.value.nByte]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Joystick", "[0=OFF, 1=ON]", t-pCtrl->ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Joystick.source), pCtrl->ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDS, "MODE [COMP/NAV/VANE]", t-pCtrl->ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MODE.source), cMODE[pCtrl->ACP.MODE.value.nByte]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "STATE", "[0=STBY, 1=AUTO]", t-pCtrl->ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.STATE.source), cSTAT[pCtrl->ACP.STATE.value.nByte]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "Backlight   [OFF/LOW/MEDIUM/HIGH]", t-pCtrl->ACP.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.BackLight.source), pCtrl->ACP.BackLight.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "MODE", "[1=COMP, 3=NAV, 4=VANE]", t-pCtrl->ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MODE.source), cMODE[pCtrl->ACP.MODE.value.nByte]);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSDDS, "CourseTarget", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CourseTarget.source), pCtrl->ACP.CourseTarget.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Speed Select", "[0=TRAnsmitter, 1=MANual, 2=SOG]", t-pCtrl->ACP.SpeedSelect.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedSelect.source), pCtrl->ACP.SpeedSelect.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "STORLOGNM", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.StoredLogNM.source), (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/10.0));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Steering Response", "[0=Normal, 1=Economic, 2=Downwind]", t-pCtrl->ACP.Response.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Response.source), pCtrl->ACP.Response.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSFDS, "TRIPLOGNM", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.TripLogNM.source), (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/10.0));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Backlight", "[0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", t-pCtrl->ACP.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.BackLight.source), pCtrl->ACP.BackLight.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "CourseTarget", "Course setpoint from Navigation system", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CourseTarget.source), pCtrl->ACP.CourseTarget.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WATCH Alarm", "[Minutes]", t-pCtrl->ACP.WA.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.WA.source), pCtrl->ACP.WA.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "OFF-COURSE Alarm", "[Degrees]", t-pCtrl->ACP.OC.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.OC.source), pCtrl->ACP.OC.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "STORLOGNM", "[NM]", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.StoredLogNM.source), (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/10.0));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "TRIPLOGNM", "[NM]", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.TripLogNM.source), (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/10.0));
     strcat(Buffer, cLine);
 
     return(Buffer);
@@ -589,7 +596,7 @@ static char* html_ACP_end(char *Buffer) {
 
 static char* html_NMEA_top(char *Buffer) {
     const char *cNMEATop =
-        "<h3>NMEA variables</h3>"
+        "<h3>SignalK/NMEA variables</h3>"
         "<table>"
         "<tr><th>Parameter</th><th>Count</th><th>Sec</th><th>Source</th><th>Value</th></tr>";
     strcpy(Buffer, cNMEATop);

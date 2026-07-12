@@ -186,7 +186,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 73",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 74",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {BGN_CNR_75_TIMER,         "TIMER",           BGN_FMT_03, BGNET_TYPE_NETQUAD, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {0,                        "UNKNOWN 76",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_76_AP_WA_ALARM,   "WA MIN",          BGN_FMT_18, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 77",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 78",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 79",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -209,7 +209,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 8A",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 8B",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 8C",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_8D_BATTVOLT,      "BATTERY",         BGN_FMT_08, BGNET_TYPE_NETWIND, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_8D_BATTERY,       "BATTERY",         BGN_FMT_08, BGNET_TYPE_NETWIND, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 8E",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 8F",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 90",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -243,7 +243,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN AC",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN AD",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN AE",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {0,                        "UNKNOWN AF",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_AF_AP_OC_ALARM,   "OC DEG",          BGN_FMT_18, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN B0",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN B1",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN B2",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -361,8 +361,8 @@ BGNET_CMDDT CMDDT[BGN_COMMAND_MAX+1] = { \
     {0,                            "UNKNOWN 1D"},\
     {0,                            "UNKNOWN 1E"},\
     {0,                            "UNKNOWN 1F"},\
-    {0,                            "UNKNOWN 20"},\
-    {0,                            "UNKNOWN 21"},\
+    {BGNET_FRAME_CMD_OCSET,        "PILOT SETUP/OC/SET"},\
+    {BGNET_FRAME_CMD_WASET,        "PILOT SETUP/WA/SET"},\
     {0,                            "UNKNOWN 22"},\
     {0,                            "UNKNOWN 23"},\
     {0,                            "UNKNOWN 24"},\
@@ -538,11 +538,11 @@ BGNET_CMDDT CMDDT[BGN_COMMAND_MAX+1] = { \
     {0,                            "UNKNOWN CE"},\
     {0,                            "UNKNOWN CF"},\
     {BGNET_FRAME_CMD_PILOT_SPEED,  "PILOT SETUP/SPD"},\
-    {BGNET_FRAME_CMD_PILOT_RESP,   "PILOT SETUP/RESP"},\
+    {BGNET_FRAME_CMD_PILOT_RESPGET,"PILOT SETUP/RESP/GET"},\
     {0,                            "UNKNOWN D2"},\
     {BGNET_FRAME_CMD_PILOT_AM,     "PILOT AUTO/OFF"},\
     {BGNET_FRAME_CMD_PILOT_MODE,   "PILOT MODE"},\
-    {BGNET_FRAME_CMD_PILOT_D5,     "PILOT ??"},\
+    {BGNET_FRAME_CMD_PILOT_RESPSET,"PILOT SETUP/RESP/SET"},\
     {0,                            "UNKNOWN D6"},\
     {0,                            "UNKNOWN D7"},\
     {0,                            "UNKNOWN D8"},\
@@ -551,8 +551,8 @@ BGNET_CMDDT CMDDT[BGN_COMMAND_MAX+1] = { \
     {0,                            "UNKNOWN DB"},\
     {BGNET_FRAME_CMD_PILOT_STEP,   "PILOT STEP U/D"},\
     {0,                            "UNKNOWN DD"},\
-    {BGNET_FRAME_CMD_PILOT_WA,     "PILOT WA"},\
-    {BGNET_FRAME_CMD_PILOT_OC,     "PILOT OC"},\
+    {BGNET_FRAME_CMD_PILOT_WA,     "PILOT SETUP/WA/GET"},\
+    {BGNET_FRAME_CMD_PILOT_OC,     "PILOT SETUP/OC/GET"},\
     {0,                            "UNKNOWN E0"},\
     {0,                            "UNKNOWN E1"},\
     {0,                            "UNKNOWN E2"},\
@@ -587,17 +587,17 @@ BGNET_CMDDT CMDDT[BGN_COMMAND_MAX+1] = { \
     {0,                            "UNKNOWN FF"}
 };
 // for every DataType (0-15) we check the validity (>0) and the number of bytes used in the frame
-// -1 = not defined
+// -1 = not defined, unhandled
 // 0 = variable string, look for the null-byte
 // 1-n = fixed length
-BGNET_FMTDT FMTDT[16] = {       {0x00, 2, " odd one found on PILOT/NMEA"}, \
+BGNET_FMTDT FMTDT[16] = {       {0x00, 2, "0 bytes, odd one (found on PILOT/NMEA)"}, \
                                 {0x01, 4, "2 bytes, signed 16bit register"}, \
                                 {0x02, 6, "4 bytes, unsigned 32bit register (used by STOREDLOG)"}, \
                                 {0x03, 5, "3 bytes, timer value (HH,MM,SS, displayed as 'H:MM:SS')"}, \
                                 {0x04, 6, "4 bytes, text (00+3 bytes, like ' T ',' F ','OFF','ON ','---')"}, \
                                 {0x05,-1, ""}, \
                                 {0x06,-1, ""}, \
-                                {0x07, 0, " variable characters + 1 null-byte"}, \
+                                {0x07, 0, "variable, string (ascii + 1 null-byte)"}, \
                                 {0x08, 4, "2 bytes, unsigned 16bit register"}, \
                                 {0x09,-1, ""}, \
                                 {0x0A,-1, ""}, \
@@ -606,7 +606,7 @@ BGNET_FMTDT FMTDT[16] = {       {0x00, 2, " odd one found on PILOT/NMEA"}, \
                                 {0x0D,-1, ""}, \
                                 {0x0E,-1, ""}, \
                                 {0x0F,-1, ""}
-                                };
+                            };
 
 #define BGN_ENABLE_SERIAL
 #define BGN_ENABLE_ETHERNET
