@@ -481,7 +481,7 @@ static char* html_device_top(char *Buffer) {
     const char *cDevTop =
         "<h3>External Devices</h3>"
         "<table>"
-        "<tr><th colspan='2'>Device</th><th colspan='5'>Rx (input FROM interface)</th><th colspan='3'>Tx (output TO interface)</th></th></tr>"
+        "<tr><th colspan='2'>Device</th><th colspan='5'>Rx (input FROM interface)</th><th colspan='3'>Tx (output TO interface)</th></tr>"
         "<tr><th>Node</th><th>Type</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Err/Head</th><th>Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
@@ -555,12 +555,14 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(Buffer, "");
     time(&t);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", t-pCtrl->ACP.PILOT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.source), pCtrl->ACP.PILOT.value.nLong);
-    strcat(Buffer, cLine);
+
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
-
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "Running since", "Seconds since start", t-pCtrl->ACP.tTimestamp, "HOST", asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "Running since", "Seconds since start", t-pCtrl->ACP.tTimestamp, "NONE", asciibuffer);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", t-pCtrl->ACP.PILOT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.source), pCtrl->ACP.PILOT.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP ACKSEQ", "Last ACKSEQ Command", t-pCtrl->ACP.CMD.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CMD.source), pCtrl->ACP.CMD.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Joystick", "[0=OFF, 1=ON]", t-pCtrl->ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Joystick.source), pCtrl->ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
@@ -576,9 +578,9 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "CourseTarget", "Course setpoint from Navigation system", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CourseTarget.source), pCtrl->ACP.CourseTarget.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WATCH Alarm", "[Minutes]", t-pCtrl->ACP.WA.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.WA.source), pCtrl->ACP.WA.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WATCH Alarm", "[1-360 Minutes]", t-pCtrl->ACP.WA.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.WA.source), pCtrl->ACP.WA.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "OFF-COURSE Alarm", "[Degrees]", t-pCtrl->ACP.OC.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.OC.source), pCtrl->ACP.OC.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "OFF-COURSE Alarm", "[1-99 Degrees]", t-pCtrl->ACP.OC.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.OC.source), pCtrl->ACP.OC.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "STORLOGNM", "[NM]", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.StoredLogNM.source), (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/10.0));
     strcat(Buffer, cLine);
@@ -694,72 +696,118 @@ static char* html_command_end(char *Buffer) {
 static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[1024], asciibuf01[24], asciibuf02[24], asciibuf06[24];
     const char *cChnTop =
-        "<h3>Channel Information</h3>"
-        "<table>"
-        "<tr><th colspan='2'>Channel</th><th colspan='5'>Command 0x01/%s</th><th colspan='4'>Command 0x02/%s</th><th colspan='5'>Command 0x06/%s</th></tr>"
-        "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>TO</th><th>FROM</th></tr>";
+        "\r<h3>Channel Information</h3>"
+        "\r<table>"
+        "<tr><th colspan='2'>Channel</th>"
+            "<th colspan='5'>Command 0x01/%s</th>"
+            "<th colspan='4'>Command 0x02/%s</th>"
+            "<th colspan='3'>Command 0x06/%s</th>"
+            "<th colspan='7'>Various Commands 0x00</th>"
+            "</tr>"
+        "<tr><th>ID</th><th>Label</th>"
+            "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th>"
+            "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Label</th>"
+            "<th>Count</th><th>Sec</th><th>LastRaw</th>"
+            "<th>Count</th><th>Sec</th><th>LastRaw</th><th>TO</th><th>FROM</th><th>CMD</th><th>Display</th>"
+            "</tr>";
     snprintf(cLine, sizeof(cLine), cChnTop, strCommandLabel(pCtrl, asciibuf01, BGNET_FRAME_CMD_DATA), strCommandLabel(pCtrl, asciibuf02, BGNET_FRAME_CMD_LABEL), strCommandLabel(pCtrl, asciibuf06, BGNET_FRAME_CMD_SUBSCRIBE));
     strcpy(Buffer, cLine);
     return(Buffer);
 }
 static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
-    int i,y;
+    int i,y, InUse;
     time_t t;
-    char cLine[2048], asciibuf01[256], asciibuf02[256], asciibuf06[256];
-    const char *cDevRow =
-        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>0x%02X</td></tr>";
+    char cLine[2048];
+    char cLine01[1024], cLine02[1024], cLine06[1024], cLine00[1024];
+    char asciibuf01[256], asciibuf02[256], asciibuf06[256], asciibuf00[256];
 
-    strcpy(cLine, "");
+    const char *cDevRow_Start = "\r<tr %s><td>0x%02X</td><td>%s</td>";
+    const char *cDevRow_End = "</tr>";
+
+    const char *cDevRow01 = "<td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>%s</td>";
+    const char *cDevRow02 = "<td>%d</td><td>%d</td><td>%s</td><td>%s</td>";
+    const char *cDevRow06 = "<td>%d</td><td>%d</td><td>%s</td>";
+    const char *cDevRow00 = "<td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>0x%02X</td><td>0x%02X</td><td>0x%s</td>";
+
+    const char *cDevRow01E = "<td></td><td></td><td></td><td></td><td></td>";
+    const char *cDevRow02E = "<td></td><td></td><td></td><td></td>";
+    const char *cDevRow06E = "<td></td><td></td><td></td>";
+    const char *cDevRow00E = "<td></td><td></td><td></td><td></td><td></td><td></td><td></td>";
+
+    strcpy(cLine01, "");
+    strcpy(cLine02, "");
+    strcpy(cLine06, "");
+    strcpy(cLine00, "");
     strcpy(Buffer, "");
     time(&t);
-    for (i=0; i<BGN_CHANNEL_MAX; i++) {
-        if ((pCtrl->CHN[i].x01.CounterRx.iCounter < 1) & (pCtrl->CHN[i].x02.CounterRx.iCounter < 1) & (pCtrl->CHN[i].x06.CounterRx.iCounter < 1)) {
-            // it was never touched by command 0x01, 0x02 or 0x06
-            // nothing to show
-        } else {
-            y = bgnet_channel_length(pCtrl, (union CH*)pCtrl->CHN[i].x01.ucRAW);
-            if (pCtrl->CHN[i].x01.ucRAW[0] == 0) {
-                // no channel ID, must be empty
-                strcpy(asciibuf01, "");
-            } else {
-                byte2ascii(asciibuf01, sizeof(asciibuf01), pCtrl->CHN[i].x01.ucRAW, y, BYTE2ASCII_SPACED);
-            }
-            if (pCtrl->CHN[i].x02.ucRAW[BGNET_FRAME_HEAD_FROM] == 0) {
-                // no FROM, must be empty
-                strcpy(asciibuf02, "");
-            } else {
-                // only show the first 4 payload bytes (ChannelID, + 3x unknown)
-                byte2ascii(asciibuf02, sizeof(asciibuf02), pCtrl->CHN[i].x02.ucRAW, (BGNET_FRAME_HEAD + 4), BYTE2ASCII_SPACED);
-            }
-            if (pCtrl->CHN[i].x06.ucRAW[BGNET_FRAME_HEAD_FROM] == 0) {
-                // no FROM, must be empty
-                strcpy(asciibuf06, "");
-            } else {
-                // show the whole frame (just 1 byte payload)
-                byte2ascii(asciibuf06, sizeof(asciibuf06), pCtrl->CHN[i].x06.ucRAW, bgnet_frame_length(pCtrl->CHN[i].x06.ucRAW), BYTE2ASCII_SPACED);
-            }
-            snprintf(cLine, sizeof(cLine), cDevRow, ((pCtrl->CHN[i].iNewChannel==BGN_NEW_RESET)?"":"bgcolor='lightblue'"),
-                                                    i,
-                                                    pCtrl->pCHNDT[i].cLabel,
 
+    for (i=0; i<BGN_CHANNEL_MAX; i++) {
+        InUse = 0;
+        if ((pCtrl->CHN[i].x01.CounterRx.iCounter < 1)) {
+            strcpy(cLine01, cDevRow01E);
+        } else {
+            InUse++;
+            y = bgnet_channel_length(pCtrl, (union CH*)pCtrl->CHN[i].x01.ucRAW);
+            byte2ascii(asciibuf01, sizeof(asciibuf01), pCtrl->CHN[i].x01.ucRAW, y, BYTE2ASCII_SPACED);
+            snprintf(cLine01, sizeof(cLine01), cDevRow01,
                                                     pCtrl->CHN[i].x01.CounterRx.iCounter,
                                                     (t - pCtrl->CHN[i].x01.CounterRx.tTimestamp),
                                                     asciibuf01,
                                                     pCtrl->CHN[i].x01.ucFROM,
-                                                    pCtrl->CHN[i].x01.cValue,
-
+                                                    pCtrl->CHN[i].x01.cValue);
+        }
+        if ((pCtrl->CHN[i].x02.CounterRx.iCounter < 1)) {
+            strcpy(cLine02, cDevRow02E);
+        } else {
+            InUse++;
+            y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload
+            byte2ascii(asciibuf02, sizeof(asciibuf02), pCtrl->CHN[i].x02.ucRAW, y, BYTE2ASCII_SPACED);
+            snprintf(cLine02, sizeof(cLine02), cDevRow02,
                                                     pCtrl->CHN[i].x02.CounterRx.iCounter,
                                                     (t - pCtrl->CHN[i].x02.CounterRx.tTimestamp),
                                                     asciibuf02,
-                                                    pCtrl->CHN[i].x02.cValue,
-
+                                                    pCtrl->CHN[i].x02.cValue);
+        }
+        if (pCtrl->CHN[i].x06.CounterRx.iCounter < 1) {
+            strcpy(cLine06, cDevRow06E);
+        } else {
+            InUse++;
+            y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload
+            byte2ascii(asciibuf06, sizeof(asciibuf06), pCtrl->CHN[i].x06.ucRAW, y, BYTE2ASCII_SPACED);
+            snprintf(cLine06, sizeof(cLine06), cDevRow06,
                                                     pCtrl->CHN[i].x06.CounterRx.iCounter,
                                                     (t - pCtrl->CHN[i].x06.CounterRx.tTimestamp),
                                                     asciibuf06,
                                                     pCtrl->CHN[i].x06.ucTO,
-                                                    pCtrl->CHN[i].x06.ucFROM
-                                                );
-            strcat(Buffer, cLine);  // warning: this could overflow the buffer
+                                                    pCtrl->CHN[i].x06.ucFROM);
+        }
+        if (pCtrl->CHN[i].x00.CounterRx.iCounter < 1) {
+            strcpy(cLine00, cDevRow00E);
+        } else {
+            InUse++;
+            y = bgnet_channel_length(pCtrl, (union CH*)pCtrl->CHN[i].x00.ucRAW);
+            byte2ascii(asciibuf00, sizeof(asciibuf00), pCtrl->CHN[i].x00.ucRAW, y, BYTE2ASCII_SPACED);
+            snprintf(cLine00, sizeof(cLine00), cDevRow00,
+                                                    pCtrl->CHN[i].x00.CounterRx.iCounter,
+                                                    (t - pCtrl->CHN[i].x00.CounterRx.tTimestamp),
+                                                    asciibuf00,
+                                                    pCtrl->CHN[i].x00.ucTO,
+                                                    pCtrl->CHN[i].x00.ucFROM,
+                                                    pCtrl->CHN[i].x00.ucCMD,
+                                                    pCtrl->CHN[i].x00.cValue);
+        }
+        if (InUse>0) {
+            snprintf(cLine, sizeof(cLine), cDevRow_Start,
+                                                    ((pCtrl->CHN[i].iNewChannel==BGN_NEW_RESET)?"":"bgcolor='lightblue'"),
+                                                    i,
+                                                    pCtrl->pCHNDT[i].cLabel);
+            strcat(cLine, cLine01);
+            strcat(cLine, cLine02);
+            strcat(cLine, cLine06);
+            strcat(cLine, cLine00);
+            strcat(cLine, cDevRow_End);
+        
+            strcat(Buffer, cLine);  // warning: this could overflow the buffer; you might wanna check the pagesize
             //log_debug("webserver/channel: strlen(Buffer)= %d, strlen(cLine)=%d", strlen(Buffer), strlen(cLine));
         }
     }
@@ -792,7 +840,7 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
 // 
 static void handle_bgnet_html(int client_fd, BGNET_CTRL *pCtrl)
 {
-    char htmlbuffer[8192], workbuffer[8196];
+    char htmlbuffer[16384], workbuffer[16384];
 
     strcpy(htmlbuffer, ""); // initialize the empty buffer
 

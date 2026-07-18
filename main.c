@@ -75,7 +75,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 04",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 05",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 06",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_07_ACP_ERROR,     "ACP ERROR",       BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_07_AP_FR,         "AP FAULT REPORT", BGN_FMT_08, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 08",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 09",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 0A",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -234,7 +234,7 @@ BGNET_CHNDT CHNDT[BGN_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN A3",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN A4",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN A5",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_A6_AP_CTARGET,    "AP CTARGET M",    BGN_FMT_08, BGNET_TYPE_NETPILOT,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_A6_AP_CTARGET,    "AP CTARGET",    BGN_FMT_08, BGNET_TYPE_NETPILOT,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {BGN_CNR_A7_AP_WPB,        "AP WPB",          BGN_FMT_08, BGNET_TYPE_NETPILOT,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN A8",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN A9",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -361,8 +361,8 @@ BGNET_CMDDT CMDDT[BGN_COMMAND_MAX+1] = { \
     {0,                            "UNKNOWN 1D"},\
     {0,                            "UNKNOWN 1E"},\
     {0,                            "UNKNOWN 1F"},\
-    {BGNET_FRAME_CMD_OCSET,        "PILOT SETUP/OC/SET"},\
-    {BGNET_FRAME_CMD_WASET,        "PILOT SETUP/WA/SET"},\
+    {BGNET_FRAME_CMD_PILOT_OCDAT,  "PILOT SETUP/OC/DAT"},\
+    {BGNET_FRAME_CMD_PILOT_WADAT,  "PILOT SETUP/WA/DAT"},\
     {0,                            "UNKNOWN 22"},\
     {0,                            "UNKNOWN 23"},\
     {0,                            "UNKNOWN 24"},\
@@ -536,13 +536,13 @@ BGNET_CMDDT CMDDT[BGN_COMMAND_MAX+1] = { \
     {0,                            "UNKNOWN CC"},\
     {BGNET_FRAME_CMD_QUAD_RESET_R, "RESET REP"},\
     {0,                            "UNKNOWN CE"},\
-    {0,                            "UNKNOWN CF"},\
-    {BGNET_FRAME_CMD_PILOT_SPEED,  "PILOT SETUP/SPD"},\
-    {BGNET_FRAME_CMD_PILOT_RESPGET,"PILOT SETUP/RESP/GET"},\
+    {BGNET_FRAME_CMD_PILOT_CF,     "UNKNOWN CF"},\
+    {BGNET_FRAME_CMD_PILOT_SPDREQ, "PILOT SETUP/SPD/REQ"},\
+    {BGNET_FRAME_CMD_PILOT_RESPREQ,"PILOT SETUP/RESP/REQ"},\
     {0,                            "UNKNOWN D2"},\
     {BGNET_FRAME_CMD_PILOT_AM,     "PILOT AUTO/OFF"},\
     {BGNET_FRAME_CMD_PILOT_MODE,   "PILOT MODE"},\
-    {BGNET_FRAME_CMD_PILOT_RESPSET,"PILOT SETUP/RESP/SET"},\
+    {BGNET_FRAME_CMD_PILOT_RESPDAT,"PILOT SETUP/RESP/DAT"},\
     {0,                            "UNKNOWN D6"},\
     {0,                            "UNKNOWN D7"},\
     {0,                            "UNKNOWN D8"},\
@@ -551,8 +551,8 @@ BGNET_CMDDT CMDDT[BGN_COMMAND_MAX+1] = { \
     {0,                            "UNKNOWN DB"},\
     {BGNET_FRAME_CMD_PILOT_STEP,   "PILOT STEP U/D"},\
     {0,                            "UNKNOWN DD"},\
-    {BGNET_FRAME_CMD_PILOT_WA,     "PILOT SETUP/WA/GET"},\
-    {BGNET_FRAME_CMD_PILOT_OC,     "PILOT SETUP/OC/GET"},\
+    {BGNET_FRAME_CMD_PILOT_WAREQ,  "PILOT SETUP/WA/REQ"},\
+    {BGNET_FRAME_CMD_PILOT_OCREQ,  "PILOT SETUP/OC/REQ"},\
     {0,                            "UNKNOWN E0"},\
     {0,                            "UNKNOWN E1"},\
     {0,                            "UNKNOWN E2"},\
