@@ -157,7 +157,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (checksum)
 
 // FROM/TO adresses
-#define BGN_DEVICE_MAX                0xFF
+#define BGN_DEVICE_MAX                  0xFF
 
 // TO 'group' broadcast adresses (byte 0)
 #define BGNET_FRAME_TO_ACP              0x00 // PILOT uses this to send KEEPALIVE command, possibly this is the ACP
@@ -213,7 +213,7 @@ typedef struct {        // for the FRAME header we use a pointer
                                              //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
                                              //         (when AUTO) 53(TARGET TWA),A6 (COURSETARGET),A7 (AP WP BEARING),B5 (AP MODE)
                                              //  QUAD:  20(SEATEMP),31(ECHOSND),41(BOATSPEEDKT),42(BOATSPEEDRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
-                                             //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOALM),FD(DEPTHALM),FE(ANCHORALM)
+                                             //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOWALM),FD(DEPTHALM),FE(ANCHORALM)
                                              //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
 #define BGNET_FRAME_CMD_LATLON          0x03 //DATA broadcast, variable length. ASCII transmission, for LAT/LON messages, used for
                                              //channel 0x47 (LONLAT), not used on NETWORK series
@@ -226,27 +226,20 @@ typedef struct {        // for the FRAME header we use a pointer
                                              //(no firmware version number is included in NETWORK series)
 #define BGNET_FRAME_CMD_PILOT_HELLO     0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
                                              // PILOT: "00 51 00 0E A1" (no payload)
-                                             // Copilot came up with this suggestion for a ACP response. This turns out to be not applicable for
-                                             // the NETWORK series:
-                                             // ACP:   "50 00 07 8E XX 01 07 2C FF D8 00 00 5A"
-                                             //                        01 = MODE = Auto {STBY|AUTO|TRACK|WIND}
-                                             //                           07 2C = Heading = 1846 = 184.6 (actual, 0-360), 1/10th of a degree
-                                             //                                 FF D8 = Rudder = -40 = -4.0 (-45/+45), 1/10th of a degree
-                                             //                                       00 = Alarms = No {off-course|drive fail|compass fail}
-                                             //                                          00 = Drive = Idle {port|starboard|idle}
-                                             // i leave this info here, possibly for more modern equipment this might be applicable.
-                                             // PILOT broadcasts this command in 'normal' mode, but also in 'demo' mode.
+                                             // PILOT broadcasts this command in 'normal' mode, and also in 'demo' mode.
+                                             // if PILOT receives a DATA command (with some minimal channels), it leaves the "NO PILOT" state
 #define BGNET_FRAME_CMD_PILOT_OCDAT     0x20 // 5 bytes payload after SET of WA minutes, CH = AF
 #define BGNET_FRAME_CMD_PILOT_WADAT     0x21 // 5 bytes payload after SET of WA minutes, CH = 76
 #define BGNET_FRAME_CMD_PILOT_ADJUST    0xB1 // STEP/ADJUST -10/-1/+1/+10, 5 bytes payload (00 A6 01 FF F6) = -10
 #define BGNET_FRAME_CMD_POWEROFF        0xC8 //shutdown system, no payload. Does not work on NETWORK series devices "FF 70 00 C8 C9"
-#define BGNET_FRAME_CMD_BACKLIGHT       0xC9 //LIGHTS button pressed (any module) -> header+2 bytes: {0|1|2|3},0x20. Message format:
-                                             // FF 70 01 C9 C7 00 AA
-                                             // at powerup, initializes to 0 (off), when pressed the 1st time (after power) it starts with 3, then
-                                             // down to 2,1,0 (off) and wrap back to 3
+#define BGNET_FRAME_CMD_BACKLIGHT       0xC9 // LIGHTS button pressed (all units) -> header + 1 bytes payload: {0|1|2|3}
+                                             // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
+                                             // cycles though 0-3-2-1-0
 #define BGNET_FRAME_CMD_QUAD_RESET      0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm)
-#define BGNET_FRAME_CMD_QUAD_RESET_R    0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
+#define BGNET_FRAME_CMD_PILOT_DMPREQ    0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
                                              // Note: DR_DISTNM is displayed on SPEED and DATA, not on QUAD.
+                                             // PILOT: 2 bytes payload (ACKSEQ, 0x49)
+#define BGNET_FRAME_CMD_PILOT_DMPDAT    0xCE
 #define BGNET_FRAME_CMD_PILOT_CF        0xCF // unknown.
 
 #define BGNET_FRAME_CMD_PILOT_SPDREQ    0xD0 // 2 bytes payload (00 46), 46= AP_SPEED
@@ -639,7 +632,11 @@ typedef struct {
 
 #define BGN_JOYSTICK_ON     1
 #define BGN_JOYSTICK_OFF    0
-    NMEA2K_VALUE Joystick;      // 0=Off, >0=ON
+    NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
+    NMEA2K_VALUE SETUP_JSM;     // Joystick Steering Mode (Normal or Proportional)
+    NMEA2K_VALUE SETUP_DMP;     // Compass heading display damping (1-99 sec, defaut =4)
+    NMEA2K_VALUE SETUP_FR;      // Fault Reporting ON/OFF
+
     NMEA2K_VALUE BackLight;     // 0=Off, 1-3=ON
     NMEA2K_VALUE CourseTarget;  // value 0x0123 = 291
     NMEA2K_VALUE SpeedSelect;   // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)

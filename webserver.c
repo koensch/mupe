@@ -576,6 +576,12 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Backlight", "[0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", t-pCtrl->ACP.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.BackLight.source), pCtrl->ACP.BackLight.value.nByte);
     strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Joystick Steering Mode", "[NORMal, PROPortional]", t-pCtrl->ACP.SETUP_JSM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_JSM.source), pCtrl->ACP.SETUP_JSM.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Compass Damping", "[1-99 sec, 4=default]", t-pCtrl->ACP.SETUP_DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_DMP.source), pCtrl->ACP.SETUP_DMP.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Fault Reporting", "[1=OFF, 0=ON]", t-pCtrl->ACP.SETUP_FR.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_FR.source), pCtrl->ACP.SETUP_FR.value.nByte);
+    strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "CourseTarget", "Course setpoint from Navigation system", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CourseTarget.source), pCtrl->ACP.CourseTarget.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WATCH Alarm", "[1-360 Minutes]", t-pCtrl->ACP.WA.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.WA.source), pCtrl->ACP.WA.value.nLong);
