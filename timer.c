@@ -48,11 +48,9 @@ void *timer_thread(void *arg)
         // show what we got
         if (RxBufLen > 0) {
             // convert frame into prinatble text, byte spaced
+            // at this time i'm note sure if this is a 'real' BGNET frame. I treat it like a raw byte stream
             byte2ascii(asciibuf, sizeof(asciibuf), RxBuf, RxBufLen, BYTE2ASCII_SPACED);
             log_debug("Timer %d msec, %d bytes: %s", RxCounter, RxBufLen, asciibuf);
-
-            CommandToAscii(asciibuf, sizeof(asciibuf), RxBuf);
-            log_debug("timer: %s", asciibuf);      
 
             /* do here the incoming message handling
             - until no we have only processed streams of data bytes coming from the serial port. In this protocol
@@ -81,15 +79,13 @@ void *timer_thread(void *arg)
             - The 'timer-thread' will trigger the 'device-processor' to make sure it also runs where there is no incoming
               messages. When the IO bus has only 'passive' units, no data is send and the heartbeat has to come from us.
             */
-            //handle_received_frame(pCtrl, RxBuf, RxBufLen);
-            // warning: frame decoder does not lock other threads, because is works on a copy
-            // of a completely received frame
             bgnet_decode_frame(pCtrl, RxBuf, RxBufLen);
-            RxBufLen = 0; // dump contents of local readbuffer, all data is processed
+            RxBufLen = 0; // dump contents of local readbuffer, assume all was processed
         }
 
-        // we do not wat to execute DEVICE processing every msec. transmisson will also take some count down device counter.
-        // note that any application can trigger an instant executionm of the device processing, by setting this counter to 0
+        // This is what we call "DEVICE processing"
+        // we do NOT do this every msec, but after some count-down was expired.
+        // note that any application can trigger an instant execution of the device processing, by setting this counter to 0
         if (pCtrl->iDeviceCounter > 0) {
           pCtrl->iDeviceCounter--;
         } else {

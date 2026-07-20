@@ -506,7 +506,7 @@ BGNET_CMDDT CMDDT[BGN_COMMAND_MAX+1] = { \
     {0,                            "UNKNOWN AE"},\
     {0,                            "UNKNOWN AF"},\
     {0,                            "UNKNOWN B0"},\
-    {BGNET_FRAME_CMD_PILOT_ADJUST, "PILOT </> 10/1"},\
+    {BGNET_FRAME_CMD_PILOT_DELTADAT,"PILOT STEP/DELTA/DAT"},\
     {0,                            "UNKNOWN B2"},\
     {0,                            "UNKNOWN B3"},\
     {0,                            "UNKNOWN B4"},\
@@ -549,7 +549,7 @@ BGNET_CMDDT CMDDT[BGN_COMMAND_MAX+1] = { \
     {0,                            "UNKNOWN D9"},\
     {0,                            "UNKNOWN DA"},\
     {0,                            "UNKNOWN DB"},\
-    {BGNET_FRAME_CMD_PILOT_STEP,   "PILOT STEP U/D"},\
+    {BGNET_FRAME_CMD_PILOT_STEPDAT,"PILOT STEP/START/DAT"},\
     {0,                            "UNKNOWN DD"},\
     {BGNET_FRAME_CMD_PILOT_WAREQ,  "PILOT SETUP/WA/REQ"},\
     {BGNET_FRAME_CMD_PILOT_OCREQ,  "PILOT SETUP/OC/REQ"},\

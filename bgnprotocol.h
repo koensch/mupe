@@ -215,6 +215,8 @@ typedef struct {        // for the FRAME header we use a pointer
                                              //  QUAD:  20(SEATEMP),31(ECHOSND),41(BOATSPEEDKT),42(BOATSPEEDRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
                                              //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOWALM),FD(DEPTHALM),FE(ANCHORALM)
                                              //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
+                                             // QUAD: if you reconfigure the TEMP units, the new label is send with as 0x02/0x20 command to ALL (0xFF), making the DATA
+                                             //       units to display the corresponding value & units, but the channel 0x20 still transmits the value as degreeC.
 #define BGNET_FRAME_CMD_LATLON          0x03 //DATA broadcast, variable length. ASCII transmission, for LAT/LON messages, used for
                                              //channel 0x47 (LONLAT), not used on NETWORK series
 #define BGNET_FRAME_CMD_SUBSCRIBE       0x06 //at startup some stations (DATA/60) broadcast to providers (QUAD/30) a subscription request, payload= Ch#, CS
@@ -230,7 +232,7 @@ typedef struct {        // for the FRAME header we use a pointer
                                              // if PILOT receives a DATA command (with some minimal channels), it leaves the "NO PILOT" state
 #define BGNET_FRAME_CMD_PILOT_OCDAT     0x20 // 5 bytes payload after SET of WA minutes, CH = AF
 #define BGNET_FRAME_CMD_PILOT_WADAT     0x21 // 5 bytes payload after SET of WA minutes, CH = 76
-#define BGNET_FRAME_CMD_PILOT_ADJUST    0xB1 // STEP/ADJUST -10/-1/+1/+10, 5 bytes payload (00 A6 01 FF F6) = -10
+#define BGNET_FRAME_CMD_PILOT_DELTADAT  0xB1 // STEP/ADJUST -10/-1/+1/+10, 5 bytes payload (00 A6 01 FF F6) = -10
 #define BGNET_FRAME_CMD_POWEROFF        0xC8 //shutdown system, no payload. Does not work on NETWORK series devices "FF 70 00 C8 C9"
 #define BGNET_FRAME_CMD_BACKLIGHT       0xC9 // LIGHTS button pressed (all units) -> header + 1 bytes payload: {0|1|2|3}
                                              // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
@@ -248,7 +250,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_FRAME_CMD_PILOT_MODE      0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
                                              //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRAnsmitter, 1=MANual, 2=SOG)
 #define BGNET_FRAME_CMD_PILOT_RESPDAT   0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: RESP MODE (0=Normal, 1=Eco, 2=Downwind)
-#define BGNET_FRAME_CMD_PILOT_STEP      0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}, is followed by
+#define BGNET_FRAME_CMD_PILOT_STEPDAT   0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}, is followed by
                                              // command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
 #define BGNET_FRAME_CMD_PILOT_WAREQ     0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
 #define BGNET_FRAME_CMD_PILOT_OCREQ     0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
@@ -416,7 +418,9 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGN_CNR_C3_DEPTHFM          0xC3
 #define BGN_CNR_C4_DEPTHM           0xC4 // displayed by QUAD and DATA, or "---" incase no measurement
 #define BGN_CNR_CD_STORLOGNM        0xCD // QUAD/SPEED: saved in non-volitile memory; retained over the lifespan of the unit
+    #define BGNET_DIVISOR_STORLOG       10.0
 #define BGN_CNR_CF_TRIPNM           0xCF // QUAD/SPEED/DATA: TripLog, reset via QUAD
+    #define BGNET_DIVISOR_TRIPLOG       64.0
 #define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_DC_LOCALTIME        0xDC
 #define BGN_CNR_DD_UTCTIME          0xDD
@@ -597,7 +601,7 @@ typedef struct {
     } x01; // DATA command
     struct {
         unsigned char ucRAW[30]; // raw data (for diagnostic purposes), usually 18 bytes payload (=24 bytes complete frame)
-        char cValue[24]; // payload - 4 bytes + 1 null terminator, usually 15 bytes maximum      
+        char cValue[24]; // payload - 4 bytes + 1 null terminator, usually 0x12 bytes maximum      
         BGNET_COUNT CounterRx;
     } x02; // LABEL command
     struct {
@@ -633,16 +637,18 @@ typedef struct {
 #define BGN_JOYSTICK_ON     1
 #define BGN_JOYSTICK_OFF    0
     NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
+    // PILOT/SETUP parameters
+    NMEA2K_VALUE SETUP_SPD;     // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
+    NMEA2K_VALUE SETUP_RESP;    // Steering response (Normal/Downwind/Eco)
+    NMEA2K_VALUE SETUP_WA;      // Watch Alarm
+    NMEA2K_VALUE SETUP_OC;      // OffCourse Alarm
     NMEA2K_VALUE SETUP_JSM;     // Joystick Steering Mode (Normal or Proportional)
     NMEA2K_VALUE SETUP_DMP;     // Compass heading display damping (1-99 sec, defaut =4)
     NMEA2K_VALUE SETUP_FR;      // Fault Reporting ON/OFF
-
-    NMEA2K_VALUE BackLight;     // 0=Off, 1-3=ON
-    NMEA2K_VALUE CourseTarget;  // value 0x0123 = 291
-    NMEA2K_VALUE SpeedSelect;   // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
-    NMEA2K_VALUE Response;      // Steering response (Normal/Downwind/Eco)
-    NMEA2K_VALUE WA;            // Watch Alarm
-    NMEA2K_VALUE OC;            // OffCourse Alarm
+    // NETWORK parameters
+    NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
+    NMEA2K_VALUE CourseTarget;  // Setpoint for AutoPilot
+    NMEA2K_VALUE Heading;       // Compass Heading
     NMEA2K_VALUE StoredLogNM;   // channel CD (stored log) is stored as 3-byte register
     NMEA2K_VALUE TripLogNM;     // channel CF (trip log NM) is stored as a 2 byte register
 } BGN_ACP;
@@ -685,6 +691,7 @@ void bgnet_initialize(BGNET_CTRL*);
 int bgnet_deviceindex(BGNET_CTRL*, unsigned char);
 size_t bgnet_channel_length(BGNET_CTRL*, union CH*);
 size_t bgnet_frame_length(unsigned char*);
+size_t bgnet_FRAME_length(FRAME_H*);
 char* strCommandLabel(BGNET_CTRL *, char *, unsigned char);
 size_t bgnet_encode_frame(unsigned char *, int, int, int, unsigned char *, int);
 int makeRESPresponse(BGNET_CTRL *, unsigned char*);

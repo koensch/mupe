@@ -401,7 +401,11 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
         "<html>\r\n"
-        "<head><style>body, table, td {font-family: Verdana; font-size: 14px;}\r\nh3 {margin-left: 40px;}\r\ntable {border-collapse: collapse; width: 90%; margin: 10px auto;}\r\nth, td {border:1px solid #ccc; padding: 10px; text-align: left;}</style><title>%s</title><link rel='shortcut icon' href='#' /></head>\r\n"
+        "<head>"
+            "<style>body, table, td {font-family: Verdana; font-size: 14px;}\r\nh3 {margin-left: 20px;}\r\ntable {border-collapse: collapse; width: 95%; margin: 5px auto;}\r\nth, td {border:1px solid #ccc; padding: 5px; text-align: left;}</style>"
+            "<title>%s</title>"
+            "<link rel='shortcut icon' href='#' />"
+            "</head>\r\n"
         "<body>\r\n";
     snprintf(Buffer, MaxBuf, cHead, ApplicationName);
     return(Buffer);
@@ -539,9 +543,6 @@ static char* html_ACP_top(char *Buffer) {
 }
 static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
-    char cSTAT[2][5] = {"STBY","AUTO"};
-    char cMODE[8][8] = {"---0","COMP","---2","NAV","VANE","---5","JOYSTICK","---7"};
-    //char cSOURCE[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","ACP","NA"};
     char cSource[32];
     time_t t;
     struct tm * ptmInfo;
@@ -549,6 +550,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     // some variables have different datatypes, so we use different format specifiers
     const char *cACPRowSSDSS = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>%s</td></tr>";
     const char *cACPRowSSDSD = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>%d</td></tr>";
+    const char *cACPRowSSDSX = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>0x%02X</td></tr>";
     const char *cACPRowSSDSF = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>%.1f</td></tr>";
 
     strcpy(cLine, "");
@@ -558,7 +560,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "Running since", "Seconds since start", t-pCtrl->ACP.tTimestamp, "NONE", asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "Running since", "Seconds since start", t-pCtrl->ACP.tTimestamp, strSource(cSource, BGN_SOURCE_NONE), asciibuffer);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", t-pCtrl->ACP.PILOT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.source), pCtrl->ACP.PILOT.value.nLong);
     strcat(Buffer, cLine);
@@ -566,31 +568,33 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Joystick", "[0=OFF, 1=ON]", t-pCtrl->ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Joystick.source), pCtrl->ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "STATE", "[0=STBY, 1=AUTO]", t-pCtrl->ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.STATE.source), cSTAT[pCtrl->ACP.STATE.value.nByte]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "STATE", "[0=STBY, 1=AUTO]", t-pCtrl->ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.STATE.source), pCtrl->ACP.STATE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "MODE", "[1=COMP, 3=NAV, 4=VANE]", t-pCtrl->ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MODE.source), cMODE[pCtrl->ACP.MODE.value.nByte]);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "MODE", "[1=COMP, 3=NAV, 4=VANE]", t-pCtrl->ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MODE.source), pCtrl->ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Speed Select", "[0=TRAnsmitter, 1=MANual, 2=SOG]", t-pCtrl->ACP.SpeedSelect.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedSelect.source), pCtrl->ACP.SpeedSelect.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Speed Select", "[0=TRAnsmitter, 1=MANual, 2=SOG]", t-pCtrl->ACP.SETUP_SPD.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_SPD.source), pCtrl->ACP.SETUP_SPD.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Steering Response", "[0=Normal, 1=Economic, 2=Downwind]", t-pCtrl->ACP.Response.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Response.source), pCtrl->ACP.Response.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Steering Response", "[0=Normal, 1=Economic, 2=Downwind]", t-pCtrl->ACP.SETUP_RESP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_RESP.source), pCtrl->ACP.SETUP_RESP.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Joystick Steering", "[NORMal, PROPortional]", t-pCtrl->ACP.SETUP_JSM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_JSM.source), pCtrl->ACP.SETUP_JSM.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Compass Damping", "[1-99 sec, 4=default]", t-pCtrl->ACP.SETUP_DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_DMP.source), pCtrl->ACP.SETUP_DMP.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Fault Reporting", "[1=OFF, 0=ON]", t-pCtrl->ACP.SETUP_FR.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_FR.source), pCtrl->ACP.SETUP_FR.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm", "[1-360 Minutes]", t-pCtrl->ACP.SETUP_WA.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_WA.source), pCtrl->ACP.SETUP_WA.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm", "[1-99 Degrees]", t-pCtrl->ACP.SETUP_OC.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_OC.source), pCtrl->ACP.SETUP_OC.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Backlight", "[0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", t-pCtrl->ACP.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.BackLight.source), pCtrl->ACP.BackLight.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Joystick Steering Mode", "[NORMal, PROPortional]", t-pCtrl->ACP.SETUP_JSM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_JSM.source), pCtrl->ACP.SETUP_JSM.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Course Target", "Autopilot Course setpoint (0-359 Degrees M)", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CourseTarget.source), pCtrl->ACP.CourseTarget.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Compass Damping", "[1-99 sec, 4=default]", t-pCtrl->ACP.SETUP_DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_DMP.source), pCtrl->ACP.SETUP_DMP.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Compass Heading", "Current compass reading (0-359 Degrees M)", t-pCtrl->ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Heading.source), pCtrl->ACP.Heading.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Fault Reporting", "[1=OFF, 0=ON]", t-pCtrl->ACP.SETUP_FR.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_FR.source), pCtrl->ACP.SETUP_FR.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "STORLOGNM", "Stored log (QUAD or SPEED), stored in EEPROM, no reset) [NM]", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.StoredLogNM.source), (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "CourseTarget", "Course setpoint from Navigation system", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CourseTarget.source), pCtrl->ACP.CourseTarget.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WATCH Alarm", "[1-360 Minutes]", t-pCtrl->ACP.WA.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.WA.source), pCtrl->ACP.WA.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "OFF-COURSE Alarm", "[1-99 Degrees]", t-pCtrl->ACP.OC.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.OC.source), pCtrl->ACP.OC.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "STORLOGNM", "[NM]", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.StoredLogNM.source), (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/10.0));
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "TRIPLOGNM", "[NM]", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.TripLogNM.source), (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/10.0));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "TRIPLOGNM", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.TripLogNM.source), (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
     strcat(Buffer, cLine);
 
     return(Buffer);
