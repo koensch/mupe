@@ -15,9 +15,6 @@ void *timer_thread(void *arg)
 
     unsigned char RxBuf[BGNET_RXTXRAW_SIZE], TxBuf[BGNET_RXTXRAW_SIZE]; // local read buffer
     size_t RxBufLen = 0, TxBufLen = 0;
-    int RxCounter = 0;
-
-    char asciibuf[2048]; // store ascii for logging
 
     while (g_running) {
         time(&t);
@@ -39,9 +36,6 @@ void *timer_thread(void *arg)
             if (g_serial_data_counter>SerialCounter_Bottom) {
                 g_serial_data_counter--;
             }
-            // retrieve counter so we have some clue what time elapsed between this frame and the previous.
-            // it was empirically establised that this is around 45msec for this protocol
-            RxCounter = g_serial_data_counter;
         }
         pthread_mutex_unlock(&g_data_mutex);
 
@@ -49,8 +43,8 @@ void *timer_thread(void *arg)
         if (RxBufLen > 0) {
             // convert frame into prinatble text, byte spaced
             // at this time i'm note sure if this is a 'real' BGNET frame. I treat it like a raw byte stream
-            byte2ascii(asciibuf, sizeof(asciibuf), RxBuf, RxBufLen, BYTE2ASCII_SPACED);
-            log_debug("Timer %d msec, %d bytes: %s", RxCounter, RxBufLen, asciibuf);
+            //byte2ascii(asciibuf, sizeof(asciibuf), RxBuf, RxBufLen, BYTE2ASCII_SPACED);
+            //log_debug("Timer %d msec, %d bytes: %s", RxCounter, RxBufLen, asciibuf);
 
             /* do here the incoming message handling
             - until no we have only processed streams of data bytes coming from the serial port. In this protocol

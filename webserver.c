@@ -179,9 +179,9 @@ static void handle_api_state(int client_fd)
  //   memcpy(ethernet_data, g_last_ethernet_data, sizeof(ethernet_data));
     pthread_mutex_unlock(&g_data_mutex);
 
-    // convert Rx/Tx data to human readable format
-    CommandToAscii(asciibufRx, sizeof(asciibufRx), serial_dataRx);
-    CommandToAscii(asciibufTx, sizeof(asciibufTx), serial_dataTx);
+    // convert Rx/Tx data to human readable format (haven't checked if the bytes are really a BGNET frame)
+    CommandToAscii(asciibufRx, sizeof(asciibufRx), (FRAME_H*)serial_dataRx);
+    CommandToAscii(asciibufTx, sizeof(asciibufTx), (FRAME_H*)serial_dataTx);
 
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "SerialDataRx", asciibufRx);
@@ -505,8 +505,8 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
         if ((pCtrl->DEV[i].CounterRx.iCounter < 1) & (pCtrl->DEV[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
-            CommandToAscii(asciibufRx, sizeof(asciibufRx), pCtrl->DEV[i].ucFrameRx);
-            CommandToAscii(asciibufTx, sizeof(asciibufTx), pCtrl->DEV[i].ucFrameTx);
+            CommandToAscii(asciibufRx, sizeof(asciibufRx), &pCtrl->DEV[i].Rx.FH);
+            CommandToAscii(asciibufTx, sizeof(asciibufTx), &pCtrl->DEV[i].Tx.FH);
             snprintf(cLine, sizeof(cLine), cDevRow,
                         ((pCtrl->DEV[i].source == BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
                         i,
@@ -668,7 +668,7 @@ static char* html_command_top(char *Buffer) {
 static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     time_t t;
-    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII], asciibufCMD[512];
+    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII], asciibufCMD[BGNET_CMD_LABEL];
     const char *cDevRow =
         "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
@@ -679,8 +679,8 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
         if ((pCtrl->CMD[i].CounterRx.iCounter < 1) & (pCtrl->CMD[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
-            CommandToAscii(asciibufRx, sizeof(asciibufRx), pCtrl->CMD[i].ucFrameRx);
-            CommandToAscii(asciibufTx, sizeof(asciibufTx), pCtrl->CMD[i].ucFrameTx);
+            CommandToAscii(asciibufRx, sizeof(asciibufRx), &pCtrl->CMD[i].Rx.FH);
+            CommandToAscii(asciibufTx, sizeof(asciibufTx), &pCtrl->CMD[i].Tx.FH);
             snprintf(cLine, sizeof(cLine), cDevRow,
                                                     i,
                                                     strCommandLabel(pCtrl, asciibufCMD, i),
@@ -712,7 +712,7 @@ static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
             "<th colspan='5'>Command 0x01/%s</th>"
             "<th colspan='4'>Command 0x02/%s</th>"
             "<th colspan='3'>Command 0x06/%s</th>"
-            "<th colspan='7'>Various Commands 0x00</th>"
+            "<th colspan='7'>Various Commands/BUTTONS, ALARMS, RESETS</th>"
             "</tr>"
         "<tr><th>ID</th><th>Label</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th>"
@@ -757,7 +757,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             strcpy(cLine01, cDevRow01E);
         } else {
             InUse++;
-            y = bgnet_channel_length(pCtrl, (union CH*)pCtrl->CHN[i].x01.ucRAW);
+            y = bgnet_sizeof_channel(pCtrl, (union CH*)pCtrl->CHN[i].x01.ucRAW);
             byte2ascii(asciibuf01, sizeof(asciibuf01), pCtrl->CHN[i].x01.ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine01, sizeof(cLine01), cDevRow01,
                                                     pCtrl->CHN[i].x01.CounterRx.iCounter,
@@ -795,7 +795,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             strcpy(cLine00, cDevRow00E);
         } else {
             InUse++;
-            y = bgnet_channel_length(pCtrl, (union CH*)pCtrl->CHN[i].x00.ucRAW);
+            y = bgnet_sizeof_channel(pCtrl, (union CH*)pCtrl->CHN[i].x00.ucRAW);
             byte2ascii(asciibuf00, sizeof(asciibuf00), pCtrl->CHN[i].x00.ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine00, sizeof(cLine00), cDevRow00,
                                                     pCtrl->CHN[i].x00.CounterRx.iCounter,

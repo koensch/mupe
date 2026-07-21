@@ -201,6 +201,7 @@ typedef struct {        // for the FRAME header we use a pointer
 
 // command (byte 3)
 #define BGN_COMMAND_MAX                 0xFF
+#define BGN_COMMAND_INIT                0x00
 #define BGNET_FRAME_CMD_DATA            0x01 //DATA broadcast, variable length, instrument readings.
 #define BGNET_FRAME_CMD_LABEL           0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
                                              //  Ch#+3x bytes numerical+ascii string (variable length)+CS
@@ -520,6 +521,9 @@ union CH {
 #define BGN_FMT_08      0x08        // 16 bit unsigned register (0-999), optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
 #define BGN_FMT_18      0x18        // used by WA and OC
 #define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
+
+#define BGNET_CMD_LABEL 20
+
 // FMT Definition Table
 typedef struct {
     int iIndex;
@@ -531,11 +535,11 @@ typedef struct {
 #define BGNET_TYPE_MAX            17
 // Device Definition Table
 typedef struct {
-    char sProdName[20];
-    char sModelName[20];
-    char sModelNr[20];
-    char sSerialNr[20];
-    char sVersion[20];
+    char sProdName[BGNET_CMD_LABEL];
+    char sModelName[BGNET_CMD_LABEL];
+    char sModelNr[BGNET_CMD_LABEL];
+    char sSerialNr[BGNET_CMD_LABEL];
+    char sVersion[BGNET_CMD_LABEL];
     int iEnable;
     int iDeviceType;
 } BGNET_DEVDT;
@@ -547,26 +551,28 @@ typedef struct {
 #define BGN_CNR_IMPEXP_NMEA         1       // import from or export to NMEA2000
 #define BGN_CNR_IMPEXP_SIGNALK      2       // import from or export to SignalK
 
+#define BGNET_CMD_LABEL 20
+
 // Channel Definition Table
 typedef struct {
-    uint8_t ucChannelIndex;     // Channel index
-    char cLabel[20];            // the label, variable name
-    uint8_t ucFMT;              // default formatting
-    uint8_t ucFROM;             // instrument type that produces this channel
-    uint8_t ucFreq;             // frequency (0= none, 1=every run, 2= every other run, 3 = every 2nd run)
-    int iImpExpEnable;          // allow Import or Export
-    int iImportFrom;            // Import from NMEA2000 or SignalK
-    int iExportTo;              // Export to NMEA2000 of SignalK
-    int iNMEA_PGN;              // NMEA2000 reference PGN
-    char cSKdef[32];            // SignalK reference string 
+    uint8_t ucChannelIndex;         // Channel index
+    char cLabel[BGNET_CMD_LABEL];   // the label, variable name
+    uint8_t ucFMT;                  // default formatting
+    uint8_t ucFROM;                 // instrument type that produces this channel
+    uint8_t ucFreq;                 // frequency (0= none, 1=every run, 2= every other run, 3 = every 2nd run)
+    int iImpExpEnable;              // allow Import or Export
+    int iImportFrom;                // Import from NMEA2000 or SignalK
+    int iExportTo;                  // Export to NMEA2000 of SignalK
+    int iNMEA_PGN;                  // NMEA2000 reference PGN
+    char cSKdef[32];                // SignalK reference string 
 } BGNET_CHNDT;
 
 typedef struct {
-    uint8_t ucCommandIndex;     // Channel index
-    char cLabel[20];            // the label, variable name
+    uint8_t ucCommandIndex;         // Channel index
+    char cLabel[BGNET_CMD_LABEL];   // the label, variable name
 } BGNET_CMDDT;
 
-#define BGN_FRAME_SIZE    2048
+#define BGN_FRAME_SIZE    120       // a BGNET frame usually does not exceed 120 characters
 
 // register device statistics
 typedef struct {
@@ -574,9 +580,17 @@ typedef struct {
     BGNET_COUNT CounterRx;
     int iCSError_Header;
     int iCSError_Frame;
-    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
+    union {
+        unsigned char ucFrame[BGN_FRAME_SIZE];
+        FRAME_H FH;
+    } Rx;
+    //unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
     BGNET_COUNT CounterTx;
-    unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
+    union {
+        unsigned char ucFrame[BGN_FRAME_SIZE];
+        FRAME_H FH;
+    } Tx;
+    //unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
     size_t source;
 } BGN_DEVICE;
 
@@ -584,9 +598,17 @@ typedef struct {
 typedef struct {
     int iNewCommand; // new COMMAND was received
     BGNET_COUNT CounterRx;
-    unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
+    union {
+        unsigned char ucFrame[BGN_FRAME_SIZE];
+        FRAME_H FH;
+    } Rx;
+    //unsigned char ucFrameRx[BGN_FRAME_SIZE]; // most recent Rx frame (binary)
     BGNET_COUNT CounterTx;
-    unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
+    union {
+        unsigned char ucFrame[BGN_FRAME_SIZE];
+        FRAME_H FH;
+    } Tx;
+    //unsigned char ucFrameTx[BGN_FRAME_SIZE]; // most recent Tx frame (binary)
 } BGN_COMMAND;
 
 typedef struct {
@@ -689,11 +711,10 @@ size_t bgnet_process(BGNET_CTRL*, unsigned char*, size_t);
 void bgnet_initialize_reset(BGNET_CTRL*);
 void bgnet_initialize(BGNET_CTRL*);
 int bgnet_deviceindex(BGNET_CTRL*, unsigned char);
-size_t bgnet_channel_length(BGNET_CTRL*, union CH*);
-size_t bgnet_frame_length(unsigned char*);
-size_t bgnet_FRAME_length(FRAME_H*);
+size_t bgnet_sizeof_channel(BGNET_CTRL*, union CH*);
+size_t bgnet_sizeof_frame(FRAME_H*);
 char* strCommandLabel(BGNET_CTRL *, char *, unsigned char);
-size_t bgnet_encode_frame(unsigned char *, int, int, int, unsigned char *, int);
+size_t bgnet_encode_frame(FRAME_H*, int, int, int, unsigned char*, int);
 int makeRESPresponse(BGNET_CTRL *, unsigned char*);
 int makeWAresponse(BGNET_CTRL *, unsigned char*);
 int makeOCresponse(BGNET_CTRL *, unsigned char*);
@@ -707,6 +728,6 @@ void NMEAinit(NMEA2K_VALUE*, time_t);
 #define BGN_CMD_ASCII              48
 #define BGN_CMD_ASCII_SEP   " /.../ "
 #define BGN_CMD_DATA_TAIL           6
-char* CommandToAscii(char*, size_t, unsigned char*);
+char* CommandToAscii(char*, size_t, FRAME_H*);
 
 #endif
