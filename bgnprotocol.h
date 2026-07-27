@@ -157,7 +157,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (checksum)
 
 // FROM/TO adresses
-#define BGN_DEVICE_MAX                  0xFF
+#define BGNET_DEVICE_MAX                0xFF
 
 // TO 'group' broadcast adresses (byte 0)
 #define BGNET_FRAME_TO_ACP              0x00 // PILOT uses this to send KEEPALIVE command, possibly this is the ACP
@@ -182,7 +182,7 @@ typedef struct {        // for the FRAME header we use a pointer
 
 // FROM address range (0x?0-0x?F) for device types
 #define BGNET_TYPE_MASK                 0xF0 // mask the device type from the address
-#define BGNET_TYPE_NETACP               0x00 // could this be the ACP unit on the network? (it's also connected to the tails)
+#define BGNET_TYPE_NETACP               0x00 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
 #define BGNET_TYPE_FFD                  0x20
 #define BGNET_TYPE_NETQUAD              0x30 // confirmed
 #define BGNET_TYPE_NETPILOT             0x50 // confirmed
@@ -195,15 +195,16 @@ typedef struct {        // for the FRAME header we use a pointer
 // OK, i have a dilemma.....
 // when we want to send some data onto the net IO, i must have a FROM adrress (and implicit a 'devicetype'). I don't want to
 // conflict with real-world device adresses and devicetype.
-// i have decided to impersonate a ACP module with address 0F. I don't know if this is going to hurt myself in the end. It's
-// just a educated guess. Nobody will have an installation where the 16th ACP unit negotiates address 0x0F, so i think i'm safe.
+// i have decided to impersonate a ACP module with address 0x00. I don't know if this is going to hurt myself in the end. It's
+// just a educated guess.
 #define BGNET_ADDRESS_ME                0x00
 
 // command (byte 3)
-#define BGN_COMMAND_MAX                 0xFF
-#define BGN_COMMAND_INIT                0x00
-#define BGNET_FRAME_CMD_DATA            0x01 //DATA broadcast, variable length, instrument readings.
-#define BGNET_FRAME_CMD_LABEL           0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
+#define BGNET_COMMAND_MAX               0xFF
+#define BGNET_COMMAND_INIT              0x00
+
+#define BGNET_FRAME_CMD_01_DATA         0x01 //DATA broadcast, variable length, instrument readings.
+#define BGNET_FRAME_CMD_02_LABEL        0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
                                              //  Ch#+3x bytes numerical+ascii string (variable length)+CS
                                              //  QUAD:  20(TEMPC),31(ECHOSNR),41(BOATSPEEDKT),42(DEPTHM),4A(DEPTHM),64(AVGSPEEDKT),65(MAXSPEEDKT),75(TIMER),81(DRDISTANCENM),
                                              //         C4(DEPTHM),CD(LOGNM),CF(TRIPNM),D3(DRCOURSEM),FC(SHALLOWALARM),FD(DEPTHALARM),FE(ANCHORALARM),FF(DEPTHCAL)
@@ -218,51 +219,41 @@ typedef struct {        // for the FRAME header we use a pointer
                                              //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
                                              // QUAD: if you reconfigure the TEMP units, the new label is send with as 0x02/0x20 command to ALL (0xFF), making the DATA
                                              //       units to display the corresponding value & units, but the channel 0x20 still transmits the value as degreeC.
-#define BGNET_FRAME_CMD_LATLON          0x03 //DATA broadcast, variable length. ASCII transmission, for LAT/LON messages, used for
-                                             //channel 0x47 (LONLAT), not used on NETWORK series
-#define BGNET_FRAME_CMD_SUBSCRIBE       0x06 //at startup some stations (DATA/60) broadcast to providers (QUAD/30) a subscription request, payload= Ch#, CS
+#define BGNET_FRAME_CMD_06_SUBSCRIBE    0x06 //at startup some stations (DATA/60) broadcast to providers (QUAD/30) a subscription request, payload= Ch#, CS
                                              // DATA/60 to QUAD/30: FE(ANCHORALARM),FC(SHALLOWALARM),C4(DEPTHM),FD(DEPTHALARM),41(SPEEDKT),65(MAXSPEEDKT),
                                              //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTNM),D3(DRCOURSEM)
                                              //Note: Command is not send by DATA/60 when QUAD/30 is in 'repeater' mode.
-#define BGNET_FRAME_CMD_POWERUP         0x0A //at startup all stations (QUAD/30, PILOT/50, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
-                                             //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
-                                             //(no firmware version number is included in NETWORK series)
-#define BGNET_FRAME_CMD_PILOT_HELLO     0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
-                                             // PILOT: "00 51 00 0E A1" (no payload)
-                                             // PILOT broadcasts this command in 'normal' mode, and also in 'demo' mode.
-                                             // if PILOT receives a DATA command (with some minimal channels), it leaves the "NO PILOT" state
-#define BGNET_FRAME_CMD_PILOT_OCDAT     0x20 // 5 bytes payload after SET of WA minutes, CH = AF
-#define BGNET_FRAME_CMD_PILOT_WADAT     0x21 // 5 bytes payload after SET of WA minutes, CH = 76
-#define BGNET_FRAME_CMD_PILOT_DELTADAT  0xB1 // STEP/ADJUST -10/-1/+1/+10, 5 bytes payload (00 A6 01 FF F6) = -10
-#define BGNET_FRAME_CMD_POWEROFF        0xC8 //shutdown system, no payload. Does not work on NETWORK series devices "FF 70 00 C8 C9"
-#define BGNET_FRAME_CMD_BACKLIGHT       0xC9 // LIGHTS button pressed (all units) -> header + 1 bytes payload: {0|1|2|3}
-                                             // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
-                                             // cycles though 0-3-2-1-0
-#define BGNET_FRAME_CMD_QUAD_RESET      0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm)
-#define BGNET_FRAME_CMD_PILOT_DMPREQ    0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
-                                             // Note: DR_DISTNM is displayed on SPEED and DATA, not on QUAD.
-                                             // PILOT: 2 bytes payload (ACKSEQ, 0x49)
-#define BGNET_FRAME_CMD_PILOT_DMPDAT    0xCE
-#define BGNET_FRAME_CMD_PILOT_MANREQ    0xCF // 2 bytes payload (00 46), 46=AP_SPEED -> Response FST/MID/SLW
+#define BGNET_FRAME_CMD_0A_POWERUP        0x0A //at startup all stations (QUAD/30, PILOT/50, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
+                                               //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
+                                               //(no firmware version number is included in NETWORK series)
+#define BGNET_FRAME_CMD_0E_PILOT_HELLO    0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
+                                               // PILOT: "00 51 00 0E A1" (no payload)
+                                               // PILOT broadcasts this command in 'normal' mode, and also in 'demo' mode.
+                                               // if PILOT receives a DATA command (with some minimal channels), it leaves the "NO PILOT" state
+#define BGNET_FRAME_CMD_20_PILOT_OCDAT    0x20 // 5 bytes payload after SET of WA minutes, CH = AF
+#define BGNET_FRAME_CMD_21_PILOT_WADAT    0x21 // 5 bytes payload after SET of WA minutes, CH = 76
+#define BGNET_FRAME_CMD_B1_PILOT_DELTADAT 0xB1 // STEP/ADJUST -10/-1/+1/+10, 5 bytes payload (00 A6 01 FF F6) = -10
+#define BGNET_FRAME_CMD_C9_BACKLIGHT      0xC9 // LIGHTS button pressed (all units) -> header + 1 bytes payload: {0|1|2|3}
+                                               // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
+                                               // cycles though 0-3-2-1-0
+#define BGNET_FRAME_CMD_CB_QUAD_RESET     0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm)
+#define BGNET_FRAME_CMD_CD_PILOT_DMPREQ   0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
+                                               // Note: DR_DISTNM is displayed on SPEED and DATA, not on QUAD.
+                                               // PILOT: 2 bytes payload (ACKSEQ, 0x49)
+#define BGNET_FRAME_CMD_CE_PILOT_DMPDAT   0xCE
+#define BGNET_FRAME_CMD_CF_PILOT_MANREQ   0xCF // 2 bytes payload (00 46), 46=AP_SPEED -> Response FST/MID/SLW
 
-#define BGNET_FRAME_CMD_PILOT_SPDREQ    0xD0 // 2 bytes payload (00 46), 46= AP_SPEED
-#define BGNET_FRAME_CMD_PILOT_RESPREQ   0xD1 // 2 bytes payload (00 A6), Steering Response N/E/D (Normal, Economy, Downwind)
-#define BGNET_FRAME_CMD_PILOT_AM        0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5?
-#define BGNET_FRAME_CMD_PILOT_MODE      0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
-                                             //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRAnsmitter, 1=MANual, 2=SOG)
-#define BGNET_FRAME_CMD_PILOT_RESPDAT   0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: RESP MODE (0=Normal, 1=Eco, 2=Downwind)
-#define BGNET_FRAME_CMD_PILOT_STEPDAT   0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}, is followed by
-                                             // command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
-#define BGNET_FRAME_CMD_PILOT_WAREQ     0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
-#define BGNET_FRAME_CMD_PILOT_OCREQ     0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
-#define BGNET_FRAME_CMD_ALARMOFF        0xE7 // alarm silence, 2 byte payload (sequence ID, alarming channel)
-#define BGNET_FRAME_CMD_ALARMTGL        0xE8 // alarm toggle, 2 byte payload (sequence ID, alarming channel)
-#define BGNET_FRAME_CMD_PAGECHANGE      0xF6 // 1 byte payload, pagenumber
-#define BGNET_FRAME_CMD_PAGECONFIG      0xF7 // variable length payload
-#define BGNET_FRAME_CMD_PAGESAVE        0xF8 // save page configuration
-#define BGNET_FRAME_CMD_RESET           0xFE // reset adresss modules to factory default, no data. Does not work on NETWORK series devices.
-                                             // FF 70 00 FE C9
-#define BGNET_FRAME_CMD_ACK             0xFD // 1 byte payload
+#define BGNET_FRAME_CMD_D0_PILOT_SPDREQ   0xD0 // 2 bytes payload (00 46), 46= AP_SPEED
+#define BGNET_FRAME_CMD_D1_PILOT_RESPREQ  0xD1 // 2 bytes payload (00 A6), Steering Response N/E/D (Normal, Economy, Downwind)
+#define BGNET_FRAME_CMD_D3_PILOT_AM       0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5?
+#define BGNET_FRAME_CMD_D4_PILOT_MODE     0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
+                                               //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRAnsmitter, 1=MANual, 2=SOG)
+#define BGNET_FRAME_CMD_D5_PILOT_RESPDAT  0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: RESP MODE (0=Normal, 1=Eco, 2=Downwind)
+#define BGNET_FRAME_CMD_DC_PILOT_STEPDAT  0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}, is followed by
+                                               // command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
+#define BGNET_FRAME_CMD_DE_PILOT_WAREQ    0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
+#define BGNET_FRAME_CMD_DF_PILOT_OCREQ    0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
+#define BGNET_FRAME_CMD_ACK               0xFD // 1 byte payload
 
 // layout of the VALUE (1 or more in the payload of a DATA command)
 #define BGN_VALUE_HEAD              2   // number of bytes in VALUE header
@@ -278,7 +269,7 @@ typedef struct {        // for the FRAME header we use a pointer
     #define BGN_FMT_MASK_DT          0x0F    // bits 3,2,1,0  - DataType
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
-#define BGN_CHANNEL_MAX             0xFF // for sizing purposes (range 00-FF, both including) add 1 for sizing purpose
+#define BGNET_CHANNEL_MAX           0xFF // for sizing purposes (range 00-FF, both including) add 1 for sizing purpose
 #define BGN_CNR_00_NODERESET        0X00
 #define BGN_CNR_01_UNKNOWN          0X01
 #define BGN_CNR_03_UNKNOWN          0X03
@@ -706,9 +697,9 @@ typedef struct {
 
 
     BGN_ACP ACP; // ACP status
-    BGN_DEVICE DEV[BGN_DEVICE_MAX]; // device statistics
-    BGN_COMMAND CMD[BGN_COMMAND_MAX]; // commands statistics
-    BGN_CHANNEL CHN[BGN_CHANNEL_MAX]; // channels statistics
+    BGN_DEVICE DEV[BGNET_DEVICE_MAX]; // device statistics
+    BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // commands statistics
+    BGN_CHANNEL CHN[BGNET_CHANNEL_MAX]; // channels statistics
 #define BGN_NEW_SET     1
 #define BGN_NEW_RESET   0
     int iNewDevice;     // any new DEVICE data was received (scan though DEV structure)

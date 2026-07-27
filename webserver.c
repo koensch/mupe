@@ -501,7 +501,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(cLine, "");
     strcpy(Buffer, "");
     time(&t);
-    for (i=0; i<BGN_DEVICE_MAX; i++) {
+    for (i=0; i<BGNET_DEVICE_MAX; i++) {
         if ((pCtrl->DEV[i].CounterRx.iCounter < 1) & (pCtrl->DEV[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
@@ -677,7 +677,7 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(cLine, "");
     strcpy(Buffer, "");
     time(&t);
-    for (i=0; i<BGN_COMMAND_MAX; i++) {
+    for (i=0; i<BGNET_COMMAND_MAX; i++) {
         if ((pCtrl->CMD[i].CounterRx.iCounter < 1) & (pCtrl->CMD[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
@@ -722,7 +722,7 @@ static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
             "<th>Count</th><th>Sec</th><th>LastRaw</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>TO</th><th>FROM</th><th>CMD</th><th>Display</th>"
             "</tr>";
-    snprintf(cLine, sizeof(cLine), cChnTop, strCommandLabel(pCtrl, asciibuf01, BGNET_FRAME_CMD_DATA), strCommandLabel(pCtrl, asciibuf02, BGNET_FRAME_CMD_LABEL), strCommandLabel(pCtrl, asciibuf06, BGNET_FRAME_CMD_SUBSCRIBE));
+    snprintf(cLine, sizeof(cLine), cChnTop, strCommandLabel(pCtrl, asciibuf01, BGNET_FRAME_CMD_01_DATA), strCommandLabel(pCtrl, asciibuf02, BGNET_FRAME_CMD_02_LABEL), strCommandLabel(pCtrl, asciibuf06, BGNET_FRAME_CMD_06_SUBSCRIBE));
     strcpy(Buffer, cLine);
     return(Buffer);
 }
@@ -753,7 +753,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(Buffer, "");
     time(&t);
 
-    for (i=0; i<BGN_CHANNEL_MAX; i++) {
+    for (i=0; i<BGNET_CHANNEL_MAX; i++) {
         InUse = 0;
         if ((pCtrl->CHN[i].x01.CounterRx.iCounter < 1)) {
             strcpy(cLine01, cDevRow01E);
