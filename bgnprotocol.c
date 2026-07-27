@@ -12,46 +12,111 @@
 #include "logger.h"
 #include "bgnprotocol.h"
 
-// calculate the checksum over a bytes sequence.
-// Used generate a CR for sending messages, and checking the received CR
-unsigned char bgnet_checksum(unsigned char *buf, unsigned char init, int start, int max) {
-    int i;
-    unsigned char c = -init;
-    for (i=start; i<(start+max); i++) {
-        c -= buf[i];
-    }
-    return (c);
-}
-
-// if (bgnet_checksum_frame_head(unsigned char* pBuf) == BGNET_CHECKSUM_OK) {
-// }
-#define BGNET_CHECKSUM_OK   0x01
-unsigned char bgnet_checksum_frame_head(unsigned char* pBuf) {
-    unsigned char r, cs;
-    cs = bgnet_checksum(pBuf, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1); // calculate the checksum over the header (without the CR)
-    if (pBuf[BGNET_FRAME_HEAD_CS] == cs) {
-        r = BGNET_CHECKSUM_OK;
-    } else {
-        r = ~BGNET_CHECKSUM_OK;
+#define BGNET_COMMANDTYPE_REQ   1
+#define BGNET_COMMANDTYPE_DTA   2
+#define BGNET_COMMANDTYPE_ACK   3
+#define BGNET_COMMANDTYPE_NORM  0
+unsigned char bgnet_command_type(FRAME_H* pF) {
+    unsigned char r;
+    switch(pF->CMD) {
+        case BGNET_FRAME_CMD_PILOT_DMPREQ:
+        case BGNET_FRAME_CMD_PILOT_MANREQ:
+        case BGNET_FRAME_CMD_PILOT_SPDREQ:
+        case BGNET_FRAME_CMD_PILOT_RESPREQ:
+        case BGNET_FRAME_CMD_PILOT_WAREQ:
+        case BGNET_FRAME_CMD_PILOT_OCREQ:
+            r = BGNET_COMMANDTYPE_REQ;
+            break;
+        case BGNET_FRAME_CMD_PILOT_OCDAT:
+        case BGNET_FRAME_CMD_PILOT_WADAT:
+        case BGNET_FRAME_CMD_PILOT_DELTADAT:
+        case BGNET_FRAME_CMD_PILOT_MODE:
+        case BGNET_FRAME_CMD_PILOT_RESPDAT:
+            r = BGNET_COMMANDTYPE_DTA;
+            break;
+        case BGNET_FRAME_CMD_ACK:
+            r = BGNET_COMMANDTYPE_ACK;
+            break;
+        default:
+            r = BGNET_COMMANDTYPE_NORM;
+            break;
     }
     return(r);
 }
 
-// we have the obscure phenomenon that in some cases, there is a error between the received and calculated payload checksum of 0x03
-// i believe that for some commands, appearently a different seed is used. I have not figured-out (yet) when that other seed is used.
-// for the time being, i allow both seeds
-unsigned char bgnet_checksum_frame_payload(unsigned char* pBuf) {
+#define BGNET_FRAME_ACKSEQ  0
+// when the ACKSEQ is a multple of 13 (0x0D) we see weird things:
+// the 0A phenomenon: the next CMD-REQ/CMD-DAT/CMD-ACK handshake after 0x0C, we expect the ACKSEQ to be 0x0D, but we get 0x0A, causing a CS error. But if we
+//                    correct the CS-SEED, the PILOT does not accept our CMD-DAT reply. If we replace/patch the 0x0A with 0x0D in the received CMD-REQ, the
+//                    receiving frame's CS is OK and when we send a CMD-DAT with the ACKSEQ with the 0x0D, every thing seems fine.
+// the 13 phenomenon: We still observer a CS error when the ACKSEQ we receive is a multiple of 13 (0x0D). It was obverved with 0x27 (3x13=39=0x27) and with
+//                    0xEE (12x13=238=0xEE).
+//                    My guess is that the "0A phenomenon" is an instance of the "13 phenomenon" in disquise
+// If this behavour is intended (to confuse reverse-engineering), a bug or a work-around for some other phenomenon, i don't know.
+// I have deliberated to skip the CS checking entirely for every CMD-REQ/CMD-DAT/CMD-ACK sequence that follows a multiple of 12, but decided not to do so. This
+// allows me to investigate CS errors and come up with a 100% solution
+unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H* pF) {
+    unsigned char r;
+    r = BGNET_FRAME_CR_FRAME;
+    if ((pF->FROM == BGNET_TYPE_NETPILOT) & (bgnet_command_type(pF) == BGNET_COMMANDTYPE_REQ)) {
+        if (pCtrl->ACP.weird.ACKSEQ > pF->payload[BGNET_FRAME_ACKSEQ]) {
+            // out of sequence, this is weird
+            log_debug("ACKSEQ out-of-sequence: 0x%02X (received) vs 0x%02X (stored)", pF->payload[BGNET_FRAME_ACKSEQ], pCtrl->ACP.weird.ACKSEQ);
+            // keep the default SEED, but patch the ACKSEQ to the correct value
+            switch (pF->payload[BGNET_FRAME_ACKSEQ]) {
+                case 0x0A:
+                    pF->payload[BGNET_FRAME_ACKSEQ] = 0x0D;  // correct ACKSEQ, makes calculated CS correct against the received CS
+                    break;
+            }
+        } else {
+            if (pF->payload[BGNET_FRAME_ACKSEQ] == 0xFF) {
+                // roll-over when at 0xFF
+                pCtrl->ACP.weird.ACKSEQ = 0;
+            } else {
+                pCtrl->ACP.weird.ACKSEQ = pF->payload[BGNET_FRAME_ACKSEQ];
+            }
+        }
+    }
+    return(r);
+}
+
+// calculate the checksum over a bytes sequence.
+// Used generate a CR for sending messages, and checking the received CR
+unsigned char bgnet_checksum(unsigned char *pBuf, unsigned char init, int start, int max) {
+    int i;
+    unsigned char c = -init;
+    for (i=start; i<(start+max); i++) {
+        c -= pBuf[i];
+    }
+    return (c);
+}
+unsigned char bgnet_checksum_head_calc(FRAME_H* pF) {
+    return(bgnet_checksum((unsigned char*)pF, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1));
+}
+unsigned char bgnet_checksum_frame_calc(BGNET_CTRL* pCtrl, FRAME_H* pF) {
+    return(bgnet_checksum(pF->payload, pCtrl->ACP.weird.FRAME_SEED, 0, pF->PL));
+}
+#define BGNET_CHECKSUM_OK   0x01
+unsigned char bgnet_checksum_head_check(FRAME_H* pF) {
     unsigned char r, cs;
-    cs = bgnet_checksum(&pBuf[BGNET_FRAME_HEAD], BGNET_FRAME_CR_FRAME, 0, pBuf[BGNET_FRAME_HEAD_SIZE]); // calculate the checksum over the payload
-    if (pBuf[BGNET_FRAME_HEAD+pBuf[BGNET_FRAME_HEAD_SIZE]] == cs) {
+    cs = bgnet_checksum_head_calc(pF);
+    if (pF->CSH == cs) {
         r = BGNET_CHECKSUM_OK;
     } else {
-        cs = bgnet_checksum(&pBuf[BGNET_FRAME_HEAD], 0x59, 0, pBuf[BGNET_FRAME_HEAD_SIZE]); // calculate the checksum over the payload
-        if (pBuf[BGNET_FRAME_HEAD+pBuf[BGNET_FRAME_HEAD_SIZE]] == cs) {
-            r = BGNET_CHECKSUM_OK;
-        } else {
-            r = ~BGNET_CHECKSUM_OK;
-        }
+        r = ~BGNET_CHECKSUM_OK;
+        log_error("  Header Checksum ERR, framesize: %d (received: 0x%02X, calculated: 0x%02X)", bgnet_sizeof_frame(pF), pF->payload[pF->PL], cs);
+    }
+    return(r);
+}
+unsigned char bgnet_checksum_frame_check(BGNET_CTRL* pCtrl, FRAME_H* pF) {
+    unsigned char r, cs;
+    pCtrl->ACP.weird.FRAME_SEED = bgnet_weird_seed(pCtrl, pF); // we are doing something weird
+    cs = bgnet_checksum_frame_calc(pCtrl, pF);
+    if (pF->payload[pF->PL] == cs) {
+        r = BGNET_CHECKSUM_OK;
+    } else {
+        r = ~BGNET_CHECKSUM_OK;
+        log_error("    Frame Checksum ERR, framesize: %d (received: 0x%02X, calculated: 0x%02X, seed= 0x%02X)", bgnet_sizeof_frame(pF), pF->payload[pF->PL], cs, pCtrl->ACP.weird.FRAME_SEED);
     }
     return(r);
 }
@@ -106,14 +171,6 @@ void log_debug_frame(FRAME_H* pF) {
     byte2ascii(asciibuf, sizeof(asciibuf), (unsigned char*)pF, bgnet_sizeof_frame(pF), BYTE2ASCII_SPACED);
     log_debug("log_debug_frame: Command 0x%02X -> %s", pF->CMD, asciibuf);
 }
-// store a ASC-SEQ in a CMD-REQ
-unsigned char ACPAckSeqGet(BGNET_CTRL *pCtrl, FRAME_H* pF, time_t t) {
-    unsigned char r;
-    r = (unsigned char)(pCtrl->ACP.CommandACK.Counter.iCounter & 0xFF);
-    pCtrl->ACP.CommandACK.value.nByte = pF->CMD;
-    CounterUp(&pCtrl->ACP.CommandACK.Counter, t);
-    return(r);
-}
 
 // a reset is usually done:
 // - at startup of this driver
@@ -134,6 +191,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
     } else {
         // note: we do NOT iniliaize the pointers to the data structures. These are set upon start and never change
 
+        pCtrl->ACP.weird.ACKSEQ = 0x00;
+        pCtrl->ACP.weird.FRAME_SEED = BGNET_FRAME_CR_FRAME;
+
         // stage 1: set state 'initialized'
         time(&t); // save timestamp to we use same timestamp everywhere
         pCtrl->iInitialized = BGNET_CTRL_INIT; // mark as initialized
@@ -148,11 +208,6 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.PILOT.value.nLong = BGN_PILOT_SET;
         pCtrl->ACP.PILOT.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->ACP.PILOT.Counter, t);
-
-        // CMD counter (used to send ACKSEQ values to PILOT)
-        pCtrl->ACP.CMD.value.nLong = 0;
-        pCtrl->ACP.CMD.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->ACP.CMD.Counter, t);
 
         // initialize AutoPilot to STBY/COMP; joystick OFF
         pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
@@ -176,13 +231,21 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.SETUP_RESP.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->ACP.SETUP_RESP.Counter, t);
 
-        pCtrl->ACP.SETUP_WA.value.nLong = 14; // default value is 4 minutes, range 1-360 (so it must be a 16 bits register)
-        pCtrl->ACP.SETUP_WA.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->ACP.SETUP_WA.Counter, t);
+        pCtrl->ACP.SETUP_WA_MIN.value.nLong = 14; // default value is 4 minutes, range 1-360 (so it must be a 16 bits register)
+        pCtrl->ACP.SETUP_WA_MIN.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.SETUP_WA_MIN.Counter, t);
 
-        pCtrl->ACP.SETUP_OC.value.nLong = 25; // default value is 15degrees; range 1-99
-        pCtrl->ACP.SETUP_OC.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->ACP.SETUP_OC.Counter, t);
+        pCtrl->ACP.SETUP_WA_STAT.value.nLong = 0; // default is OFF
+        pCtrl->ACP.SETUP_WA_STAT.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.SETUP_WA_STAT.Counter, t);
+
+        pCtrl->ACP.SETUP_OC_DEG.value.nLong = 25; // default value is 15degrees; range 1-99
+        pCtrl->ACP.SETUP_OC_DEG.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.SETUP_OC_DEG.Counter, t);
+
+        pCtrl->ACP.SETUP_OC_STAT.value.nLong = 0; // default is OFF
+        pCtrl->ACP.SETUP_OC_STAT.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.SETUP_OC_STAT.Counter, t);
 
         pCtrl->ACP.SETUP_JSM.value.nLong = 1; // Joystick Steering Mode (Normal, Proportional)
         pCtrl->ACP.SETUP_JSM.source = BGN_SOURCE_ACP;
@@ -290,23 +353,23 @@ char* strCommandLabel(BGNET_CTRL *pCtrl, char *pBuf, unsigned char ucCMD) {
 };
 
 // encode a frame (with or without payload)
-size_t bgnet_encode_frame(FRAME_H* pFH, int iTo, int iFrom, int iCmd, unsigned char *payload, int payloadlength) {
+size_t bgnet_encode_frame(BGNET_CTRL* pCtrl, FRAME_H* pFH, int iTo, int iFrom, int iCmd, unsigned char *payload, int payloadlength) {
     pFH->TO = iTo;
     pFH->FROM = iFrom;
     pFH->PL = payloadlength;
     pFH->CMD = iCmd;
-    pFH->CSH = bgnet_checksum((unsigned char*)pFH, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1);
+    pFH->CSH = bgnet_checksum_head_calc(pFH);
     if (payloadlength == 0) {
         // nothing to do
     } else {
         memcpy(pFH->payload, payload, payloadlength);
-        pFH->payload[payloadlength] = bgnet_checksum(pFH->payload, BGNET_FRAME_CR_FRAME, 0, payloadlength);
+        pFH->payload[payloadlength] = bgnet_checksum_frame_calc(pCtrl, pFH);
     }
     return(bgnet_sizeof_frame(pFH));
 }
 
 // this one usually sends 8 channels
-int makeQUADresponse2(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeQUADresponse2(BGNET_CTRL* pCtrl, unsigned char* payload) {
     int r=0, c;
     union CH* puCH;
 
@@ -543,13 +606,13 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char* payload) {
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     // SPEED source selector (0-n)
-    c = BGN_CNR_46_AP_SPEED;
-    puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uB[0] = 0;
-    puCH->s.cv.uB[1] = pCtrl->ACP.SETUP_SPD.value.nByte;
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+//    c = BGN_CNR_46_AP_SPEED;
+//    puCH = (union CH*)&(payload[r]);
+//    puCH->s.CH = c;
+//    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+//    puCH->s.cv.uB[0] = 0;
+//    puCH->s.cv.uB[1] = pCtrl->ACP.SETUP_SPD.value.nByte;
+//    r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     return(r);
 }
@@ -803,40 +866,44 @@ int makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
 int makeWAresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     int r = 0,c;
     union CH* puCH;
-
-    c = BGN_CNR_76_AP_WA_ALARM; // WA limit
+    c = BGN_CNR_76_AP_WA_ALARM; // WA limit (minutes) and ON/OFF status
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->ACP.SETUP_WA.value.nLong);
+    if (pCtrl->ACP.SETUP_WA_STAT.value.nLong == 0) {
+        puCH->s.FMT = BGN_FMT_08 ;
+    } else {
+        puCH->s.FMT = BGN_FMT_18 ;
+    }
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.SETUP_WA_MIN.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
     return (r);
 }
 int makeOCresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     int r = 0,c;
     union CH* puCH;
-
-    c = BGN_CNR_AF_AP_OC_ALARM; // OC limit
+    c = BGN_CNR_AF_AP_OC_ALARM; // OC limit (degress) amd ON/OFF status
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->ACP.SETUP_OC.value.nLong);
+    if (pCtrl->ACP.SETUP_OC_STAT.value.nLong == 0) {
+        puCH->s.FMT = BGN_FMT_08 ;
+    } else {
+        puCH->s.FMT = BGN_FMT_18 ;
+    }
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.SETUP_OC_DEG.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
     return (r);
 }
 int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     int r = 0,c;
     union CH* puCH;
 
-    c = BGN_CNR_46_AP_SPEED; // SPEED source selector
-    puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uB[0] = 0;
-    puCH->s.cv.uB[1] = pCtrl->ACP.SETUP_SPD.value.nByte;
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+//    c = BGN_CNR_46_AP_SPEED; // SPEED source selector
+//    puCH = (union CH*)&(payload[r]);
+//    puCH->s.CH = c;
+//    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+//    puCH->s.cv.uB[0] = 0;
+//    puCH->s.cv.uB[1] = pCtrl->ACP.SETUP_SPD.value.nByte;
+//    r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGN_CNR_41_BOATSPEEDKT;
     puCH = (union CH*)&(payload[r]);
@@ -1373,16 +1440,14 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
         // log received frame (at least, i hope it's a frame)
         log_debug_frame(pFRx);
 
-        if (bgnet_checksum_frame_head(pBuf) == BGNET_CHECKSUM_OK) {
-        //cs = bgnet_checksum(pBuf, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1); // calculate the checksum over the header (without the CR)
-        //if (pFRx->CSH == cs) {
+        // if the HEAD-CR is OK, we can safely assume the byte stream is a BGNET frame
+        if (bgnet_checksum_head_check(pFRx) == BGNET_CHECKSUM_OK) {
+            // The HEADER is OK, process it. Note that some CMD's do not have a body and in such case, we should skip the body & CS part.
+            RxSize = bgnet_sizeof_frame(pFRx); // expected framesize
             // check if this subframe is adressed TO us and not FROM us
             if (pFRx->FROM == BGNET_ADDRESS_ME) {
-                RxSize = (buffer+len) - pBuf; // dump the remainder of the frame; it's a readback of my own transmission
+                // do not process this (sub)frame
             } else {
-                // The HEADER is OK, process it. Note that some CMD's do not have a body and in such case, we should skip the body & CS part.
-                RxSize = bgnet_sizeof_frame(pFRx); // expected framesize
-
                 // When we receive someting from the network, we register it, regardless whether it has a CS error,
                 // or if we will discard it.
                 // The reason is, that if we have a 'active' node on the BGNET, we must avoid a situation where we allow
@@ -1414,7 +1479,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                             // this reply gets the PILOT out of the "No PILOT" state
                             pFTx = (FRAME_H*)&TxBuf[TxSize];
                             len_pl = makeACPresponseMINI(pCtrl, payload);
-                            len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                            len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                             register_DATA_frame(pCtrl, pFTx);
                             memcpy(pCtrl->CMD[BGNET_FRAME_CMD_DATA].Tx.ucFrame, pFTx, len_msg);
                             CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].CounterTx, t);
@@ -1456,9 +1521,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                     }
                 } else {
                     // frame has some payload; check CR over the payload
-                    if (bgnet_checksum_frame_payload(pBuf) == BGNET_CHECKSUM_OK) {
-                    //cs = bgnet_checksum(pFRx->payload, BGNET_FRAME_CR_FRAME, 0, pFRx->PL);
-                    //if (pFRx->payload[pFRx->PL] == cs) {
+                    if (bgnet_checksum_frame_check(pCtrl, pFRx) == BGNET_CHECKSUM_OK) {
                         switch(pFRx->CMD) {
                             case BGNET_FRAME_CMD_DATA:
                                 // process DATA command (broadcast)
@@ -1499,6 +1562,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                     case BGNET_FRAME_CMD_PILOT_DMPREQ:
                                     case BGNET_FRAME_CMD_PILOT_DMPDAT:
                                     // FRREQ is carried via SPDREQ, FRDAT is carried via PILOT_MODE
+                                    case BGNET_FRAME_CMD_PILOT_MANREQ: // manual speed selection
 
                                     // PILOT KEY actions
                                     case BGNET_FRAME_CMD_PILOT_AM:
@@ -1572,7 +1636,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         // make DATA command (to ALL, so also other PILOT units, if present, receive it)
                                                         len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                                                         register_DATA_frame(pCtrl, pFTx);
                                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_DATA].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].CounterTx, t);
@@ -1612,7 +1676,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         // make DATA command (to ALL, so also other PILOT units, if present, receive it)
                                                         len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                                                         register_DATA_frame(pCtrl, pFTx);
                                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_DATA].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].CounterTx, t);
@@ -1675,7 +1739,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         //payload[4] = pCtrl->ACP.SETUP_SPD.value.nByte;
                                                         len_pl = 5;
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_MODE, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_MODE, payload, len_pl);
 
                                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_PILOT_MODE].CounterTx, t);
@@ -1688,18 +1752,30 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         //payload[0] = ACPAckSeqGet(pCtrl, pFRx, t);
                                                         payload[0] = pFRx->payload[0];
                                                         payload[1] = BGN_CNR_07_AP_FR;
-                                                        payload[2] = BGN_FMT_01;
+                                                        payload[2] = BGN_FMT_08;
                                                         payload[3] = 0;
                                                         payload[4] = pCtrl->ACP.SETUP_FR.value.nByte;
                                                         len_pl = 5;
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_MODE, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_MODE, payload, len_pl);
 
                                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_PILOT_MODE].CounterTx, t);
                                                         memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                                         TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_FRAME_CMD_PILOT_MANREQ:
+                                                // in SPEED/SETUP, the RESPONSE parameter is configured, 2 bytes payload.
+                                                // 0=ACKSEQ, 1=0x46
+                                                switch(pCHRx->s.CH) {
+                                                    case BGN_CNR_46_AP_SPEED:
+                                                        payload[0] = pFRx->payload[0];
+                                                        pCHTx = (union CH*)&payload[1];
+                                                        pCHTx->s.CH = 0;
+                                                        // koen
                                                         break;
                                                 }
                                                 break;
@@ -1717,7 +1793,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         payload[4] = pCtrl->ACP.SETUP_RESP.value.nByte;
                                                         len_pl = 5;
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_RESPDAT, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_RESPDAT, payload, len_pl);
 
                                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_PILOT_RESPDAT].CounterTx, t);
@@ -1754,16 +1830,18 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 switch(pCHRx->s.CH) {
                                                     case BGN_CNR_76_AP_WA_ALARM:
                                                         // create command with current WA SELECT
-                                                        //payload[0] = ACPAckSeqGet(pCtrl, pFRx, t);
                                                         payload[0] = pFRx->payload[0];
-                                                        payload[1] = BGN_CNR_76_AP_WA_ALARM;
-                                                        payload[2] = BGN_FMT_18;
-                                                        uint16_t uwTemp = htons(pCtrl->ACP.SETUP_WA.value.nLong);
-                                                        payload[3] = (unsigned char)(uwTemp & 0x00FF);
-                                                        payload[4] = (unsigned char)((uwTemp & 0xFF00) >> 8);
+                                                        pCHTx = (union CH*)&payload[1];
+                                                        pCHTx->s.CH = BGN_CNR_76_AP_WA_ALARM;
+                                                        if (pCtrl->ACP.SETUP_WA_STAT.value.nLong == 0) {
+                                                            pCHTx->s.FMT = BGN_FMT_08;
+                                                        } else {
+                                                            pCHTx->s.FMT = BGN_FMT_18;
+                                                        }
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.SETUP_WA_MIN.value.nLong);
                                                         len_pl = 5;
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_WADAT, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_WADAT, payload, len_pl);
                                                         
                                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_PILOT_WADAT].CounterTx, t);
@@ -1778,19 +1856,39 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 // 0=ACKSEQ, 1=0x76, 2=FMT_01, 3/4=WA limit in minutes (1-360)
                                                 switch(pCHRx->s.CH) {
                                                     case BGN_CNR_76_AP_WA_ALARM:
-                                                        // update the channel value 
-                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                        pCtrl->ACP.SETUP_WA.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                        pCtrl->ACP.SETUP_WA.source = BGN_SOURCE_BGNET;
-                                                        CounterUp(&pCtrl->ACP.SETUP_WA.Counter, t);
+                                                        // update the channel value last, so we can compare if anything changed
+                                                        pCHTx = (union CH*)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
+                                                        if (pCHTx->s.FMT == pCHRx->s.FMT) {
+                                                            // no change
+                                                        } else {
+                                                           if (pCHRx->s.FMT == BGN_FMT_08) {
+                                                                pCtrl->ACP.SETUP_WA_STAT.value.nLong = 0;
+                                                            } else {
+                                                                pCtrl->ACP.SETUP_WA_STAT.value.nLong = 1;
+                                                            }
+                                                            pCtrl->ACP.SETUP_WA_STAT.source = BGN_SOURCE_BGNET;
+                                                            CounterUp(&pCtrl->ACP.SETUP_WA_STAT.Counter, t);
+                                                        }
+                                                        if (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0]) {
+                                                            // no change
+                                                        } else {
+                                                            pCtrl->ACP.SETUP_WA_MIN.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                            pCtrl->ACP.SETUP_WA_MIN.source = BGN_SOURCE_BGNET;
+                                                            CounterUp(&pCtrl->ACP.SETUP_WA_MIN.Counter, t);
+                                                        }
+                                                        // update the channel value (if something changed)
+                                                        if ((pCHTx->s.FMT == pCHRx->s.FMT) & (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0])) {
+                                                            // no change                                                        
+                                                        } else {
+                                                            pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                            y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                            memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                            decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                            CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        }
                                                         break;
                                                 }
                                                 break;
@@ -1800,15 +1898,18 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 switch(pCHRx->s.CH) {
                                                     case BGN_CNR_AF_AP_OC_ALARM:
                                                         // create command with current OC SELECT
-                                                        //payload[0] = ACPAckSeqGet(pCtrl, pFRx, t);
                                                         payload[0] = pFRx->payload[0];
                                                         pCHTx = (union CH*)&payload[1];
                                                         pCHTx->s.CH = BGN_CNR_AF_AP_OC_ALARM;
-                                                        pCHTx->s.FMT = BGN_FMT_18;
-                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.SETUP_OC.value.nLong);
+                                                        if (pCtrl->ACP.SETUP_OC_STAT.value.nLong == 0) {
+                                                            pCHTx->s.FMT = BGN_FMT_08;
+                                                        } else {
+                                                            pCHTx->s.FMT = BGN_FMT_18;
+                                                        }
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.SETUP_OC_DEG.value.nLong);
                                                         len_pl = 5;
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_OCDAT, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_OCDAT, payload, len_pl);
                                                         
                                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_PILOT_OCDAT].CounterTx, t);
@@ -1823,19 +1924,39 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 // 0=ACKSEQ, 1=0x76, 2=FMT_01, 3/4=OC limit in degrees (1-99)
                                                 switch(pCHRx->s.CH) {
                                                     case BGN_CNR_AF_AP_OC_ALARM:
-                                                        // update the channel value 
-                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                        pCtrl->ACP.SETUP_OC.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                        pCtrl->ACP.SETUP_OC.source = BGN_SOURCE_BGNET;
-                                                        CounterUp(&pCtrl->ACP.SETUP_OC.Counter, t);
+                                                        // update the channel value last, so we can compare if anything changed
+                                                        pCHTx = (union CH*)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
+                                                        if (pCHTx->s.FMT == pCHRx->s.FMT) {
+                                                            // no change
+                                                        } else {
+                                                           if (pCHRx->s.FMT == BGN_FMT_08) {
+                                                                pCtrl->ACP.SETUP_OC_STAT.value.nLong = 0;
+                                                            } else {
+                                                                pCtrl->ACP.SETUP_OC_STAT.value.nLong = 1;
+                                                            }
+                                                            pCtrl->ACP.SETUP_OC_STAT.source = BGN_SOURCE_BGNET;
+                                                            CounterUp(&pCtrl->ACP.SETUP_OC_STAT.Counter, t);
+                                                        }
+                                                        if (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0]) {
+                                                            // no change
+                                                        } else {
+                                                            pCtrl->ACP.SETUP_OC_DEG.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                            pCtrl->ACP.SETUP_OC_DEG.source = BGN_SOURCE_BGNET;
+                                                            CounterUp(&pCtrl->ACP.SETUP_OC_DEG.Counter, t);
+                                                        }
+                                                        // update the channel value (if something changed)
+                                                        if ((pCHTx->s.FMT == pCHRx->s.FMT) & (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0])) {
+                                                            // no change                                                        
+                                                        } else {
+                                                            pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                            y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                            memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                            decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                            CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        }
                                                         break;
                                                 }
                                                 break;
@@ -1857,7 +1978,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.CourseTarget.value.nLong);
                                                         len_pl = 5;
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_DATA, payload, len_pl);
                                                         register_DATA_frame(pCtrl, pFTx);
                                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_DATA].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_DATA].CounterTx, t);
@@ -1881,7 +2002,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         payload[4] = pCtrl->ACP.SETUP_DMP.value.nByte; // (0-99)                                                        len_pl = 5;
                                                         len_pl = 5;
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_DMPDAT, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_PILOT_DMPDAT, payload, len_pl);
 
                                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_PILOT_DMPDAT].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_PILOT_DMPDAT].CounterTx, t);
@@ -1915,10 +2036,14 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                         }
 
                                         // Step 2 - prepare the ACK message
-                                        payload[0] = pFRx->payload[0]; // get 1st payload byte and return it
+                                        if (pFRx->payload[0] == 0x0A) {
+                                            payload[0] = 0x0D;
+                                        } else {
+                                            payload[0] = pFRx->payload[0];
+                                        }
                                         len_pl = 1;
                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_ACK, payload, len_pl);
+                                        len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_ACK, payload, len_pl);
                                         memcpy(pCtrl->CMD[BGNET_FRAME_CMD_ACK].Tx.ucFrame, pFTx, len_msg);
                                         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].CounterTx, t);
                                         memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
@@ -1952,17 +2077,17 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                     } else {
                         // payload CS is bad, only skip this sub-frame, the length is known. We will continue other subframes tha are in the
                         // the same receive buffer
-                        //log_error("    Frame Checksum ERR, framesize: %d (received: 0x%02X, calculated: 0x%02X)", RxSize, pFRx->payload[pFRx->PL], cs);
-                        log_error("    Frame Checksum ERR, framesize: %d (received: 0x%02X", RxSize, pFRx->payload[pFRx->PL]);
+                        // The error is logged by the routine checking
                         pCtrl->DEV[pFRx->FROM].iCSError_Frame++;
+                        log_debug_frame(pFRx);
                     }
                 }
             }
         } else {
             // header CS is bad, we can not process this subframe, we can not establish a subframe length unambigiously, so we dump the whole buffer
-            log_error("  Header Checksum ERR, dumping RX frame (received: 0x%02X)", pFRx->CSH);
+            // The error is logged by the routine checking
             pCtrl->DEV[pFRx->FROM].iCSError_Header++;
-            break;
+            log_debug_frame(pFRx);
         }
         pBuf = pBuf + RxSize;
         z = z + 1;

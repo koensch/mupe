@@ -243,7 +243,7 @@ typedef struct {        // for the FRAME header we use a pointer
                                              // Note: DR_DISTNM is displayed on SPEED and DATA, not on QUAD.
                                              // PILOT: 2 bytes payload (ACKSEQ, 0x49)
 #define BGNET_FRAME_CMD_PILOT_DMPDAT    0xCE
-#define BGNET_FRAME_CMD_PILOT_CF        0xCF // unknown.
+#define BGNET_FRAME_CMD_PILOT_MANREQ    0xCF // 2 bytes payload (00 46), 46=AP_SPEED -> Response FST/MID/SLW
 
 #define BGNET_FRAME_CMD_PILOT_SPDREQ    0xD0 // 2 bytes payload (00 46), 46= AP_SPEED
 #define BGNET_FRAME_CMD_PILOT_RESPREQ   0xD1 // 2 bytes payload (00 A6), Steering Response N/E/D (Normal, Economy, Downwind)
@@ -522,7 +522,7 @@ union CH {
 #define BGN_FMT_18      0x18        // used by WA and OC
 #define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
 
-#define BGNET_CMD_LABEL 20
+#define BGNET_CMD_LABEL 22
 
 // FMT Definition Table
 typedef struct {
@@ -550,8 +550,6 @@ typedef struct {
 #define BGN_CNR_IMPEXP_NONE         0       // no provisions for import/export
 #define BGN_CNR_IMPEXP_NMEA         1       // import from or export to NMEA2000
 #define BGN_CNR_IMPEXP_SIGNALK      2       // import from or export to SignalK
-
-#define BGNET_CMD_LABEL 20
 
 // Channel Definition Table
 typedef struct {
@@ -646,12 +644,23 @@ typedef struct {
 typedef struct {
     int iNewACP;
     time_t tTimestamp;          // timestamp of startup
+    // we have observed weird behaviour......
+    // the ACKSEQ number goes from 00.....0C and then back to 0A when we would expect the 0D as the ACKSEQ.
+    // at the same time we get CS errors that are 3 off.... just the difference between 0A and 0D.
+    // realize we are dealing with unsigned char, we can not use negiative numbers.
+    // Normally a received ACKSEQ is the same (withing the current handshake), or the next one (1 bigger). But
+    // when a new received ACKSEQ is less then the previous one, it seems that we have to adjust the CS-SEED
+    // This is an experiment to see if it is what it seems to be.
+    struct {
+        unsigned char ACKSEQ; // last ACKSEQ received from PILOT
+        unsigned char FRAME_SEED; // SEED to use
+    } weird;
      NMEA2K_VALUE CommandACK;         // counter for ack messages, increment after each use.
     
 #define BGN_PILOT_SET   10
     NMEA2K_VALUE PILOT;         // flunk timer. every KEEPALIVE we set this to 100, the timer counts it down
                                 // when 0, ACP generates an error and sets JOYSTICK mode.
-    NMEA2K_VALUE CMD;           // when sending a command message, we need to send a ACKSEQ number. Usually this is an incremental number
+    //NMEA2K_VALUE CMD;           // when sending a command message, we need to send a ACKSEQ number. Usually this is an incremental number
                                 // we use a CMD variable for that purpose and use the counter as sequence number.
     NMEA2K_VALUE STATE;
     NMEA2K_VALUE MODE;
@@ -662,8 +671,10 @@ typedef struct {
     // PILOT/SETUP parameters
     NMEA2K_VALUE SETUP_SPD;     // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
     NMEA2K_VALUE SETUP_RESP;    // Steering response (Normal/Downwind/Eco)
-    NMEA2K_VALUE SETUP_WA;      // Watch Alarm
-    NMEA2K_VALUE SETUP_OC;      // OffCourse Alarm
+    NMEA2K_VALUE SETUP_WA_MIN;  // Watch Alarm (minutes)
+    NMEA2K_VALUE SETUP_WA_STAT; // Watch Alarm (status on/off)
+    NMEA2K_VALUE SETUP_OC_DEG;  // OffCourse Alarm (degrees)
+    NMEA2K_VALUE SETUP_OC_STAT; // OffCourse Alarm (status on/off)
     NMEA2K_VALUE SETUP_JSM;     // Joystick Steering Mode (Normal or Proportional)
     NMEA2K_VALUE SETUP_DMP;     // Compass heading display damping (1-99 sec, defaut =4)
     NMEA2K_VALUE SETUP_FR;      // Fault Reporting ON/OFF
@@ -713,11 +724,11 @@ void bgnet_initialize(BGNET_CTRL*);
 int bgnet_deviceindex(BGNET_CTRL*, unsigned char);
 size_t bgnet_sizeof_channel(BGNET_CTRL*, union CH*);
 size_t bgnet_sizeof_frame(FRAME_H*);
-char* strCommandLabel(BGNET_CTRL *, char *, unsigned char);
-size_t bgnet_encode_frame(FRAME_H*, int, int, int, unsigned char*, int);
-int makeRESPresponse(BGNET_CTRL *, unsigned char*);
-int makeWAresponse(BGNET_CTRL *, unsigned char*);
-int makeOCresponse(BGNET_CTRL *, unsigned char*);
+char* strCommandLabel(BGNET_CTRL*, char *, unsigned char);
+size_t bgnet_encode_frame(BGNET_CTRL*, FRAME_H*, int, int, int, unsigned char*, int);
+int makeRESPresponse(BGNET_CTRL*, unsigned char*);
+int makeWAresponse(BGNET_CTRL*, unsigned char*);
+int makeOCresponse(BGNET_CTRL*, unsigned char*);
 
 
 void CounterInit(BGNET_COUNT*, time_t);
