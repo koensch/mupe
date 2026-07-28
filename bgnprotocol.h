@@ -503,7 +503,7 @@ union CH {
 #define BGN_FMT_02      0x02        // 32 bit unsigned register (6 bytes) 
 #define BGN_FMT_42      0x42        // used by channel 0xCD, STORLOGNM
 #define BGN_FMT_04      0x04        // 4 bytes, byte 1 not used (0x00), bytes 2-4 are ASCII, like " T ", " F ", "OFF", "ON " or "---"
-                                    // observed: 0x31: " F ", " A " (meaning unknown)
+                                    // observed: 0x31: " F ", " A " (DEPTH signal quality, F=bad, A=exccelent)
                                     //           alarm setting: "OFF" (when set a 'numeric datatype' is used)
                                     //           alarm state:   "ON " (=alarm), "OFF" (=OK)
                                     //           bad signal: "---" (depth only)
