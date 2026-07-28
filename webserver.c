@@ -588,6 +588,16 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Fault Reporting Disable", "[0=OFF/NOT Disabled, 1=ON/Disabled]", t-pCtrl->ACP.SETUP_FR.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_FR.source), pCtrl->ACP.SETUP_FR.value.nByte);
     strcat(Buffer, cLine);
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed select", "[FST/MED/SLW]", t-pCtrl->ACP.MANSPEED_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_SEL.source), pCtrl->ACP.MANSPEED_SEL.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed FST", "[1-990] x10", t-pCtrl->ACP.MANSPEED_FST.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_FST.source), pCtrl->ACP.MANSPEED_FST.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed MED", "[1-990] x10", t-pCtrl->ACP.MANSPEED_MED.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_MED.source), pCtrl->ACP.MANSPEED_MED.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed SLW", "[1-990] x10", t-pCtrl->ACP.MANSPEED_FST.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_SLW.source), pCtrl->ACP.MANSPEED_SLW.value.nLong);
+    strcat(Buffer, cLine);
+
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Backlight", "[0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", t-pCtrl->ACP.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.BackLight.source), pCtrl->ACP.BackLight.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Course Target", "Autopilot Course setpoint (0-359 Degrees M)", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CourseTarget.source), pCtrl->ACP.CourseTarget.value.nLong);
@@ -729,7 +739,7 @@ static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
 static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i,y, InUse;
     time_t t;
-    char cLine[2048];
+    char cLine[2048], bufferCHN[BGNET_CMD_LABEL];
     char cLine01[1024], cLine02[1024], cLine06[1024], cLine00[1024];
     char asciibuf01[256], asciibuf02[256], asciibuf06[256], asciibuf00[256];
 
@@ -812,7 +822,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             snprintf(cLine, sizeof(cLine), cDevRow_Start,
                                                     ((pCtrl->CHN[i].iNewChannel==BGN_NEW_RESET)?"":"bgcolor='lightblue'"),
                                                     i,
-                                                    pCtrl->pCHNDT[i].cLabel);
+                                                    strChannelLabel(pCtrl, bufferCHN, i));
             strcat(cLine, cLine01);
             strcat(cLine, cLine02);
             strcat(cLine, cLine06);

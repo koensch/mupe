@@ -197,32 +197,32 @@ typedef struct {        // for the FRAME header we use a pointer
 // conflict with real-world device adresses and devicetype.
 // i have decided to impersonate a ACP module with address 0x00. I don't know if this is going to hurt myself in the end. It's
 // just a educated guess.
-#define BGNET_ADDRESS_ME                0x00
+#define BGNET_ADDRESS_ME                  0x00
 
 // command (byte 3)
-#define BGNET_COMMAND_MAX               0xFF
-#define BGNET_COMMAND_INIT              0x00
+#define BGNET_COMMAND_MAX                 0xFF
+#define BGNET_COMMAND_INIT                0x00
 
-#define BGNET_FRAME_CMD_01_DATA         0x01 //DATA broadcast, variable length, instrument readings.
-#define BGNET_FRAME_CMD_02_LABEL        0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
-                                             //  Ch#+3x bytes numerical+ascii string (variable length)+CS
-                                             //  QUAD:  20(TEMPC),31(ECHOSNR),41(BOATSPEEDKT),42(DEPTHM),4A(DEPTHM),64(AVGSPEEDKT),65(MAXSPEEDKT),75(TIMER),81(DRDISTANCENM),
-                                             //         C4(DEPTHM),CD(LOGNM),CF(TRIPNM),D3(DRCOURSEM),FC(SHALLOWALARM),FD(DEPTHALARM),FE(ANCHORALARM),FF(DEPTHCAL)
-                                             //  WIND:  50(AWINDSPEEDKT),51(AWINDANGLE),57(TWINDSPEEDKT),59(TWINDANGLE),7F(VMGKT),8D(BATTVOLTS)
-                                             //Note: Command is not send when device (QUAD/30, WIND/70) is in 'repeater' mode.
-                                             //In demo mode the follwing (simulated) data is send:
-                                             //  WIND:  4E(AWINDSPEEDRAW),50(AWINDSPEEDKT),51(AWINDANGLE),52(TWINDANGLERAW),8D(BATTVOLTS)
-                                             //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
-                                             //         (when AUTO) 53(TARGET TWA),A6 (COURSETARGET),A7 (AP WP BEARING),B5 (AP MODE)
-                                             //  QUAD:  20(SEATEMP),31(ECHOSND),41(BOATSPEEDKT),42(BOATSPEEDRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
-                                             //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOWALM),FD(DEPTHALM),FE(ANCHORALM)
-                                             //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
-                                             // QUAD: if you reconfigure the TEMP units, the new label is send with as 0x02/0x20 command to ALL (0xFF), making the DATA
-                                             //       units to display the corresponding value & units, but the channel 0x20 still transmits the value as degreeC.
-#define BGNET_FRAME_CMD_06_SUBSCRIBE    0x06 //at startup some stations (DATA/60) broadcast to providers (QUAD/30) a subscription request, payload= Ch#, CS
-                                             // DATA/60 to QUAD/30: FE(ANCHORALARM),FC(SHALLOWALARM),C4(DEPTHM),FD(DEPTHALARM),41(SPEEDKT),65(MAXSPEEDKT),
-                                             //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTNM),D3(DRCOURSEM)
-                                             //Note: Command is not send by DATA/60 when QUAD/30 is in 'repeater' mode.
+#define BGNET_FRAME_CMD_01_DATA           0x01 //DATA broadcast, variable length, instrument readings.
+#define BGNET_FRAME_CMD_02_LABEL          0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
+                                               //  Ch#+3x bytes numerical+ascii string (variable length)+CS
+                                               //  QUAD:  20(TEMPC),31(ECHOSNR),41(BOATSPEEDKT),42(DEPTHM),4A(DEPTHM),64(AVGSPEEDKT),65(MAXSPEEDKT),75(TIMER),81(DRDISTANCENM),
+                                               //         C4(DEPTHM),CD(LOGNM),CF(TRIPNM),D3(DRCOURSEM),FC(SHALLOWALARM),FD(DEPTHALARM),FE(ANCHORALARM),FF(DEPTHCAL)
+                                               //  WIND:  50(AWINDSPEEDKT),51(AWINDANGLE),57(TWINDSPEEDKT),59(TWINDANGLE),7F(VMGKT),8D(BATTVOLTS)
+                                               //Note: Command is not send when device (QUAD/30, WIND/70) is in 'repeater' mode.
+                                               //In demo mode the follwing (simulated) data is send:
+                                               //  WIND:  4E(AWINDSPEEDRAW),50(AWINDSPEEDKT),51(AWINDANGLE),52(TWINDANGLERAW),8D(BATTVOLTS)
+                                               //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
+                                               //         (when AUTO) 53(TARGET TWA),A6 (COURSETARGET),A7 (AP WP BEARING),B5 (AP MODE)
+                                               //  QUAD:  20(SEATEMP),31(ECHOSND),41(BOATSPEEDKT),42(BOATSPEEDRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
+                                               //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOWALM),FD(DEPTHALM),FE(ANCHORALM)
+                                               //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
+                                               // QUAD: if you reconfigure the TEMP units, the new label is send with as 0x02/0x20 command to ALL (0xFF), making the DATA
+                                               //       units to display the corresponding value & units, but the channel 0x20 still transmits the value as degreeC.
+#define BGNET_FRAME_CMD_06_SUBSCRIBE      0x06 //at startup some stations (DATA/60) broadcast to providers (QUAD/30) a subscription request, payload= Ch#, CS
+                                               // DATA/60 to QUAD/30: FE(ANCHORALARM),FC(SHALLOWALARM),C4(DEPTHM),FD(DEPTHALARM),41(SPEEDKT),65(MAXSPEEDKT),
+                                               //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTNM),D3(DRCOURSEM)
+                                               //Note: Command is not send by DATA/60 when QUAD/30 is in 'repeater' mode.
 #define BGNET_FRAME_CMD_0A_POWERUP        0x0A //at startup all stations (QUAD/30, PILOT/50, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
                                                //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
                                                //(no firmware version number is included in NETWORK series)
@@ -245,10 +245,12 @@ typedef struct {        // for the FRAME header we use a pointer
 
 #define BGNET_FRAME_CMD_D0_PILOT_SPDREQ   0xD0 // 2 bytes payload (00 46), 46= AP_SPEED
 #define BGNET_FRAME_CMD_D1_PILOT_RESPREQ  0xD1 // 2 bytes payload (00 A6), Steering Response N/E/D (Normal, Economy, Downwind)
+#define BGNET_FRAME_CMD_D2_PILOT_MANREQ   0xD2 // 2 bytes payload (00 46), MAN speed selection (FST, MED, SLW) via SPEED key
 #define BGNET_FRAME_CMD_D3_PILOT_AM       0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5?
 #define BGNET_FRAME_CMD_D4_PILOT_MODE     0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
                                                //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRAnsmitter, 1=MANual, 2=SOG)
 #define BGNET_FRAME_CMD_D5_PILOT_RESPDAT  0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: RESP MODE (0=Normal, 1=Eco, 2=Downwind)
+#define BGNET_FRAME_CMD_D6_PILOT_SLWDAT   0xD6 // 5 bytes payload (00 46 01 00 XX), 46= channel, XX: MANSLW speed (0-990)
 #define BGNET_FRAME_CMD_DC_PILOT_STEPDAT  0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}, is followed by
                                                // command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
 #define BGNET_FRAME_CMD_DE_PILOT_WAREQ    0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
@@ -270,12 +272,13 @@ typedef struct {        // for the FRAME header we use a pointer
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
 #define BGNET_CHANNEL_MAX           0xFF // for sizing purposes (range 00-FF, both including) add 1 for sizing purpose
+
 #define BGN_CNR_00_NODERESET        0X00
 #define BGN_CNR_01_UNKNOWN          0X01
 #define BGN_CNR_03_UNKNOWN          0X03
 #define BGN_CNR_07_AP_FR            0X07  // FR - Fault Reporting. When PILOT receives this channel, causes PILOT to display an error message and to 'freeze'
-                                          // 0x00 = "UNCOMIS"      This channelID is also used in PILOT/SETUP/FR option SELECT
-                                          // 0x01 = "INT CMP"
+                                          // 0x00 = "UNCOMIS"      This channelID is also used in PILOT/SETUP/FR option SELECT.
+                                          // 0x01 = "INT CMP"      To ' 'un-freeze' you need to cycle power on the PILOT
                                           // 0x02 = "RUD ERR"
                                           // 0x03 = "RUD DRV"
                                           // 0x04 = "NO SPD"
@@ -669,6 +672,12 @@ typedef struct {
     NMEA2K_VALUE SETUP_JSM;     // Joystick Steering Mode (Normal or Proportional)
     NMEA2K_VALUE SETUP_DMP;     // Compass heading display damping (1-99 sec, defaut =4)
     NMEA2K_VALUE SETUP_FR;      // Fault Reporting ON/OFF
+    // Manual speed selection
+    NMEA2K_VALUE MANSPEED_SEL;  // selected manual speed (FST/MED/SLW)
+    NMEA2K_VALUE MANSPEED_FST;  // speed FST x10
+    NMEA2K_VALUE MANSPEED_MED;  // speed MED x10
+    NMEA2K_VALUE MANSPEED_SLW;  // speed SLW x10
+
     // NETWORK parameters
     NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
     NMEA2K_VALUE CourseTarget;  // Setpoint for AutoPilot
@@ -702,9 +711,9 @@ typedef struct {
     BGN_CHANNEL CHN[BGNET_CHANNEL_MAX]; // channels statistics
 #define BGN_NEW_SET     1
 #define BGN_NEW_RESET   0
-    int iNewDevice;     // any new DEVICE data was received (scan though DEV structure)
-    int iNewCommand;    // any new COMMAND was received (scan though CMD structure)
-    int iNewChannel;    // any new CHANNEL data was received (scan though CHANNEL structure)
+    int iNewDevice;     // when 1: new DEVICE data was received (scan though DEV structure)
+    int iNewCommand;    // when 1: new COMMAND was received (scan though CMD structure)
+    int iNewChannel;    // when 1: new CHANNEL data was received (scan though CHANNEL structure)
 } BGNET_CTRL;
 
 // prototypes
@@ -716,6 +725,7 @@ int bgnet_deviceindex(BGNET_CTRL*, unsigned char);
 size_t bgnet_sizeof_channel(BGNET_CTRL*, union CH*);
 size_t bgnet_sizeof_frame(FRAME_H*);
 char* strCommandLabel(BGNET_CTRL*, char *, unsigned char);
+char* strChannelLabel(BGNET_CTRL*, char *, unsigned char);
 size_t bgnet_encode_frame(BGNET_CTRL*, FRAME_H*, int, int, int, unsigned char*, int);
 int makeRESPresponse(BGNET_CTRL*, unsigned char*);
 int makeWAresponse(BGNET_CTRL*, unsigned char*);
