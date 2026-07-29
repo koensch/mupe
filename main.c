@@ -614,7 +614,7 @@ BGNET_FMTDT FMTDT[16] = {       {0x00, 2, "0 bytes, odd one (found on PILOT/NMEA
 #define BGN_ENABLE_ETHERNET
 #define BGN_ENABLE_TIMER
 #define BGN_ENABLE_WEB
-//#define BGN_ENABLE_NMEA2K
+#define BGN_ENABLE_NMEA2K
 
 int main(void)
 {

@@ -235,7 +235,10 @@ void *nmea2000_thread(void *arg)
 
     struct ifreq ifr;
 
-    int s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+    // to resolve the phenomenon that the nmea2000 thread was 'hanging' and the application would not
+    // terminate with <Ctrl><C> i have made the socket non-blocking
+    // KS 2026-07-29
+    int s = socket(PF_CAN, SOCK_RAW | SOCK_NONBLOCK, CAN_RAW);
     if (s < 0) {
         log_error("CAN socket: %s", strerror(errno));
         return NULL;
@@ -260,18 +263,19 @@ void *nmea2000_thread(void *arg)
         return NULL;
     }
 
-    log_info("NMEA2000 listening on %s", cfg->can_interface);
+    log_info("CAN bus: listening on %s for NMEA2000 messages", cfg->can_interface);
 
     struct can_frame frame;
 
     while (g_running) {
         int n = read(s, &frame, sizeof(frame));
+
         if (n < 0) {
             if (errno == EINTR) continue;
             log_error("CAN read: %s", strerror(errno));
             break;
         }
-        if (n < (int)sizeof(struct can_frame))
+      if (n < (int)sizeof(struct can_frame))
             continue;
 
         /* Extract PGN from 29-bit ID: bits 8..25 */
