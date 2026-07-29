@@ -600,15 +600,24 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Backlight", "[0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", t-pCtrl->ACP.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.BackLight.source), pCtrl->ACP.BackLight.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Course Target", "Autopilot Course setpoint (0-359 Degrees M)", t-pCtrl->ACP.CourseTarget.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CourseTarget.source), pCtrl->ACP.CourseTarget.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Course To Steer", "Autopilot Course setpoint (0-359 Degrees M)", t-pCtrl->ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CTS.source), pCtrl->ACP.CTS.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Compass Heading", "Current compass reading (0-359 Degrees M)", t-pCtrl->ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Heading.source), pCtrl->ACP.Heading.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "NETWORK: STORLOG", "Stored log (QUAD or SPEED), stored in EEPROM, no reset) [NM]", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.StoredLogNM.source), (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: STORLOG", "Stored log (QUAD or SPEED), stored in EEPROM, no reset) [NM]", t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.StoredLogNM.source), (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "NETWORK: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.TripLogNM.source), (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.TripLogNM.source), (ITOD(pCtrl->ACP.TripLogNM.value.nLong)));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "NETWORK: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", t-pCtrl->ACP.DRDNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DRDNM.source), ITOD(pCtrl->ACP.DRDNM.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", t-pCtrl->ACP.DRDNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DRDNM.source), ITOD(pCtrl->ACP.DRDNM.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed (used to reset SpeedMAX and SpeedAVG) [KT]", t-pCtrl->ACP.Speed.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Speed.source), ITOD(pCtrl->ACP.Speed.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", t-pCtrl->ACP.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedMAX.source), ITOD(pCtrl->ACP.SpeedMAX.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", t-pCtrl->ACP.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedAVG.source), ITOD(pCtrl->ACP.SpeedAVG.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/DMP: Speed Damping", "Response time of speed value [s]", t-pCtrl->ACP.QUAD_DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD_DMP.source), pCtrl->ACP.QUAD_DMP.value.nLong);
     strcat(Buffer, cLine);
 
     return(Buffer);

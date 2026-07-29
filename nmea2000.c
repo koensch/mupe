@@ -275,28 +275,32 @@ void *nmea2000_thread(void *arg)
             log_error("CAN read: %s", strerror(errno));
             break;
         }
-      if (n < (int)sizeof(struct can_frame))
-            continue;
+        if (n > 0) {
+            if (n < (int)sizeof(struct can_frame)) {
+                // this must be safe to handle
+                /* Extract PGN from 29-bit ID: bits 8..25 */
+                uint32_t pgn = (frame.can_id >> 8) & 0x1FFFF;
 
-        /* Extract PGN from 29-bit ID: bits 8..25 */
-        uint32_t pgn = (frame.can_id >> 8) & 0x1FFFF;
-
-        iValid = 1;
-        switch (pgn) {
-            case 129025: parse_pgn_129025(&frame); break;
-            case 129026: parse_pgn_129026(&frame); break;
-            case 128259: parse_pgn_128259(&frame); break;
-            case 128267: parse_pgn_128267(&frame); break;
-            case 130306: parse_pgn_130306(&frame); break;
-            case 127245: parse_pgn_127245(&frame); break;
-            default:
-                iValid = 0;
-                break;
-        }
-        if (iValid > 0) {
-            log_debug("NMEA2000: PGN %d received and handled", pgn);
-        } else {
-            log_debug("NMEA2000: unhandled PGN %d received", pgn);
+                iValid = 1;
+                switch (pgn) {
+                    case 129025: parse_pgn_129025(&frame); break;
+                    case 129026: parse_pgn_129026(&frame); break;
+                    case 128259: parse_pgn_128259(&frame); break;
+                    case 128267: parse_pgn_128267(&frame); break;
+                    case 130306: parse_pgn_130306(&frame); break;
+                    case 127245: parse_pgn_127245(&frame); break;
+                    default:
+                        iValid = 0;
+                    break;
+                }
+                if (iValid > 0) {
+                    log_debug("NMEA2000: PGN %d received and handled", pgn);
+                } else {
+                    log_debug("NMEA2000: unhandled PGN %d received", pgn);
+                }
+            } else {
+                log_error("CAN bus: Receive buffer overflow");
+            }
         }
         usleep(MSEC1);
     }

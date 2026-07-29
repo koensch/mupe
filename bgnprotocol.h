@@ -55,7 +55,7 @@
 //    received command shall be returned as confirmation. This number increments every time it is used and after powerup it's 0x00.
 //   The 2nd byte of the payload is a channel number of the affected channel. Observe that the FMT is different than used in DATA commands. If
 //   this is intentional or not could not be found out. DATA transmission use FMT_08, D3/D4/DC commands use FMT_01
-// - NET PILOT: WA (Watch Alarm) and OC (Off Course Alarm) are a 'local alarm'. In only beeps on PILOT and can not be reset
+// - NET PILOT: WA (Watch Alarm) and OC (Off Course Alarm) seems a 'local alarm'. In only beeps on PILOT and can not be reset
 //   on other (even on 'alarm capable' units). No alarm data is send over the network
 // - NET PILOT: has a 2 (or 3) pins female connector at the backside for NMEA 0183/RS442/4800/N/8/1 interface. There is a limited set of supported
 //   sentences and is build against specification v1.5 (about 1985). Newer revisions have made the most important sentences incompatible and useless.
@@ -188,8 +188,8 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_TYPE_NETPILOT             0x50 // confirmed
 #define BGNET_TYPE_NETDEPTH             0x10 //?
 #define BGNET_TYPE_NETSPEED             0x40 //?
-#define BGNET_TYPE_NMEA                 0x60 // ? external NMEA device?
-#define BGNET_TYPE_NETDATA              0xD6 // confirmed
+//#define BGNET_TYPE_NMEA                 0x60 // ? external NMEA device?
+#define BGNET_TYPE_NETDATA              0x60 // confirmed
 #define BGNET_TYPE_NETWIND              0x70 // confirmed
 
 // OK, i have a dilemma.....
@@ -236,9 +236,10 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_FRAME_CMD_C9_BACKLIGHT      0xC9 // LIGHTS button pressed (all units) -> header + 1 bytes payload: {0|1|2|3}
                                                // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
                                                // cycles though 0-3-2-1-0
-#define BGNET_FRAME_CMD_CB_QUAD_RESET     0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm)
+#define BGNET_FRAME_CMD_CB_QUAD_RESET     0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm, send by QUADr (QUADt or QUADd seems not to accept this reset)
 #define BGNET_FRAME_CMD_CD_PILOT_DMPREQ   0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
-                                               // Note: DR_DISTNM is displayed on SPEED and DATA, not on QUAD.
+                                               // Note: DRD is displayed on SPEED and DATA, not on QUAD.
+                                               // Possibly also the reset command to a QUADt, but could not test this as i have no working QUADt
                                                // PILOT: 2 bytes payload (ACKSEQ, 0x49)
 #define BGNET_FRAME_CMD_CE_PILOT_DMPDAT   0xCE
 #define BGNET_FRAME_CMD_CF_PILOT_MANREQ   0xCF // 2 bytes payload (00 46), 46=AP_SPEED -> Response FST/MID/SLW
@@ -255,6 +256,8 @@ typedef struct {        // for the FRAME header we use a pointer
                                                // command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
 #define BGNET_FRAME_CMD_DE_PILOT_WAREQ    0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
 #define BGNET_FRAME_CMD_DF_PILOT_OCREQ    0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
+#define BGNET_FRAME_CMD_EA_QUAD_UNKNOWN   0xEA // sometimes we get this CMD: 00 30 02 EA E4 03 01 A6 while stepping though SPEED SETUP (4th option)
+                                               // and i do not know what it does, so we just send a CMD-ACK
 #define BGNET_FRAME_CMD_ACK               0xFD // 1 byte payload
 
 // layout of the VALUE (1 or more in the payload of a DATA command)
@@ -415,7 +418,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGN_CNR_CD_STORLOGNM        0xCD // QUAD/SPEED: saved in non-volitile memory; retained over the lifespan of the unit
     #define BGNET_DIVISOR_STORLOG       10.0
 #define BGN_CNR_CF_TRIPNM           0xCF // QUAD/SPEED/DATA: TripLog, reset via QUAD
-    #define BGNET_DIVISOR_TRIPLOG       6.4
+    #define BGNET_DIVISOR_TRIPLOG       10.0
 #define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_DC_LOCALTIME        0xDC
 #define BGN_CNR_DD_UTCTIME          0xDD
@@ -501,7 +504,7 @@ union CH {
                                     // optionally scaled down to 25.5, 2.55, 0.255 using the divisor
 #define BGN_FMT_03      0x03        // Timer value (5 bytes, 0x75 only), last 3 bytes are HH:MM:SS
 #define BGN_FMT_02      0x02        // 32 bit unsigned register (6 bytes) 
-#define BGN_FMT_42      0x42        // used by channel 0xCD, STORLOGNM
+#define BGN_FMT_42      0x42        // used by channel 0xCD, STORLOGNM (with divisor = 10)
 #define BGN_FMT_04      0x04        // 4 bytes, byte 1 not used (0x00), bytes 2-4 are ASCII, like " T ", " F ", "OFF", "ON " or "---"
                                     // observed: 0x31: " F ", " A " (DEPTH signal quality, F=bad, A=exccelent)
                                     //           alarm setting: "OFF" (when set a 'numeric datatype' is used)
@@ -513,6 +516,7 @@ union CH {
                                     // confirmed (press any key on a ALARM capable device) or the alarm state is returned to normal
                                     // (a null-string) is send.
 #define BGN_FMT_08      0x08        // 16 bit unsigned register (0-999), optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
+#define BGN_FMT_48      0x48        // used by channel 0xCF, TRIPLOGNM (with divisor = 10)
 #define BGN_FMT_18      0x18        // used by WA and OC
 #define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
 
@@ -646,6 +650,7 @@ typedef struct {
     // when a new received ACKSEQ is less then the previous one, it seems that we have to adjust the CS-SEED
     // This is an experiment to see if it is what it seems to be.
     struct {
+        unsigned char ACKSEQprev; // last ACKSEQ received from PILOT
         unsigned char ACKSEQ; // last ACKSEQ received from PILOT
         unsigned char FRAME_SEED; // SEED to use
     } weird;
@@ -672,7 +677,7 @@ typedef struct {
     NMEA2K_VALUE SETUP_JSM;     // Joystick Steering Mode (Normal or Proportional)
     NMEA2K_VALUE SETUP_DMP;     // Compass heading display damping (1-99 sec, defaut =4)
     NMEA2K_VALUE SETUP_FR;      // Fault Reporting ON/OFF
-    // Manual speed selection
+    // PILOT/SPEED/SETUP - Manual speed selection
     NMEA2K_VALUE MANSPEED_SEL;  // selected manual speed (FST/MED/SLW)
     NMEA2K_VALUE MANSPEED_FST;  // speed FST x10
     NMEA2K_VALUE MANSPEED_MED;  // speed MED x10
@@ -680,11 +685,17 @@ typedef struct {
 
     // NETWORK parameters
     NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
-    NMEA2K_VALUE CourseTarget;  // Setpoint for AutoPilot
+    NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
     NMEA2K_VALUE Heading;       // Compass Heading
     NMEA2K_VALUE StoredLogNM;   // channel CD (stored log) is stored as 3-byte register
     NMEA2K_VALUE TripLogNM;     // channel CF (trip log NM) is stored as a 2 byte register
     NMEA2K_VALUE DRDNM;         // channel 81 (Dead Reconing Distance) is stored as a 2 byte register
+    NMEA2K_VALUE Speed;         // current boat speed (used as initializer for SpeedMAX and SpeedAVG
+    NMEA2K_VALUE SpeedMAX;      // reset with DRDNM
+    NMEA2K_VALUE SpeedAVG;      // reset with DRDNM
+
+    // QUAD/SETUP
+    NMEA2K_VALUE QUAD_DMP;      // QUAD/SPEED/SETUP/DMP, response time of speed value
 } BGN_ACP;
 
 #define BGNET_CTRL_INIT            1

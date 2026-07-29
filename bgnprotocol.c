@@ -27,6 +27,7 @@ unsigned char bgnet_command_type(FRAME_H* pF) {
         case BGNET_FRAME_CMD_D4_PILOT_MODE:
         case BGNET_FRAME_CMD_DE_PILOT_WAREQ:
         case BGNET_FRAME_CMD_DF_PILOT_OCREQ:
+        case BGNET_FRAME_CMD_EA_QUAD_UNKNOWN:
             r = BGNET_COMMANDTYPE_REQ;
             break;
         case BGNET_FRAME_CMD_20_PILOT_OCDAT:
@@ -74,6 +75,7 @@ unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H* pF) {
                 // roll-over when at 0xFF
                 pCtrl->ACP.weird.ACKSEQ = 0;
             } else {
+                pCtrl->ACP.weird.ACKSEQprev = pCtrl->ACP.weird.ACKSEQ;
                 pCtrl->ACP.weird.ACKSEQ = pF->payload[BGNET_FRAME_ACKSEQ];
             }
         }
@@ -117,7 +119,7 @@ unsigned char bgnet_checksum_frame_check(BGNET_CTRL* pCtrl, FRAME_H* pF) {
         r = BGNET_CHECKSUM_OK;
     } else {
         r = ~BGNET_CHECKSUM_OK;
-        log_error("    Frame Checksum ERR, framesize: %d (received: 0x%02X, calculated: 0x%02X, seed= 0x%02X)", bgnet_sizeof_frame(pF), pF->payload[pF->PL], cs, pCtrl->ACP.weird.FRAME_SEED);
+        log_error("    Frame Checksum ERR, framesize: %d (received: 0x%02X, calculated: 0x%02X, seed= 0x%02X, previous=0x%02X)", bgnet_sizeof_frame(pF), pF->payload[pF->PL], cs, pCtrl->ACP.weird.FRAME_SEED, pCtrl->ACP.weird.ACKSEQprev);
     }
     return(r);
 }
@@ -177,9 +179,7 @@ void log_debug_frame(FRAME_H* pF) {
 // - at startup of this driver
 // - when we observe "POWERUP" message(s) from the NETWORK (of any of the units)
 void bgnet_initialize_reset(BGNET_CTRL *pCtrl) {
-    //pthread_mutex_lock(&g_data_mutex);
     pCtrl->iInitialized = BGNET_CTRL_INIT_RESET; // reset initialized state
-    //pthread_mutex_unlock(&g_data_mutex);
 }
 // initialize our own internal structures
 void bgnet_initialize(BGNET_CTRL *pCtrl) {
@@ -282,9 +282,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.BackLight.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->ACP.BackLight.Counter, t);
 
-        pCtrl->ACP.CourseTarget.value.nLong = 123; // Course Target, calculated by the Autopilot (0-359)
-        pCtrl->ACP.CourseTarget.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->ACP.CourseTarget.Counter, t);
+        pCtrl->ACP.CTS.value.nLong = 123; // Course To Steer (calculated by the Autopilot, range 0-359)
+        pCtrl->ACP.CTS.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.CTS.Counter, t);
 
         pCtrl->ACP.Heading.value.nLong = 321; // Heading from compass (0-359)
         pCtrl->ACP.Heading.source = BGN_SOURCE_ACP;
@@ -304,6 +304,22 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.DRDNM.value.nLong = 123; // channel 81/DRDNM (on the real system this is stored in non-volitile memory by QUAD/SPEED, resetable)
         pCtrl->ACP.DRDNM.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->ACP.DRDNM.Counter, t);
+
+        pCtrl->ACP.Speed.value.nLong = 125; // used to initialize SpeedMAX and SpeedAVG
+        pCtrl->ACP.Speed.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.Speed.Counter, t);
+
+        pCtrl->ACP.SpeedMAX.value.nLong = 222; // reset with DRD
+        pCtrl->ACP.SpeedMAX.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.SpeedMAX.Counter, t);
+
+        pCtrl->ACP.SpeedAVG.value.nLong = 111; // reset with DRD
+        pCtrl->ACP.SpeedAVG.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.SpeedAVG.Counter, t);
+
+        pCtrl->ACP.QUAD_DMP.value.nLong = 7;
+        pCtrl->ACP.QUAD_DMP.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.QUAD_DMP.Counter, t);
 
         // stage 3 - initialize device structure
         pCtrl->iNewDevice = BGN_NEW_RESET;
@@ -409,7 +425,7 @@ int makeQUADresponse2(BGNET_CTRL* pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(125);
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.Speed.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGN_CNR_42_BOATSPEEDRAW;
@@ -433,14 +449,14 @@ int makeQUADresponse2(BGNET_CTRL* pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(111); 
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.SpeedAVG.value.nLong); 
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGN_CNR_65_SPEEDMAXKT;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(222);
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.SpeedMAX.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     // the next values are always present 
@@ -449,7 +465,7 @@ int makeQUADresponse2(BGNET_CTRL* pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(333); 
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.DRDNM.value.nLong); 
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGN_CNR_CF_TRIPNM;
@@ -563,7 +579,7 @@ int makeACPresponseCTARGET(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->ACP.CourseTarget.value.nLong);
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.CTS.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     return(r);
@@ -592,7 +608,7 @@ int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char* payload) {
         puCH = (union CH*)&(payload[r]);
         puCH->s.CH = c;
         puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-        puCH->s.cv.uW[0] = htons(pCtrl->ACP.CourseTarget.value.nLong);
+        puCH->s.cv.uW[0] = htons(pCtrl->ACP.CTS.value.nLong);
         r = r + bgnet_sizeof_channel(pCtrl, puCH);
     }
 
@@ -634,7 +650,7 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->ACP.CourseTarget.value.nLong);
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.CTS.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     return(r);
@@ -679,7 +695,7 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->ACP.CourseTarget.value.nLong);
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.CTS.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
  
     c = BGN_CNR_51_AWINDANGLE;
@@ -754,7 +770,7 @@ int makeACPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(125);
+    puCH->s.cv.uW[0] = htons(pCtrl->ACP.Speed.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGN_CNR_49_HEADING;
@@ -924,7 +940,7 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(125);
+    puCH->s.cv.sW[0] = htons(pCtrl->ACP.Speed.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGN_CNR_EB_SOGKT;
@@ -947,7 +963,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
     time_t t;
     time(&t); // save the time
 
-    log_debug("bgnet_process: Device Processor run");
+    //log_debug("bgnet_process: Device Processor run");
 
     // erase output buffer (to prevent compiler warnings about unused arguments)
     memset(buffer, 0, size);
@@ -956,15 +972,11 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
     // check if initialisation is required
     bgnet_initialize(pCtrl);
 
-    i = 1;
-    pCtrl->ACP.StoredLogNM.value.nLong = pCtrl->ACP.StoredLogNM.value.nLong + (i * BGNET_DIVISOR_STORLOG/10);
-    pCtrl->ACP.TripLogNM.value.nLong = pCtrl->ACP.TripLogNM.value.nLong + (i * BGNET_DIVISOR_TRIPLOG);
-
     // device received new data
     if ((pCtrl->iNewCommand == BGN_NEW_RESET)) {
         // nothing to do
     } else {
-        log_debug("bgnet_process: Resetting CMD");
+        //log_debug("bgnet_process: Resetting CMD");
         for (i=0; i<BGNET_COMMAND_MAX; i++) {            if (pCtrl->CMD[i].iNewCommand == BGN_NEW_RESET) {
                 // nothing to do
             } else {
@@ -973,7 +985,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
                         break;
                 }
                 pCtrl->CMD[i].iNewCommand = BGN_NEW_RESET; // reset new data flag for this command
-                log_debug("bgnet_process: Resetting COMMAND 0x%02X", i);
+                //log_debug("bgnet_process: Resetting COMMAND 0x%02X", i);
             }
         }
         pCtrl->iNewCommand = BGN_NEW_RESET;
@@ -982,14 +994,14 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
     if (pCtrl->iNewChannel == BGN_NEW_RESET) {
         // nothing to do
     } else {
-        log_debug("bgnet_process: Resetting CHN");
+        //log_debug("bgnet_process: Resetting CHN");
         for (i=0; i<BGNET_CHANNEL_MAX; i++) {
             if (pCtrl->CHN[i].iNewChannel == BGN_NEW_RESET) {
                 // nothing to do
             } else {
                 // process new channel data (to be added later)
                 pCtrl->CHN[i].iNewChannel = BGN_NEW_RESET; // reset newdata flag
-                log_debug("bgnet_process: Resetting CHANNEL 0x%02X", i);
+                //log_debug("bgnet_process: Resetting CHANNEL 0x%02X", i);
             }
         }
         pCtrl->iNewChannel = BGN_NEW_RESET; // reset
@@ -998,14 +1010,14 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
     if ((pCtrl->iNewDevice == BGN_NEW_RESET)) {
         // nothing to do
     } else {
-        log_debug("bgnet_process: Resetting DEV");
+        //log_debug("bgnet_process: Resetting DEV");
         for (i=0; i<BGNET_DEVICE_MAX; i++) {
             if (pCtrl->DEV[i].iNewDevice == BGN_NEW_RESET) {
                 // nothing to do
             } else {
                 // process new channel data (to be added later)
                 pCtrl->DEV[i].iNewDevice = BGN_NEW_RESET; // reset newdata flag
-                log_debug("bgnet_process: Resetting DEVICE 0x%02X", i);
+                //log_debug("bgnet_process: Resetting DEVICE 0x%02X", i);
             }
         }
         pCtrl->iNewDevice = BGN_NEW_RESET; // reset
@@ -1023,7 +1035,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
     len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
     register_DATA_frame(pCtrl, pFTx);
 
-    log_debug_frame(pFTx);
+    //log_debug_frame(pFTx);
 
     // put it for transmission
     memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
@@ -1207,11 +1219,11 @@ char* decode_channel_string(char* pStr, union CH* puCH) {
                     sprintf(pStr,"0x%02X 0x%02X", puCH->s.cv.uB[0], puCH->s.cv.uB[1]);
                     iValid = 2;
                     break;
-                case BGN_CNR_CF_TRIPNM: // it seems that the TRIPLOG has not 1 10.0 divisor, but a 64.0
-                    iRawValue = decode_channel_numeric(puCH);
-                    sprintf(pStr, "%.1f", ITOD(iRawValue)/BGNET_DIVISOR_TRIPLOG);
-                    iValid = 2;
-                    break;
+                //case BGN_CNR_CF_TRIPNM: // it seems that the TRIPLOG has not 1 10.0 divisor, but a 64.0
+                //    iRawValue = decode_channel_numeric(puCH);
+                //    sprintf(pStr, "%.1f", ITOD(iRawValue)/BGNET_DIVISOR_TRIPLOG);
+                //    iValid = 2;
+                //    break;
                 default:
                     iRawValue = decode_channel_numeric(puCH);
                     iValid = 1;
@@ -1331,9 +1343,9 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, FRAME_H* pF) {
                     CounterUp(&pCtrl->ACP.TripLogNM.Counter, t);
                     break;
                 case BGN_CNR_A6_AP_CTARGET:
-                    pCtrl->ACP.CourseTarget.value.nLong = ntohs(pCH->s.cv.uW[0]);
-                    pCtrl->ACP.CourseTarget.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->ACP.CourseTarget.Counter, t);
+                    pCtrl->ACP.CTS.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->ACP.CTS.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->ACP.CTS.Counter, t);
                     break;
             }
 
@@ -1473,7 +1485,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
         iIsValid = 1; // tricky: if we hit a 'default' in a switch we reset this, so statistics is not updated
 
         // log received frame (at least, i hope it's a frame)
-        log_debug_frame(pFRx);
+        //log_debug_frame(pFRx);
 
         // if the HEAD-CR is OK, we can safely assume the byte stream is a BGNET frame
         if (bgnet_checksum_head_check(pFRx) == BGNET_CHECKSUM_OK) {
@@ -1588,24 +1600,40 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                     payload[1] = BGN_CNR_CF_TRIPNM;
                                     len_pl = 2;
                                     pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                    len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_TYPE_NETQUAD, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_CB_QUAD_RESET, payload, len_pl);
+                                    len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_TYPE_NETQUAD, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_CD_PILOT_DMPREQ, payload, len_pl);
                                                         
-                                    memcpy(pCtrl->CMD[BGNET_FRAME_CMD_CB_QUAD_RESET].Tx.ucFrame, pFTx, len_msg);
-                                    CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_CB_QUAD_RESET].CounterTx, t);
+                                    memcpy(pCtrl->CMD[BGNET_FRAME_CMD_CD_PILOT_DMPREQ].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_CD_PILOT_DMPREQ].CounterTx, t);
                                     memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
                                     CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
                                     TxSize =TxSize + len_msg;
-                                    log_info("Experimental - QUAD RESET");
+                                    log_info("Experimental - QUAD RESET COMMAND: TRIPLOG");
                                     log_debug_frame(pFTx);
+                                }
+                                if (pFRx->FROM == BGNET_TYPE_NETWIND) {
+                                    bgnet_initialize_reset(pCtrl);
                                 }
 #endif
                                 break;
                             default:
                                 // Some commands are part of a CMD-REQ/CDM-DAT/CMD-ACK handshake. All next commands require a CMD-ACK response
                                 // (and possible some other things too). The CMD-ACK is send last
+                                // holy shit.... CMD/CHN is not unique within the network. The same combination can be found on PILOT and QUAD
+                                // with different behaviour. I think a first make a new GIT commit before i screw up
+                                switch(pFRx->FROM) {
+                                    case BGNET_TYPE_NETQUAD:
+                                        switch(pFRx->CMD) {
+                                        }
+                                        break;
+                                    case BGNET_TYPE_NETPILOT:
+                                        switch(pFRx->CMD) {
+                                        }
+                                        break;
+                                }
                                 switch(pFRx->CMD) {
                                     // QUAD/RESET actions
                                     case BGNET_FRAME_CMD_CB_QUAD_RESET:
+                                    case BGNET_FRAME_CMD_EA_QUAD_UNKNOWN:
 
                                     // PILOT/SETUP actions
                                     case BGNET_FRAME_CMD_D0_PILOT_SPDREQ: // SPDDAT is carried via PILOT_AM
@@ -1675,6 +1703,13 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         break;
                                                 }
                                                 break;
+                                            case BGNET_FRAME_CMD_EA_QUAD_UNKNOWN:
+                                                // encountered at 4th SPEED/SETUP option on QUAD
+                                                switch(pCHRx->s.CH) {
+                                                    case BGN_CNR_01_UNKNOWN:
+                                                        break;                                                    
+                                                }
+                                                break;
                                             case BGNET_FRAME_CMD_D3_PILOT_AM:
                                                 // the AUTO or OFF key was pressed. We receive 5 bytes payload.
                                                 // 0=ACKSEQ, 1=0xB5/AP_STATUS, 2=FMT_01, 3=0, 4= new state (1=AUTO , 0=STBY)
@@ -1701,9 +1736,9 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 // it might be the case we do not have a recent HEADING channel received prior.
                                                                 // in such case we initialize to 0 (good luck!)
                                                                 // should we actually refuse to go into AUTO?
-                                                                pCtrl->ACP.CourseTarget = pCtrl->ACP.Heading;
-                                                                pCtrl->ACP.CourseTarget.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->ACP.CourseTarget.Counter, t);
+                                                                pCtrl->ACP.CTS = pCtrl->ACP.Heading;
+                                                                pCtrl->ACP.CTS.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->ACP.CTS.Counter, t);
                                                             }
                                                         }
                                                         // set new STATE (AUTO or STBY)
@@ -1888,7 +1923,10 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 // 0=ACKSEQ, 1=0x46
                                                 switch(pCHRx->s.CH) {
                                                     case BGN_CNR_41_BOATSPEEDKT: 
-                                                        // QUAD RESET DND comes here, but i do not know what it wants
+                                                        // QUAD RESET DND comes here, 2 bytes payload reset SpeedMAX/AVG
+                                                        pCtrl->ACP.SpeedMAX.value.nLong = pCtrl->ACP.Speed.value.nLong;
+                                                        pCtrl->ACP.SpeedMAX.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->ACP.SpeedMAX.Counter, t);
                                                         break;
                                                     case BGN_CNR_46_AP_SPEED:
                                                         // SEND SPD MAN/FST
@@ -2169,16 +2207,16 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 switch(pCHRx->s.CH) {
                                                     case BGN_CNR_A6_AP_CTARGET:
                                                         iValue = decode_channel_numeric(pCHRx);
-                                                        pCtrl->ACP.CourseTarget.value.nLong = pCtrl->ACP.CourseTarget.value.nLong + iValue;
-                                                        pCtrl->ACP.CourseTarget.source = BGN_SOURCE_ACP;
-                                                        CounterUp(&pCtrl->ACP.CourseTarget.Counter, t);
+                                                        pCtrl->ACP.CTS.value.nLong = pCtrl->ACP.CTS.value.nLong + iValue;
+                                                        pCtrl->ACP.CTS.source = BGN_SOURCE_ACP;
+                                                        CounterUp(&pCtrl->ACP.CTS.Counter, t);
 
                                                         // create command with current CTARGET setting
                                                         payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
                                                         pCHTx = (union CH*)&payload[1];
                                                         pCHTx->s.CH = BGN_CNR_A6_AP_CTARGET;
                                                         pCHTx->s.FMT = BGN_FMT_01;
-                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.CourseTarget.value.nLong);
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.CTS.value.nLong);
                                                         len_pl = 5;
                                                         pFTx = (FRAME_H*)&TxBuf[TxSize];
                                                         len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
@@ -2197,7 +2235,10 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 // 0=ACKSEQ, 1=0x49
                                                 switch(pCHRx->s.CH) {
                                                     case BGN_CNR_41_BOATSPEEDKT: 
-                                                        // QUAD RESET DND comes here, but i do not know what it wants
+                                                        // QUAD RESET DND comes here, 2 bytes payload reset SpeedMAX/AVG
+                                                        pCtrl->ACP.SpeedMAX.value.nLong = pCtrl->ACP.Speed.value.nLong;
+                                                        pCtrl->ACP.SpeedMAX.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->ACP.SpeedMAX.Counter, t);
                                                         break;
                                                     case BGN_CNR_49_HEADING:
                                                         // create command with current DMP setting
