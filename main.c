@@ -532,7 +532,7 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                                 "UNKNOWN C8"},\
     {BGNET_FRAME_CMD_C9_BACKLIGHT,      "LIGHTS"},\
     {0,                                 "UNKNOWN CA"},\
-    {BGNET_FRAME_CMD_CB_QUAD_RESET,     "RESET"},\
+    {BGNET_FRAME_CMD_CB_QUAD_RESET,     "QUAD RESET REQ"},\
     {0,                                 "UNKNOWN CC"},\
     {BGNET_FRAME_CMD_CD_PILOT_DMPREQ,   "PILOT SETUP/DMP/REQ"},\
     {BGNET_FRAME_CMD_CE_PILOT_DMPDAT,   "PILOT SETUP/DMP/DAT"},\

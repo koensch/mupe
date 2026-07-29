@@ -30,7 +30,7 @@
 // - NET QUAD: has a 'repeater mode' (tYPEr)
 // - NET QUAD-R: does have NMEA output capabilities that the QUAD module has not. You can configure a QUAD as
 //   a repeater, but that does not give it the NMEA capability.
-// - NET QUAD has a 'demo mode' (press <TIMER> to display stored LOG, press <SETUP>, select 'TYPEd')
+// - NET QUAD has a 'demo mode' (press <TIMER> to display stored LOG, press <SETUP>, select 'TYPEd'; you must first put the QUAD in 'TYPEr')
 // - NET PILOT: has a 'demo mode' (TYPE D)
 // - NET PILOT: has a connector at the back for NMEA0183 input. Could be a 2-pin connector (use cable 612-OA-014)
 //   or a 3-pin connector (use cable 612-OA-053). Cables are no longer produced.
@@ -415,7 +415,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGN_CNR_CD_STORLOGNM        0xCD // QUAD/SPEED: saved in non-volitile memory; retained over the lifespan of the unit
     #define BGNET_DIVISOR_STORLOG       10.0
 #define BGN_CNR_CF_TRIPNM           0xCF // QUAD/SPEED/DATA: TripLog, reset via QUAD
-    #define BGNET_DIVISOR_TRIPLOG       64.0
+    #define BGNET_DIVISOR_TRIPLOG       6.4
 #define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_DC_LOCALTIME        0xDC
 #define BGN_CNR_DD_UTCTIME          0xDD
@@ -684,6 +684,7 @@ typedef struct {
     NMEA2K_VALUE Heading;       // Compass Heading
     NMEA2K_VALUE StoredLogNM;   // channel CD (stored log) is stored as 3-byte register
     NMEA2K_VALUE TripLogNM;     // channel CF (trip log NM) is stored as a 2 byte register
+    NMEA2K_VALUE DRDNM;         // channel 81 (Dead Reconing Distance) is stored as a 2 byte register
 } BGN_ACP;
 
 #define BGNET_CTRL_INIT            1
@@ -717,20 +718,20 @@ typedef struct {
 } BGNET_CTRL;
 
 // prototypes
-size_t bgnet_decode_frame(BGNET_CTRL*, unsigned char*, size_t);
-size_t bgnet_process(BGNET_CTRL*, unsigned char*, size_t);
-void bgnet_initialize_reset(BGNET_CTRL*);
-void bgnet_initialize(BGNET_CTRL*);
-int bgnet_deviceindex(BGNET_CTRL*, unsigned char);
-size_t bgnet_sizeof_channel(BGNET_CTRL*, union CH*);
-size_t bgnet_sizeof_frame(FRAME_H*);
-char* strCommandLabel(BGNET_CTRL*, char *, unsigned char);
-char* strChannelLabel(BGNET_CTRL*, char *, unsigned char);
-size_t bgnet_encode_frame(BGNET_CTRL*, FRAME_H*, int, int, int, unsigned char*, int);
-int makeRESPresponse(BGNET_CTRL*, unsigned char*);
-int makeWAresponse(BGNET_CTRL*, unsigned char*);
-int makeOCresponse(BGNET_CTRL*, unsigned char*);
-
+size_t bgnet_decode_frame(BGNET_CTRL *, unsigned char *, size_t);
+size_t bgnet_process(BGNET_CTRL *, unsigned char *, size_t);
+void bgnet_initialize_reset(BGNET_CTRL *);
+void bgnet_initialize(BGNET_CTRL *);
+int bgnet_deviceindex(BGNET_CTRL *, unsigned char);
+size_t bgnet_sizeof_channel(BGNET_CTRL *, union CH *);
+size_t bgnet_sizeof_frame(FRAME_H *);
+char* strCommandLabel(BGNET_CTRL *, char *, unsigned char);
+char* strChannelLabel(BGNET_CTRL *, char *, unsigned char);
+size_t bgnet_encode_frame(BGNET_CTRL *, FRAME_H *, int, int, int, unsigned char *, int);
+int makeRESPresponse(BGNET_CTRL *, unsigned char *);
+int makeWAresponse(BGNET_CTRL *, unsigned char *);
+int makeOCresponse(BGNET_CTRL *, unsigned char *);
+size_t register_DATA_frame(BGNET_CTRL *, FRAME_H *);
 
 void CounterInit(BGNET_COUNT*, time_t);
 void CounterUp(BGNET_COUNT*, time_t);

@@ -301,6 +301,10 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.TripLogNM.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->ACP.TripLogNM.Counter, t);
 
+        pCtrl->ACP.DRDNM.value.nLong = 123; // channel 81/DRDNM (on the real system this is stored in non-volitile memory by QUAD/SPEED, resetable)
+        pCtrl->ACP.DRDNM.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.DRDNM.Counter, t);
+
         // stage 3 - initialize device structure
         pCtrl->iNewDevice = BGN_NEW_RESET;
         for (i=0; i<BGNET_DEVICE_MAX; i++) {
@@ -943,11 +947,6 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
     time_t t;
     time(&t); // save the time
 
-    size_t len_msg;
-    int len_pl;
-    unsigned char payload[1024];
-    FRAME_H F;
-
     log_debug("bgnet_process: Device Processor run");
 
     // erase output buffer (to prevent compiler warnings about unused arguments)
@@ -959,7 +958,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
 
     i = 1;
     pCtrl->ACP.StoredLogNM.value.nLong = pCtrl->ACP.StoredLogNM.value.nLong + (i * BGNET_DIVISOR_STORLOG/10);
-    pCtrl->ACP.TripLogNM.value.nLong = pCtrl->ACP.TripLogNM.value.nLong + (i * BGNET_DIVISOR_TRIPLOG/10);
+    pCtrl->ACP.TripLogNM.value.nLong = pCtrl->ACP.TripLogNM.value.nLong + (i * BGNET_DIVISOR_TRIPLOG);
 
     // device received new data
     if ((pCtrl->iNewCommand == BGN_NEW_RESET)) {
@@ -1012,30 +1011,39 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
         pCtrl->iNewDevice = BGN_NEW_RESET; // reset
     }
     
-#define BGN_ENABLE_QUAD_TX
-#ifdef BGN_ENABLE_QUAD_TX
-        len_pl = makeQUADresponse1(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pCtrl, &F, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
-        log_debug_frame(&F);
+#define BGNET_ENABLE_QUAD_TX
+#ifdef BGNET_ENABLE_QUAD_TX
+    size_t len_msg;
+    int len_pl;
+    unsigned char payload[1024];
+    FRAME_H FTx, *pFTx;
+    pFTx = &FTx;
 
-        // put it for transmission
-        memcpy(&buffer[r], &F, len_msg); // put output message in write buffer
-        r = r + len_msg; // increment byte counter in TX buffer
+    len_pl = makeQUADresponse1(pCtrl, payload);
+    len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+    register_DATA_frame(pCtrl, pFTx);
 
-        // update statistics
-        memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, &F, len_msg);
-        CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
+    log_debug_frame(pFTx);
 
-        len_pl = makeQUADresponse2(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pCtrl, &F, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+    // put it for transmission
+    memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+    r = r + len_msg; // increment byte counter in TX buffer
+
+    // update statistics
+    memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+    CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
+
+    len_pl = makeQUADresponse2(pCtrl, payload);
+    len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+    register_DATA_frame(pCtrl, pFTx);
         
-        // put it for transmission
-        memcpy(&buffer[r], &F, len_msg); // put output message in write buffer
-        r = r + len_msg; // increment byte counter in TX buffer
+    // put it for transmission
+    memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+    r = r + len_msg; // increment byte counter in TX buffer
 
-        // update statistics
-        memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, &F, len_msg);
-        CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
+    // update statistics
+    memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+    CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
 #endif
 
     // stage 5 - check if we are allowed to send output
@@ -1572,6 +1580,25 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                 pCtrl->ACP.BackLight.value.nByte = pFRx->payload[0]; // first byte is the LIGHTS state
                                 pCtrl->ACP.BackLight.source = BGN_SOURCE_BGNET;
                                 log_info("  Command %02X (with payload) BACKLIGHT (BY: %02X, %s, LEVEL: %02X)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName, pFRx->payload[0]);
+#define BGNET_ENABLE_RESET_LOG
+#ifdef BGNET_ENABLE_RESET_LOG
+                                // exprimental = <LIGHTS> on NETDATA causes QUAD RESET
+                                if (pFRx->FROM == BGNET_TYPE_NETDATA) {
+                                    payload[0] = 0x00;
+                                    payload[1] = BGN_CNR_CF_TRIPNM;
+                                    len_pl = 2;
+                                    pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                    len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_TYPE_NETQUAD, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_CB_QUAD_RESET, payload, len_pl);
+                                                        
+                                    memcpy(pCtrl->CMD[BGNET_FRAME_CMD_CB_QUAD_RESET].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_CB_QUAD_RESET].CounterTx, t);
+                                    memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                    TxSize =TxSize + len_msg;
+                                    log_info("Experimental - QUAD RESET");
+                                    log_debug_frame(pFTx);
+                                }
+#endif
                                 break;
                             default:
                                 // Some commands are part of a CMD-REQ/CDM-DAT/CMD-ACK handshake. All next commands require a CMD-ACK response
@@ -1632,12 +1659,19 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                         // PILOT unit i could not establish one or the other and choose to do it like this.
                                         switch(pFRx->CMD) {
                                             case BGNET_FRAME_CMD_CB_QUAD_RESET:
-                                                // RESET command received. Must be a QUADr, because a 'real' QUAD handles the TRIPLOG (and RESET) internally.
+                                                // RESET LOG command received (from QUAD)
+                                                // Must be a TYPEr, because a 'TYPEt' QUAD handles the TRIPLOG (and RESET) internally.
                                                 switch(pCHRx->s.CH) {
-                                                    case BGN_CNR_CF_TRIPNM:
+                                                    case BGN_CNR_CF_TRIPNM: // RESET LOG
                                                         pCtrl->ACP.TripLogNM.value.nLong = 0;
                                                         pCtrl->ACP.TripLogNM.source = BGN_SOURCE_BGNET;
                                                         CounterUp(&pCtrl->ACP.TripLogNM.Counter, t);
+                                                        break;
+                                                    case BGN_CNR_81_DRDNM: // RESET DRD
+                                                        // QUAD RESET DND comes here, i guess to reset the DRD
+                                                        pCtrl->ACP.DRDNM.value.nLong = 0;
+                                                        pCtrl->ACP.DRDNM.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->ACP.DRDNM.Counter, t);
                                                         break;
                                                 }
                                                 break;
@@ -1853,6 +1887,9 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 // in SPEED/SETUP/MAN, the FST speed value is requested, 2 bytes payload
                                                 // 0=ACKSEQ, 1=0x46
                                                 switch(pCHRx->s.CH) {
+                                                    case BGN_CNR_41_BOATSPEEDKT: 
+                                                        // QUAD RESET DND comes here, but i do not know what it wants
+                                                        break;
                                                     case BGN_CNR_46_AP_SPEED:
                                                         // SEND SPD MAN/FST
                                                         payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
@@ -2159,6 +2196,9 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 // in PILOT/SETUP, the COMPASS DMP is configured, 2 bytes payload
                                                 // 0=ACKSEQ, 1=0x49
                                                 switch(pCHRx->s.CH) {
+                                                    case BGN_CNR_41_BOATSPEEDKT: 
+                                                        // QUAD RESET DND comes here, but i do not know what it wants
+                                                        break;
                                                     case BGN_CNR_49_HEADING:
                                                         // create command with current DMP setting
                                                         payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];

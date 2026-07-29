@@ -608,6 +608,8 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "NETWORK: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.TripLogNM.source), (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
     strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "NETWORK: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", t-pCtrl->ACP.DRDNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DRDNM.source), ITOD(pCtrl->ACP.DRDNM.value.nLong));
+    strcat(Buffer, cLine);
 
     return(Buffer);
 }
@@ -721,10 +723,10 @@ static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
         "\r<h3>Channel Information</h3>"
         "\r<table>"
         "<tr><th colspan='2'>Channel</th>"
-            "<th colspan='5'>Command 0x01/%s</th>"
-            "<th colspan='4'>Command 0x02/%s</th>"
-            "<th colspan='3'>Command 0x06/%s</th>"
-            "<th colspan='7'>Various Commands/BUTTONS, ALARMS, RESETS</th>"
+            "<th colspan='5'>Command 0x01/%s [Tx/Rx]</th>"
+            "<th colspan='4'>Command 0x02/%s [Rx]</th>"
+            "<th colspan='3'>Command 0x06/%s [Rx]</th>"
+            "<th colspan='7'>Various Commands/BUTTONS, ALARMS, RESETS [Tx/Rx]</th>"
             "</tr>"
         "<tr><th>ID</th><th>Label</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th>"
