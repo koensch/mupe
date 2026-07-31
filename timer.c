@@ -93,13 +93,18 @@ void *timer_thread(void *arg)
             CounterUp(&pCtrl->ACP.PILOTWD.Counter, t);
           } else {
             log_error("PILOTWD expired at %d, fallback to STBY/COMP", pCtrl->ACP.PILOTWD.value.nLong);
-            // force controller into STBY/COMP
+            // force controller into STBY
             pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
             pCtrl->ACP.STATE.source = BGN_SOURCE_ACP;
             CounterUp(&pCtrl->ACP.STATE.Counter, t);
+            // force controller into COMP
             pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
             pCtrl->ACP.MODE.source = BGN_SOURCE_ACP;
             CounterUp(&pCtrl->ACP.MODE.Counter, t);
+            // reset the watchdog
+            pCtrl->ACP.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
+            pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
+            CounterInit(&pCtrl->ACP.PILOTWD.Counter, t);
           }
 
           //device processing start
