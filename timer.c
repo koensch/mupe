@@ -78,30 +78,34 @@ void *timer_thread(void *arg)
         }
 
         // This is what we call "DEVICE processing"
+
         // we do NOT do this every msec, but after some count-down was expired.
         // note that any application can trigger an instant execution of the device processing, by setting this counter to 0
         if (pCtrl->iDeviceCounter > 0) {
           pCtrl->iDeviceCounter--;
         } else {
-            log_info("Device Processing %d", pCtrl->iDeviceRun);
 
-            // count-down PILOT flunk counter
-            if (pCtrl->ACP.PILOT.value.nLong > 0) {
-              pCtrl->ACP.PILOT.value.nLong--;
-              pCtrl->ACP.PILOT.source = BGN_SOURCE_NONE;
-              CounterUp(&pCtrl->ACP.PILOT.Counter, t);
-            } else {
-              // force controller into STBY/COMP
-              pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
-              pCtrl->ACP.STATE.source = BGN_SOURCE_NONE;
-              CounterUp(&pCtrl->ACP.STATE.Counter, t);
-              pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
-              pCtrl->ACP.MODE.source = BGN_SOURCE_NONE;
-              CounterUp(&pCtrl->ACP.MODE.Counter, t);
-            }
+          // This is what we call "watchdog" checking. WE do the count-down. As long as the PILOT
+          // sends it's "PILOT_HELLO" message, we know the boat has a working PILOT to monitor and command
+          if (pCtrl->ACP.PILOTWD.value.nLong > 0) {
+            pCtrl->ACP.PILOTWD.value.nLong--;
+            pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
+            CounterUp(&pCtrl->ACP.PILOTWD.Counter, t);
+          } else {
+            log_error("PILOTWD expired at %d, fallback to STBY/COMP", pCtrl->ACP.PILOTWD.value.nLong);
+            // force controller into STBY/COMP
+            pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
+            pCtrl->ACP.STATE.source = BGN_SOURCE_ACP;
+            CounterUp(&pCtrl->ACP.STATE.Counter, t);
+            pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
+            pCtrl->ACP.MODE.source = BGN_SOURCE_ACP;
+            CounterUp(&pCtrl->ACP.MODE.Counter, t);
+          }
 
-            // device processing
+          //device processing start
+          log_info("Device Processing %d", pCtrl->iDeviceRun);
           TxBufLen = bgnet_process(pCtrl, TxBuf, sizeof(TxBuf));
+          // reset device processing counter (we do not want to run every MSEC1)
           pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
 
           // increment a run counter, wrap around to avoid overruns
@@ -123,8 +127,8 @@ void *timer_thread(void *arg)
           }
         }
 
-        // no racing allowed
-        usleep(cfg->timer_interval_ms * MSEC1);
+        // no racing allowed, use the configured timer interval, but protect against someone entering 0
+        usleep(BGNET_MIN(cfg->timer_interval_ms * 1000, MSEC1));
     }
     log_info("Timer: thread exiting");
     return NULL;

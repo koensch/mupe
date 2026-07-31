@@ -562,7 +562,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Running since", "Startup timestamp", t-pCtrl->ACP.tTimestamp, t-pCtrl->ACP.tTimestamp, strSource(cSource, BGN_SOURCE_NONE), asciibuffer);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", pCtrl->ACP.PILOT.Counter.iCounter, t-pCtrl->ACP.PILOT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.source), pCtrl->ACP.PILOT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", pCtrl->ACP.PILOTWD.Counter.iCounter, t-pCtrl->ACP.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOTWD.source), pCtrl->ACP.PILOTWD.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "[0=OFF, 1=ON]", pCtrl->ACP.Joystick.Counter.iCounter, t-pCtrl->ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Joystick.source), pCtrl->ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);

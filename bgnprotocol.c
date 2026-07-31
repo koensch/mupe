@@ -207,9 +207,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.tTimestamp = t;
 
         // PILOT watchdog (set by PILOT_HELLO, count-down by timer)
-        pCtrl->ACP.PILOT.value.nLong = BGN_PILOT_SET;
-        pCtrl->ACP.PILOT.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->ACP.PILOT.Counter, t);
+        pCtrl->ACP.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
+        pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.PILOTWD.Counter, t);
 
         // initialize AutoPilot to STBY/COMP; joystick OFF
         pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
@@ -1509,7 +1509,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
         iIsValid = 1; // tricky: if we hit a 'default' in a switch we reset this, so statistics is not updated
 
         // log received frame (at least, i hope it's a frame)
-        log_debug_frame(pFRx);
+        //log_debug_frame(pFRx);
 
         // sorry, but the code branch and switch/cases have become more complex than i ever envisaged. It was developped over
         // many hours of reverse-engineering. You do not know where you are heading and what approch would be a neat solution
@@ -1571,10 +1571,11 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                             log_info("  Command %02X (header only) KEEPALIVE by %02X %s", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName);
 
                             // set the counter (count down done by timer thread)
+                            log_info("PILOTWD reset from %d to %d", pCtrl->ACP.PILOTWD.value.nLong, BGNET_PILOTWD_SET);
                             pthread_mutex_lock(&g_data_mutex);
-                            pCtrl->ACP.PILOT.value.nLong = BGN_PILOT_SET;
-                            pCtrl->ACP.PILOT.source = BGN_SOURCE_BGNET;
-                            CounterUp(&pCtrl->ACP.PILOT.Counter, t);
+                            pCtrl->ACP.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
+                            pCtrl->ACP.PILOTWD.source = BGN_SOURCE_BGNET;
+                            CounterUp(&pCtrl->ACP.PILOTWD.Counter, t);
                             pthread_mutex_unlock(&g_data_mutex);
 
                             // this reply gets the PILOT out of the "No PILOT" state

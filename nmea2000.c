@@ -89,7 +89,7 @@ static void parse_pgn_129026(const struct can_frame *f)
     }
 }
 
-/* 128259 – Speed, Water Referenced
+/* 128259 – Speed, Water Referenced// STW (Speed Through Water)
  * Water speed: 0.01 m/s
  */
 static void parse_pgn_128259(const struct can_frame *f)
@@ -195,7 +195,7 @@ static void parse_pgn_130306(const struct can_frame *f)
 
 /* 127245 – Rudder Angle
  * Angle: -PI (-180) to +Pi (+180) degrees, range 0-30000
- * mechinical limits are restricted to +/-45 to +/-90 degrees
+ * mechanical limits are restricted between +/-45 and +/-90 degrees
  */
 static void parse_pgn_127245(const struct can_frame *f)
 {
@@ -224,7 +224,7 @@ static void parse_pgn_127245(const struct can_frame *f)
     CounterUp(&g_n2kdata.boat.rudder.Counter, t);
     pthread_mutex_unlock(&g_data_mutex);
 
-    log_debug("N2K 127245: rudder angle=%.4f [rad] (or %d degrees) %X", rudder_rad, (int)(rudder_rad*180/M_PI), rudder_raw);
+    log_debug("N2K 127245: rudder angle=%.4f [rad] (or %d degrees), raw= 0x%02X", rudder_rad, (int)(rudder_rad*180/M_PI), rudder_raw);
 }
 
 void *nmea2000_thread(void *arg)
@@ -236,7 +236,7 @@ void *nmea2000_thread(void *arg)
     struct ifreq ifr;
 
     // to resolve the phenomenon that the nmea2000 thread was 'hanging' and the application would not
-    // terminate with <Ctrl><C> i have made the socket non-blocking
+    // terminate with <Ctrl><C> i have made the socket non-blocking128259
     // KS 2026-07-29
     int s = socket(PF_CAN, SOCK_RAW | SOCK_NONBLOCK, CAN_RAW);
     if (s < 0) {
@@ -282,13 +282,13 @@ void *nmea2000_thread(void *arg)
                 uint32_t pgn = (frame.can_id >> 8) & 0x1FFFF;
 
                 iValid = 1;
-                switch (pgn) {
-                    case 129025: parse_pgn_129025(&frame); break;
-                    case 129026: parse_pgn_129026(&frame); break;
-                    case 128259: parse_pgn_128259(&frame); break;
-                    case 128267: parse_pgn_128267(&frame); break;
-                    case 130306: parse_pgn_130306(&frame); break;
-                    case 127245: parse_pgn_127245(&frame); break;
+                switch (pgn) {  // ADD: SEATEMP, HEADING
+                    case 129025: parse_pgn_129025(&frame); break;   // LAT, LON (can not be handled by NETWORK devices)
+                    case 129026: parse_pgn_129026(&frame); break;   // COG, SOG
+                    case 128259: parse_pgn_128259(&frame); break;   // STW (Speed Through Water)
+                    case 128267: parse_pgn_128267(&frame); break;   // Depth
+                    case 130306: parse_pgn_130306(&frame); break;   // AWS, AWA, TWS, TWA
+                    case 127245: parse_pgn_127245(&frame); break;   // rudder position
                     default:
                         iValid = 0;
                     break;

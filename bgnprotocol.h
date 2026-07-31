@@ -119,6 +119,18 @@
 // When 1 device sends 2 frames, these can be combined into 1 transmission. We should expect that received frames consists
 // of multiple 'sub-frames'.
 
+// Note for my future me:
+// A future project could be an interface between PILOT and PYPILOT. PYPILOT does not have a documented API. It does have
+// some features that run over port 21311. To interface with the appliction. Refer to the following scripts how this could
+// be archieved:
+//  - pypilot/ui/autopilot_control.py    python control client
+//  - pypilot/lcd/lcd.py                 spi lcd, gpio keypad and IR remote
+//  - pypilot/webapp/webapp.py           python/javascript control from website, web interface for pypilot using web sockets
+// see pypilot on github: https://github.com/pypilot
+// when installing openplotter, pypilot is usually found in /usr/local/lib/python3.11/dist-packages/pypilot
+// All pypilot features are also utilised in the opencpn plugin. This is implemented in C++ and might be easier to connect
+// to this B&G gateway: https://github.com/pypilot/pypilot_pi
+
 // GENERIC defines
 
 // use this macro to convert a floating point value (double) to integer with round-off
@@ -126,6 +138,7 @@
 #define DTOIROUND(d)                    ((int)(d >= 0.0 ? (d + 0.5) : (d - 0.5)))
 #define ITOD(i)                         (double)i
 #define BGNET_PI                        3.14159
+#define BGNET_MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 // FRAME definitions
 
@@ -541,7 +554,7 @@ typedef struct {
     int iImportFrom;                // Import from NMEA2000 or SignalK
     int iExportTo;                  // Export to NMEA2000 of SignalK
     int iNMEA_PGN;                  // NMEA2000 reference PGN
-    char cSKdef[32];                // SignalK reference string 
+    char cSKdef[50];                // SignalK reference string 
 } BGNET_CHNDT;
 
 typedef struct {
@@ -637,11 +650,9 @@ typedef struct {
     } weird;
      NMEA2K_VALUE CommandACK;         // counter for ack messages, increment after each use.
     
-#define BGN_PILOT_SET   10
-    NMEA2K_VALUE PILOT;         // flunk timer. every KEEPALIVE we set this to 100, the timer counts it down
-                                // when 0, ACP generates an error and sets JOYSTICK mode.
-    //NMEA2K_VALUE CMD;           // when sending a command message, we need to send a ACKSEQ number. Usually this is an incremental number
-                                // we use a CMD variable for that purpose and use the counter as sequence number.
+#define BGNET_PILOTWD_SET   10
+    NMEA2K_VALUE PILOTWD;       // PILOT WatchDog: flunk timer. With every "PILOT_HELLO" we set this to 100, the timer counts it down (every device run)
+                                // when 0, ACP generates an error and falls back to STBY/COMP mode.
     NMEA2K_VALUE STATE;
     NMEA2K_VALUE MODE;
 
@@ -687,8 +698,8 @@ typedef struct {
 
 #define BGNET_CTRL_INIT            1
 #define BGNET_CTRL_INIT_RESET      0
-// we count down from 100
-#define BGNET_CTRL_DEVCNTR_INIT    100
+// we count down from 1000 before we do the device processing
+#define BGNET_CTRL_DEVCNTR_INIT    1000
 
 typedef struct {
     int iInitialized;
