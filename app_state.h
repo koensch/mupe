@@ -52,7 +52,7 @@ extern int  g_serial_mode;
 union VALUE {
     double dValue;    // used for floatingpoint values
     uint8_t nByte;    // state/byte
-    uint64_t nLong;   // large integer value
+    int64_t nLong;   // large integer value
     char cString[12]; // character string
 };
 

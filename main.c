@@ -209,7 +209,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 8A",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 8B",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 8C",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_8D_BATTERY,       "BATTERY",         BGN_FMT_08, BGNET_TYPE_NETWIND, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_8D_BATTERY,       "BATTERY",         BGN_FMT_48, BGNET_TYPE_NETWIND, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 8E",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 8F",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 90",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -532,7 +532,7 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                                 "UNKNOWN C8"},\
     {BGNET_FRAME_CMD_C9_BACKLIGHT,      "LIGHTS"},\
     {0,                                 "UNKNOWN CA"},\
-    {BGNET_FRAME_CMD_CB_QUAD_RESET,     "QUAD RESET REQ"},\
+    {BGNET_FRAME_CMD_CB_QUAD_RESET,     "QUAD RESET REQ"}, \
     {0,                                 "UNKNOWN CC"},\
     {BGNET_FRAME_CMD_CD_PILOT_DMPREQ,   "PILOT SETUP/DMP/REQ"},\
     {BGNET_FRAME_CMD_CE_PILOT_DMPDAT,   "PILOT SETUP/DMP/DAT"},\
@@ -563,7 +563,7 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                                 "ALARM OFF"},\
     {0,                                 "ALARM TOGGLE"},\
     {0,                                 "UNKNOWN E9"},\
-    {0,                                 "UNKNOWN EA"},\
+    {BGNET_FRAME_CMD_EA_QUAD_UNKNOWN,   "UNKNOWN EA"},\
     {0,                                 "UNKNOWN EB"},\
     {0,                                 "UNKNOWN EC"},\
     {0,                                 "UNKNOWN ED"},\

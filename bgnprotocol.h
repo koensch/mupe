@@ -160,35 +160,16 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_DEVICE_MAX                0xFF
 
 // TO 'group' broadcast adresses (byte 0)
-#define BGNET_FRAME_TO_ACP              0x00 // PILOT uses this to send KEEPALIVE command, possibly this is the ACP
-#define BGNET_FRAME_TO_2020             0xFA
-#define BGNET_FRAME_TO_FFDHALYCON       0xFB
-#define BGNET_FRAME_TO_FFDPILOT         0xFC // NETWORK PILOT unit does NOT accepts this as TO (uses it's 0x5? and 0xFF only)
-#define BGNET_FRAME_TO_PROCNODE         0xFD
-#define BGNET_FRAME_TO_FFD              0xFE
 #define BGNET_FRAME_TO_ALL              0xFF
 
-// values for the FROM field (byte 1)
-#define BGNET_TYPE_DEPTHCPU             0x01
-#define BGNET_TYPE_WINDCPU              0x05
-#define BGNET_TYPE_PERFCPU              0x09
-#define BGNET_TYPE_EXPANSION1           0x0D
-#define BGNET_TYPE_EXPANSION2           0x0E
-#define BGNET_TYPE_HALCYONCPU           0x0F
-#define BGNET_TYPE_H2000GYRO            0x10
-#define BGNET_TYPE_GYROACP              0x11
-#define BGNET_TYPE_GYROACPPILOT         0x12
-#define BGNET_TYPE_GYROACPPILOT         0x12
-
-// FROM address range (0x?0-0x?F) for device types
+// FROM address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA os 0xD6, another time it's 0x60.
+// The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51
 #define BGNET_TYPE_MASK                 0xF0 // mask the device type from the address
 #define BGNET_TYPE_NETACP               0x00 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
-#define BGNET_TYPE_FFD                  0x20
 #define BGNET_TYPE_NETQUAD              0x30 // confirmed
 #define BGNET_TYPE_NETPILOT             0x50 // confirmed
 #define BGNET_TYPE_NETDEPTH             0x10 //?
 #define BGNET_TYPE_NETSPEED             0x40 //?
-//#define BGNET_TYPE_NMEA                 0x60 // ? external NMEA device?
 #define BGNET_TYPE_NETDATA              0x60 // confirmed
 #define BGNET_TYPE_NETWIND              0x70 // confirmed
 
@@ -687,6 +668,7 @@ typedef struct {
     NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
     NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
     NMEA2K_VALUE Heading;       // Compass Heading
+    NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)
     NMEA2K_VALUE StoredLogNM;   // channel CD (stored log) is stored as 3-byte register
     NMEA2K_VALUE TripLogNM;     // channel CF (trip log NM) is stored as a 2 byte register
     NMEA2K_VALUE DRDNM;         // channel 81 (Dead Reconing Distance) is stored as a 2 byte register
@@ -696,6 +678,11 @@ typedef struct {
 
     // QUAD/SETUP
     NMEA2K_VALUE QUAD_DMP;      // QUAD/SPEED/SETUP/DMP, response time of speed value
+    NMEA2K_VALUE QUAD_LOGUNITS; // QUAD/SPEED/SETUP/LOG UNITS [KT/MPH], also adjusting [NM/SM]
+    NMEA2K_VALUE QUAD_CAL;      // QUAD/SPEED/SETUP/CALibration, boatspeed adjustment
+    NMEA2K_VALUE QUAD_CALLOG;   // QUAD/SPEED/SETUP/CAL LOG, Hz/KT is manually adjusted
+    NMEA2K_VALUE QUAD_CALAUTO;  // QUAD/SPEED/SETUP/CAL AUTO
+
 } BGN_ACP;
 
 #define BGNET_CTRL_INIT            1
