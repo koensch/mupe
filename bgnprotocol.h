@@ -139,6 +139,7 @@
 #define ITOD(i)                         (double)i
 #define BGNET_PI                        3.14159
 #define BGNET_MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define BGNET_TIME_FMT                 "%Y-%m-%d %H:%M:%S" 
 
 // FRAME definitions
 
@@ -648,7 +649,8 @@ typedef struct {
         unsigned char ACKSEQ; // last ACKSEQ received from PILOT
         unsigned char FRAME_SEED; // SEED to use
     } weird;
-     NMEA2K_VALUE CommandACK;         // counter for ack messages, increment after each use.
+    //NMEA2K_VALUE CommandACK;         // counter for ack messages, increment after each use.
+    NMEA2K_VALUE NetworkTime;          // network time
     
 #define BGNET_PILOTWD_SET   10
     NMEA2K_VALUE PILOTWD;       // PILOT WatchDog: flunk timer. With every "PILOT_HELLO" we set this to 100, the timer counts it down (every device run)

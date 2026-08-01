@@ -50,10 +50,11 @@ extern int  g_serial_mode;
 #define BGN_SOURCE_ACP      6
 
 union VALUE {
-    double dValue;    // used for floatingpoint values
-    uint8_t nByte;    // state/byte
-    int64_t nLong;   // large integer value
-    char cString[12]; // character string
+    double dValue;      // used for floating point values
+    uint8_t nByte;      // state/byte (unsigned)
+    int64_t nLong;      // long integer value (signed)
+    char cString[12];   // character string
+    time_t tTime;       // time format
 };
 
 typedef struct {
@@ -83,6 +84,7 @@ typedef struct {
     NMEA2K_VALUE seatemp;
     NMEA2K_VALUE rudder;
     NMEA2K_VALUE heading;
+    NMEA2K_VALUE time;
 } NMEA2K_BOAT;
 typedef struct {
     NMEA2K_VALUE twa;

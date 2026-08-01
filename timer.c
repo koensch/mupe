@@ -18,9 +18,9 @@ void *timer_thread(void *arg)
 
     while (g_running) {
         time(&t);
+
         pthread_mutex_lock(&g_data_mutex);
-        
-        if (g_serial_data_lenRx>0) {
+        if (g_serial_data_lenRx > 0) {
             // data is present, wait for frame completion
             if (g_serial_data_counter>SerialCounter_Reset) {
                 // wait for more, decrement counter
@@ -33,7 +33,7 @@ void *timer_thread(void *arg)
             }
         } else {
             // no data present, count down to the bottom (prevent underflow)
-            if (g_serial_data_counter>SerialCounter_Bottom) {
+            if (g_serial_data_counter > SerialCounter_Bottom) {
                 g_serial_data_counter--;
             }
         }
@@ -77,8 +77,6 @@ void *timer_thread(void *arg)
             RxBufLen = 0; // dump contents of local readbuffer, assume all was processed
         }
 
-        // This is what we call "DEVICE processing"
-
         // we do NOT do this every msec, but after some count-down was expired.
         // note that any application can trigger an instant execution of the device processing, by setting this counter to 0
         if (pCtrl->iDeviceCounter > 0) {
@@ -87,24 +85,28 @@ void *timer_thread(void *arg)
 
           // This is what we call "watchdog" checking. WE do the count-down. As long as the PILOT
           // sends it's "PILOT_HELLO" message, we know the boat has a working PILOT to monitor and command
-          if (pCtrl->ACP.PILOTWD.value.nLong > 0) {
-            pCtrl->ACP.PILOTWD.value.nLong--;
-            pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
-            CounterUp(&pCtrl->ACP.PILOTWD.Counter, t);
+          if (g_serial_mode == BGN_SERIAL_MODE_RO) {
+            // no need for WD in readonly mode, we are not in control
           } else {
-            log_error("PILOTWD expired at %d, fallback to STBY/COMP", pCtrl->ACP.PILOTWD.value.nLong);
-            // force controller into STBY
-            pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
-            pCtrl->ACP.STATE.source = BGN_SOURCE_ACP;
-            CounterUp(&pCtrl->ACP.STATE.Counter, t);
-            // force controller into COMP
-            pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
-            pCtrl->ACP.MODE.source = BGN_SOURCE_ACP;
-            CounterUp(&pCtrl->ACP.MODE.Counter, t);
-            // reset the watchdog
-            pCtrl->ACP.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
-            pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
-            CounterInit(&pCtrl->ACP.PILOTWD.Counter, t);
+            if (pCtrl->ACP.PILOTWD.value.nLong > 0) {
+              pCtrl->ACP.PILOTWD.value.nLong--;
+              pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
+              CounterUp(&pCtrl->ACP.PILOTWD.Counter, t);
+            } else {
+              log_error("PILOTWD expired at %d, fallback to STBY/COMP", pCtrl->ACP.PILOTWD.value.nLong);
+              // force controller into STBY
+              pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
+              pCtrl->ACP.STATE.source = BGN_SOURCE_ACP;
+              CounterUp(&pCtrl->ACP.STATE.Counter, t);
+              // force controller into COMP
+              pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
+              pCtrl->ACP.MODE.source = BGN_SOURCE_ACP;
+              CounterUp(&pCtrl->ACP.MODE.Counter, t);
+              // reset the watchdog
+              pCtrl->ACP.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
+              pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
+              CounterInit(&pCtrl->ACP.PILOTWD.Counter, t);
+            }
           }
 
           //device processing start

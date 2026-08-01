@@ -206,6 +206,11 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.iNewACP = 0;
         pCtrl->ACP.tTimestamp = t;
 
+        // NetworkTime
+        pCtrl->ACP.NetworkTime.value.tTime = t;
+        pCtrl->ACP.NetworkTime.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.NetworkTime.Counter, t);
+
         // PILOT watchdog (set by PILOT_HELLO, count-down by timer)
         pCtrl->ACP.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
         pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
@@ -1474,6 +1479,7 @@ void decode_command_LABEL(BGNET_CTRL* pCtrl, FRAME_H* pF) {
 }
 
 // decode the received buffer, possibly multiple subframes, return number of sub-frames
+// NOTE: realise this routine is executed by the timer-thread. We do no see a particular reason the run it 'locked'
 size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) {
     FRAME_H* pFRx;   // pointer to the RECEIVE frame
     FRAME_H* pFTx;   // pointer to the WRITE frame
@@ -1486,8 +1492,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
     int iIsValid, iValue;
     time_t t;
     size_t y;
-    // inside this routine we work with our local buffers to store generated frames
-    // this is only done in the same thread, so we do not have to do lock/unlock stuff
+    // inside this routine we work with our local buffers to store generated frames as much as possible.
     unsigned char payload[1024], TxBuf[1024];
     int len_pl, len_msg, TxSize;
 

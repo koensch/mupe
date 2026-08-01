@@ -422,13 +422,13 @@ static char* html_title(char *Buffer, size_t MaxBuf) {
     const char *cTitle =
         "<table border='0px';><tr><th><a href='http://localhost:8080/'>Home</a></th><th><a href='http://localhost:8080/bgnet/'>Statistics Report</a></th><th>%s</th</tr></table>"
         "<h1>%s</h1>";
-    char cTime[256];
+    char asciibuffer[256];
     time_t t;
     struct tm* tm_info;
     time (&t);
     tm_info = localtime(&t);
-    strftime(cTime, sizeof(cTime),"%Y-%m-%d %H:%M:%S", tm_info);
-    snprintf(Buffer, MaxBuf, cTitle, cTime, ApplicationName);
+    strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, tm_info);
+    snprintf(Buffer, MaxBuf, cTitle, asciibuffer, ApplicationName);
     return(Buffer);
 }
 
@@ -559,8 +559,12 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 
 
     ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
-    strftime(asciibuffer, sizeof(asciibuffer), "%Y-%m-%d %H:%M:%S", ptmInfo);
+    strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Running since", "Startup timestamp", t-pCtrl->ACP.tTimestamp, t-pCtrl->ACP.tTimestamp, strSource(cSource, BGN_SOURCE_NONE), asciibuffer);
+    strcat(Buffer, cLine);
+    ptmInfo = localtime (&pCtrl->ACP.NetworkTime.value.tTime);
+    strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Time received from network", pCtrl->ACP.NetworkTime.Counter.iCounter, t-pCtrl->ACP.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.NetworkTime.source), asciibuffer);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", pCtrl->ACP.PILOTWD.Counter.iCounter, t-pCtrl->ACP.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOTWD.source), pCtrl->ACP.PILOTWD.value.nLong);
     strcat(Buffer, cLine);
