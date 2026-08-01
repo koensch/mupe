@@ -606,7 +606,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Course To Steer", "Autopilot Course setpoint (0-359 Degrees M)", pCtrl->ACP.CTS.Counter.iCounter, t-pCtrl->ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CTS.source), pCtrl->ACP.CTS.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Compass Heading", "Current compass reading (0-359 Degrees M)", pCtrl->ACP.Heading.Counter.iCounter, t-pCtrl->ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Heading.source), pCtrl->ACP.Heading.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Heading", "Current compass reading (0-359 Degrees M)", pCtrl->ACP.Heading.Counter.iCounter, t-pCtrl->ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Heading.source), pCtrl->ACP.Heading.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Rudder", "Current rudder position (-45-+45 Degrees)", pCtrl->ACP.Rudder.Counter.iCounter, t-pCtrl->ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Rudder.source), pCtrl->ACP.Rudder.value.nLong);
     strcat(Buffer, cLine);
