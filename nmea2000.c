@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <stdio.h>
+#include <arpa/inet.h>
 
 /* notes on NMEA 2000 interfaces
     if you use a CANable interface (like i do), you will observe the phenomenon that when your CANable experiense a short power-down (<5sec, like
@@ -87,8 +88,12 @@ static void parse_pgn_126992(BGNET_CTRL *pCtrl, const struct can_frame *f)
     char asciibuffer[40];
 
     int16_t days = n2k_u16(f->data[2], f->data[3]); // days since 1970-01-01
-    int32_t seconds = n2k_u32(f->data[4], f->data[5],f->data[6], f->data[7]); // seconds since midnight
+    days = ntohs(n2k_u16(f->data[3], f->data[2])); // days since 1970-01-01
+    //days = ntohs(&f->data[2]);
+
+    int32_t seconds = ntohl(n2k_u32(f->data[7], f->data[6],f->data[5], f->data[4]))/10000; // seconds since midnight
     time_t time_raw = days * 86400 + seconds;
+    // time_t time_raw = days * 86400;
 
     time(&t);
 
@@ -100,7 +105,8 @@ static void parse_pgn_126992(BGNET_CTRL *pCtrl, const struct can_frame *f)
 
     ptmInfo = localtime(&g_n2kdata.boat.time.value.tTime);
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    log_debug("N2K 127245: received time=%ld = %s", g_n2kdata.boat.time.value.tTime, asciibuffer);
+    log_debug("N2K 127245: received time=0x%X = %s", seconds, asciibuffer);
+    log_debug("N2K 127245: received time=0x%X = %s", t, asciibuffer);
 
     switch(pCtrl->ACP.NetworkTime.source) {
         case BGN_SOURCE_NONE:
