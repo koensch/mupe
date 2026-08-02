@@ -8,7 +8,7 @@
 // the lower the usleep, the higher the CPU load. 1000 (1 msec) works Ok, 5000 (5 msec) also works OK,
 // but 10000 (10 msec) lo longer works. Use this to tune behaviour vs resources.
 // for the time being, i'll leave it to 1000 (1 msec) 
-#define MSEC1           2000 // usleep 2msec
+#define MSEC1           5000 // usleep 2msec
 
 // generic defines
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -83,7 +83,8 @@ typedef struct {
     NMEA2K_VALUE depth;
     NMEA2K_VALUE seatemp;
     NMEA2K_VALUE rudder;
-    NMEA2K_VALUE heading;
+    NMEA2K_VALUE headingM;
+    NMEA2K_VALUE headingT;
     NMEA2K_VALUE time;
 } NMEA2K_BOAT;
 typedef struct {

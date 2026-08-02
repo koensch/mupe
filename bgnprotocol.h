@@ -650,6 +650,7 @@ typedef struct {
         unsigned char FRAME_SEED; // SEED to use
     } weird;
     //NMEA2K_VALUE CommandACK;         // counter for ack messages, increment after each use.
+    NMEA2K_VALUE SystemTime;           // system time (our computer time)
     NMEA2K_VALUE NetworkTime;          // network time
     
 #define BGNET_PILOTWD_SET   10

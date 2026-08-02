@@ -204,9 +204,14 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
 
         // stage 2 - ACP initialize data structure
         pCtrl->ACP.iNewACP = 0;
-        pCtrl->ACP.tTimestamp = t;
+        pCtrl->ACP.tTimestamp = t; // this timestamp is set on initialisation. this indicates when the application started
 
-        // NetworkTime
+        // SystemTime // this is the ACP time; the actual time of the computer this application is running on, set by timer-thread, used where we need the time
+        pCtrl->ACP.SystemTime.value.tTime = t;
+        pCtrl->ACP.SystemTime.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.SystemTime.Counter, t);
+
+        // NetworkTime // this is the time received from external source (GPS, TFTP, API or whatever), this indicates what others think the time is
         pCtrl->ACP.NetworkTime.value.tTime = t;
         pCtrl->ACP.NetworkTime.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->ACP.NetworkTime.Counter, t);

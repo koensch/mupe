@@ -51,7 +51,8 @@ void app_state_init(void)
         NMEAinit(&g_n2kdata.boat.depth, t);
         NMEAinit(&g_n2kdata.boat.seatemp, t);
         NMEAinit(&g_n2kdata.boat.rudder, t);
-        NMEAinit(&g_n2kdata.boat.heading, t);
+        NMEAinit(&g_n2kdata.boat.headingM, t);
+        NMEAinit(&g_n2kdata.boat.headingT, t);
 
         NMEAinit(&g_n2kdata.wind.twa, t);
         NMEAinit(&g_n2kdata.wind.tws, t);

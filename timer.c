@@ -10,24 +10,29 @@
 void *timer_thread(void *arg)
 {
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
-    Config *cfg = pCtrl->pCfg;
     time_t t;
 
     unsigned char RxBuf[BGNET_RXTXRAW_SIZE], TxBuf[BGNET_RXTXRAW_SIZE]; // local read buffer
     size_t RxBufLen = 0, TxBufLen = 0;
 
     while (g_running) {
-        time(&t);
 
+        // get time, update our system time 
+        time(&t);
+        pCtrl->ACP.SystemTime.value.tTime = t;
+        pCtrl->ACP.SystemTime.source = BGN_SOURCE_ACP;
+        CounterUp(&pCtrl->ACP.SystemTime.Counter, t);
+
+        // check if there is serial data ready
         pthread_mutex_lock(&g_data_mutex);
         if (g_serial_data_lenRx > 0) {
             // data is present, wait for frame completion
-            if (g_serial_data_counter>SerialCounter_Reset) {
+            if (g_serial_data_counter > SerialCounter_Reset) {
                 // wait for more, decrement counter
                 g_serial_data_counter--;
             } else {
                 // timeout, end of frame, get data into local buffer
-                memcpy(RxBuf,g_last_serial_dataRx,g_serial_data_lenRx);
+                memcpy(RxBuf, g_last_serial_dataRx, g_serial_data_lenRx);
                 RxBufLen = g_serial_data_lenRx;
                 g_serial_data_lenRx = 0; // reset receiving buffer (so serial port can handle the next frame)
             }
@@ -39,9 +44,9 @@ void *timer_thread(void *arg)
         }
         pthread_mutex_unlock(&g_data_mutex);
 
-        // show what we got
+        // handle if we got something
         if (RxBufLen > 0) {
-            // convert frame into prinatble text, byte spaced
+            // convert frame into printable text, byte spaced
             // at this time i'm note sure if this is a 'real' BGNET frame. I treat it like a raw byte stream
             //byte2ascii(asciibuf, sizeof(asciibuf), RxBuf, RxBufLen, BYTE2ASCII_SPACED);
             //log_debug("Timer %d msec, %d bytes: %s", RxCounter, RxBufLen, asciibuf);
@@ -50,27 +55,26 @@ void *timer_thread(void *arg)
             - until no we have only processed streams of data bytes coming from the serial port. In this protocol
               messages are separated by 'silence', typically around 45msec.
             - every frame we receive may contain 1 or more 'messages'.
-            - we pass the received frame on to our 'device processor' that will separate the 'sub-frames'.
-            - the 'device processor' check the CR in the header and body (if present) of every message
-            - the 'device processor' will recognise the TO, FROM and CMD and handles it according to the 'device type'
+            - we pass the received frame on to our 'frame decoder' that will separate the 'sub-frames'.
+            - the 'frame decoder' check the CR in the header and body (if present) of every message
+            - the 'frame decoder' will recognise the TO, FROM and CMD and handles it according to the 'device type'
               behaviour.
-            - data from the received message will be stored in the devices data structure. A 'new' counter will be set
-              for the system, the device, and each value within the message. This allows us to skip processing parts
-              where nothing has changed.
+            - data from the received message will be stored in the channel/device/command data structure. A 'new' counter will be set
+              for the system, the device, and each value within the message. This allows us to detect 'new' data.
             - data is stored in a 'virtual device' that mirrors the sender. Most message have a 'everyone' TO address,
               saving received data at destination addresses causes multiplication of data.
             - the architecture we are dealing with allow multiple identical stations to be present, but only 1 can have
               the actual sensor and others must be placed in the 'repeater' mode. These are not 'senders', but 'listeners'
-            - if appicable, the 'device processor' will create a output message. All output messages are concatenated
+            - if appicable, the 'frame decoder' will create a output message. All output messages are concatenated
               into a multi-frame packet. Every device must create their own frame (because of the FROM address), but
               all frames can be packed together in the same write buffer and send in 1 go.
-            - Because the Rx and Tx signals are connected, we get our own Tx messages back into our Rx buffer. The device
-              processor will ignore any incoming message with e FROM address that is served by the device processor.
+            - Because the Rx and Tx signals are connected, we get our own Tx messages back into our Rx buffer. The frame decoder
+              will ignore any incoming message with a FROM address that is our own.
             - The device data structure can be accessed (read & write) via de web interface. We can see what data is there
               and do something that triggers an output message to be send.
             - the writing of output messages is done by the 'serial-thread'. When data is in the TxBuf, it will output
               and reset it
-            - The 'timer-thread' will trigger the 'device-processor' to make sure it also runs where there is no incoming
+            - The 'timer-thread' will trigger the 'frame decoder' to make sure it also runs where there is no incoming
               messages. When the IO bus has only 'passive' units, no data is send and the heartbeat has to come from us.
             */
             bgnet_decode_frame(pCtrl, RxBuf, RxBufLen);
@@ -134,8 +138,8 @@ void *timer_thread(void *arg)
           }
         }
 
-        // no racing allowed, use the configured timer interval, but protect against someone entering 0
-        usleep(BGNET_MIN(cfg->timer_interval_ms * 1000, MSEC1));
+        // no racing allowed, use the configured timer interval, but protect against someone entering 0        
+        usleep(BGNET_MIN(pCtrl->pCfg->timer_interval_ms * 1000, MSEC1));
     }
     log_info("Timer: thread exiting");
     return NULL;

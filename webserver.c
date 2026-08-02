@@ -270,7 +270,8 @@ static void handle_api_update(int client_fd, const char *body)
     cJSON *depth     = cJSON_GetObjectItem(root, "depth");     // water depth below transducer [M]
     cJSON *seatemp   = cJSON_GetObjectItem(root, "seatemp");   // temperature of seawater [degree C]
     cJSON *rudder    = cJSON_GetObjectItem(root, "rudder");    // rudder angle sensor [radian], -Pi/+Pi (equals to -180/+180)
-    cJSON *heading   = cJSON_GetObjectItem(root, "heading");   // heading [degree] (0-359, compass)
+    cJSON *headingM   = cJSON_GetObjectItem(root, "headingM");   // heading [degree] (0-359, magnetic)
+    cJSON *headingT   = cJSON_GetObjectItem(root, "headingT");   // heading [degree] (0-359, magnetic)
     // wind measured parameters
     cJSON *twa       = cJSON_GetObjectItem(root, "twa");       // True Wind Angle [degree] (-180/+180, derived from SOG, COG and AWA)
     cJSON *tws       = cJSON_GetObjectItem(root, "tws");       // True Wind Speed [M/S] (derived from SOG, COG and AWS)
@@ -333,10 +334,15 @@ static void handle_api_update(int client_fd, const char *body)
         g_n2kdata.boat.rudder.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.rudder.Counter, t);
     }
-    if (heading) {
-        g_n2kdata.boat.heading.value.dValue = heading->valuedouble;
-        g_n2kdata.boat.heading.source = BGN_SOURCE_API;
-        CounterUp(&g_n2kdata.boat.heading.Counter, t);
+    if (headingM) {
+        g_n2kdata.boat.headingM.value.dValue = headingM->valuedouble;
+        g_n2kdata.boat.headingM.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.headingM.Counter, t);
+    }
+    if (headingT) {
+        g_n2kdata.boat.headingT.value.dValue = headingT->valuedouble;
+        g_n2kdata.boat.headingT.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.headingT.Counter, t);
     }
 
     // wind information from masttop sensor
@@ -562,13 +568,17 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Running since", "Startup timestamp", t-pCtrl->ACP.tTimestamp, t-pCtrl->ACP.tTimestamp, strSource(cSource, BGN_SOURCE_NONE), asciibuffer);
     strcat(Buffer, cLine);
+    ptmInfo = localtime (&pCtrl->ACP.SystemTime.value.tTime);
+    strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: System Time", "Computer Time ", pCtrl->ACP.SystemTime.Counter.iCounter, t-pCtrl->ACP.SystemTime.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SystemTime.source), asciibuffer);
+    strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->ACP.NetworkTime.value.tTime);
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Time received from network", pCtrl->ACP.NetworkTime.Counter.iCounter, t-pCtrl->ACP.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.NetworkTime.source), asciibuffer);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", pCtrl->ACP.PILOTWD.Counter.iCounter, t-pCtrl->ACP.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOTWD.source), pCtrl->ACP.PILOTWD.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "[0=OFF, 1=ON]", pCtrl->ACP.Joystick.Counter.iCounter, t-pCtrl->ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Joystick.source), pCtrl->ACP.Joystick.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "External switch [0=OFF, 1=ON]", pCtrl->ACP.Joystick.Counter.iCounter, t-pCtrl->ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Joystick.source), pCtrl->ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP STATE", "[0=STBY, 1=AUTO]", pCtrl->ACP.STATE.Counter.iCounter, t-pCtrl->ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.STATE.source), pCtrl->ACP.STATE.value.nByte);
     strcat(Buffer, cLine);
@@ -662,9 +672,9 @@ static char* html_NMEA_row(char *Buffer) {
     strcpy(Buffer, "");
     time(&t);
 
-    snprintf(cLine, sizeof(cLine), cNMEARow, "LATITUDE", "DDMM.MMMM North(+) or South(-) of the equator, usually from GPS [-90/+90 degree]", g_n2kdata.pos.lat.Counter.iCounter, (t - g_n2kdata.pos.lat.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lat.source), g_n2kdata.pos.lat.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "LATITUDE", "DD.MMMMMM North(+) or South(-) of the equator, usually from GPS [-90/+90 degree]", g_n2kdata.pos.lat.Counter.iCounter, (t - g_n2kdata.pos.lat.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lat.source), g_n2kdata.pos.lat.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "LONGITUDE", "DDDMM.MMMM West(+) or East(-) of the prime meridian, usually from GPS [-180/+180 degree]", g_n2kdata.pos.lon.Counter.iCounter, (t - g_n2kdata.pos.lon.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lon.source), g_n2kdata.pos.lon.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "LONGITUDE", "DDD.MMMMMM East(+) or West(-) of the prime meridian, usually from GPS [-180/+180 degree]", g_n2kdata.pos.lon.Counter.iCounter, (t - g_n2kdata.pos.lon.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lon.source), g_n2kdata.pos.lon.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "ALTITUDE", "[M] above 'Mean Sea Level', usually from GPS (for surface ships normally ignored)", g_n2kdata.pos.alt.Counter.iCounter, (t - g_n2kdata.pos.alt.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.alt.source), g_n2kdata.pos.alt.value.dValue);
     strcat(Buffer, cLine);
@@ -681,7 +691,9 @@ static char* html_NMEA_row(char *Buffer) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "RUDDER", "Rudder position, starboard(+) or port(-) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudder.Counter.iCounter, (t - g_n2kdata.boat.rudder.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudder.source), g_n2kdata.boat.rudder.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING", "Heading, usually from Compass  [0-359 degree]", g_n2kdata.boat.heading.Counter.iCounter, (t - g_n2kdata.boat.heading.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.heading.source), g_n2kdata.boat.heading.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING M", "Magnetic Heading, usually from Compass  [0-359 degree]", g_n2kdata.boat.headingM.Counter.iCounter, (t - g_n2kdata.boat.headingM.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.headingM.source), g_n2kdata.boat.headingM.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING T", "True Heading, compensated for Deviation  [0-359 degree]", g_n2kdata.boat.headingT.Counter.iCounter, (t - g_n2kdata.boat.headingT.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.headingT.source), g_n2kdata.boat.headingT.value.dValue);
     strcat(Buffer, cLine);
 
     return(Buffer);
