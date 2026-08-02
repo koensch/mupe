@@ -673,6 +673,13 @@ typedef struct {
     NMEA2K_VALUE SETUP_DMP;     // Compass heading display damping (1-99 sec, defaut =4)
     NMEA2K_VALUE SETUP_FR;      // Fault Reporting ON/OFF
     // PILOT/SPEED/SETUP - Manual speed selection
+#define BGNET_SPD_TRA           0
+#define BGNET_SPD_MAN           1
+#define BGNET_SPD_SOG           2
+#define BGNET_SPD_MAN_FST       3
+#define BGNET_SPD_MAN_MED       4
+#define BGNET_SPD_MAN_SLW       5
+#define BGNET_SPD_MAN_NONE      0
     NMEA2K_VALUE MANSPEED_SEL;  // selected manual speed (FST/MED/SLW)
     NMEA2K_VALUE MANSPEED_FST;  // speed FST x10
     NMEA2K_VALUE MANSPEED_MED;  // speed MED x10
@@ -689,6 +696,8 @@ typedef struct {
     NMEA2K_VALUE Speed;         // current boat speed (used as initializer for SpeedMAX and SpeedAVG
     NMEA2K_VALUE SpeedMAX;      // reset with DRDNM
     NMEA2K_VALUE SpeedAVG;      // reset with DRDNM
+    NMEA2K_VALUE COG;
+    NMEA2K_VALUE SOG;
 
     // QUAD/SETUP
     NMEA2K_VALUE QUAD_DMP;      // QUAD/SPEED/SETUP/DMP, response time of speed value
@@ -744,6 +753,7 @@ int makeRESPresponse(BGNET_CTRL *, unsigned char *);
 int makeWAresponse(BGNET_CTRL *, unsigned char *);
 int makeOCresponse(BGNET_CTRL *, unsigned char *);
 size_t register_DATA_frame(BGNET_CTRL *, FRAME_H *);
+NMEA2K_VALUE *EffectiveBoatSpeed(BGNET_CTRL *, NMEA2K_VALUE *);
 
 void CounterInit(BGNET_COUNT*, time_t);
 void CounterUp(BGNET_COUNT*, time_t);

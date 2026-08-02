@@ -147,9 +147,10 @@ static void parse_pgn_127245(BGNET_CTRL *pCtrl, const struct can_frame *f)
         case BGN_SOURCE_NONE:
         case BGN_SOURCE_ACP:
         case BGN_SOURCE_NMEA:
-            pCtrl->ACP.Rudder.value.nLong = (int64_t)(rudder_rad*180/M_PI);
+            pCtrl->ACP.Rudder.value.nLong = DTOIROUND(rudder_rad * 180/M_PI);
             pCtrl->ACP.Rudder.source = BGN_SOURCE_NMEA;
             CounterUp(&pCtrl->ACP.Rudder.Counter, pCtrl->ACP.SystemTime.value.tTime);
+            break;
     }
 }
 
@@ -157,31 +158,49 @@ static void parse_pgn_127245(BGNET_CTRL *pCtrl, const struct can_frame *f)
  */
 static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
 {
-    int16_t heading_raw = ntohs(n2k_i16(f->data[3], f->data[2])); // heading, magnetic, range 0-2PI rad, 0-259 Deg
-    int16_t deviation_raw  = ntohs(n2k_i16(f->data[5], f->data[4])); // deviation, range -PI-+PI, -180/+180 Deg
+    //u_int16_t heading_raw = ntohs(n2k_i16(f->data[3], f->data[2])); // heading, magnetic, range 0-2PI rad, 0-259 Deg
+    //int16_t deviation_raw = (int16_t)ntohs(n2k_i16(f->data[5], f->data[4])); // deviation, range -PI-+PI, -180/+180 Deg
+    //int16_t variation_raw = (int16_t)ntohs(n2k_i16(f->data[7], f->data[6])); // deviation, range -PI-+PI, -180/+180 Deg
+    u_int16_t heading_raw = ntohs(n2k_i16(f->data[2], f->data[1])); // heading, magnetic, range 0-2PI rad, 0-259 Deg
+    int16_t deviation_raw = (int16_t)ntohs(n2k_i16(f->data[4], f->data[3])); // deviation, range -PI-+PI, -180/+180 Deg
+    int16_t variation_raw = (int16_t)ntohs(n2k_i16(f->data[6], f->data[5])); // deviation, range -PI-+PI, -180/+180 Deg
 
-    double heading = heading_raw * 1e-4;  /* devide by 1000 to get rads */
-    double deviation = deviation_raw * 1e-4; /* device by 1000 to get rads */
+    double heading = 0.0;
+    double deviation = 0.0;
+    double variation = 0.0;
+    if (heading_raw == 0xFFFF) {
+        // no data do not update
+    } else {
+        heading = heading_raw * 1e-4;  /* devide by 1000 to get rads */
+        pthread_mutex_lock(&g_data_mutex);
+        g_n2kdata.boat.headingM.value.dValue = heading; // Magnetic (no compensation)
+        g_n2kdata.boat.headingM.source = BGN_SOURCE_NMEA;
+        CounterUp(&g_n2kdata.boat.headingM.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        pthread_mutex_unlock(&g_data_mutex);
 
-    pthread_mutex_lock(&g_data_mutex);
-    g_n2kdata.boat.headingM.value.dValue = heading; // Magnetic (no compensation)
-    g_n2kdata.boat.headingM.source = BGN_SOURCE_NMEA;
-    CounterUp(&g_n2kdata.boat.headingM.Counter, pCtrl->ACP.SystemTime.value.tTime);
-    g_n2kdata.boat.headingT.value.dValue = (heading + deviation); // True (with compensation)
-    g_n2kdata.boat.headingT.source = BGN_SOURCE_NMEA;
-    CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->ACP.SystemTime.value.tTime);
-    pthread_mutex_unlock(&g_data_mutex);
+        if ((deviation_raw == 0x7FFF) | (variation_raw == 0x7FFF)) {
+            // no data do not update
+        } else {
+            deviation = deviation_raw * 1e-4; /* device by 1000 to get rads */
+            variation = variation_raw * 1e-4; /* device by 1000 to get rads */
+            pthread_mutex_lock(&g_data_mutex);
+            g_n2kdata.boat.headingT.value.dValue = (heading + deviation + variation); // True (with compensation)
+            g_n2kdata.boat.headingT.source = BGN_SOURCE_NMEA;
+            CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->ACP.SystemTime.value.tTime);
+            pthread_mutex_unlock(&g_data_mutex);
 
-    //log_debug("N2K 127250: Heading (True)=%.4f [rad] (or %d degrees)", (heading + deviation), (u_int16_t)((heading + deviation)*180/M_PI));
-
-    switch(pCtrl->ACP.Heading.source) {
-        case BGN_SOURCE_NONE:
-        case BGN_SOURCE_ACP:
-        case BGN_SOURCE_NMEA:
-            pCtrl->ACP.Heading.value.nLong = (int64_t)((heading + deviation)*180/M_PI);
-            pCtrl->ACP.Heading.source = BGN_SOURCE_NMEA;
-            CounterUp(&pCtrl->ACP.Heading.Counter, pCtrl->ACP.SystemTime.value.tTime);
+            switch(pCtrl->ACP.Heading.source) {
+                case BGN_SOURCE_NONE:
+                case BGN_SOURCE_ACP:
+                case BGN_SOURCE_NMEA:
+                    pCtrl->ACP.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
+                    pCtrl->ACP.Heading.source = BGN_SOURCE_NMEA;
+                    CounterUp(&pCtrl->ACP.Heading.Counter, pCtrl->ACP.SystemTime.value.tTime);
+                    break;
+            }
+        }
     }
+    log_debug("N2K 127250: Heading= %d, Deviation= %d, Variation= %d", DTOIROUND(heading * 180/M_PI), DTOIROUND(deviation * 180/M_PI), DTOIROUND(variation * 180/M_PI));
 }
 
 /* 128259 – Speed, Water Referenced (STW, Speed Through Water)
@@ -209,7 +228,7 @@ static void parse_pgn_128259(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->ACP.Speed.value.nLong = (int64_t)(stw*1.94384449);
+                pCtrl->ACP.Speed.value.nLong = DTOIROUND(stw * 1.94384449 * 10); // convert m/s to KT*10
                 pCtrl->ACP.Speed.source = BGN_SOURCE_NMEA;
                 CounterUp(&pCtrl->ACP.Speed.Counter, pCtrl->ACP.SystemTime.value.tTime);
         }
@@ -288,6 +307,14 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
         CounterUp(&g_n2kdata.pos.cog.Counter, pCtrl->ACP.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
+        switch(pCtrl->ACP.COG.source) {
+            case BGN_SOURCE_NONE:
+            case BGN_SOURCE_ACP:
+            case BGN_SOURCE_NMEA:
+                pCtrl->ACP.COG.value.nLong = DTOIROUND(cog * 180/BGNET_PI); // convert rad to deg
+                pCtrl->ACP.COG.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->ACP.COG.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        }
         //log_debug("N2K 129026: COG=%.4f rad", cog);
     }
 
@@ -301,8 +328,17 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
         CounterUp(&g_n2kdata.pos.sog.Counter, pCtrl->ACP.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
+        switch(pCtrl->ACP.SOG.source) {
+            case BGN_SOURCE_NONE:
+            case BGN_SOURCE_ACP:
+            case BGN_SOURCE_NMEA:
+                pCtrl->ACP.SOG.value.nLong = DTOIROUND(sog * 1.94384 *10); // convert m/s to KT
+                pCtrl->ACP.SOG.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->ACP.SOG.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        }
         //log_debug("N2K 129026: SOG=%.2f m/s", sog);
     }
+
 }
 /* 129029 – GNSS position data
  * byte 0   SID (Sequence ID to group 'fast packages')

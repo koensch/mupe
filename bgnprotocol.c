@@ -84,6 +84,54 @@ unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H* pF) {
     return(r);
 }
 
+// select the effective speed based on the speedselector and manual FST/MED/SLW selection
+NMEA2K_VALUE *EffectiveBoatSpeed(BGNET_CTRL* pCtrl, NMEA2K_VALUE *pV) {
+    NMEA2K_VALUE *r = NULL;
+    switch(pCtrl->ACP.SETUP_SPD.value.nByte) {
+        case BGNET_SPD_TRA:
+            if ((pCtrl->ACP.SystemTime.Counter.tTimestamp-pCtrl->ACP.Speed.Counter.tTimestamp)<10) {
+                memcpy(pV,&pCtrl->ACP.Speed,sizeof(NMEA2K_VALUE));
+                pV->value.nLong = pCtrl->ACP.Speed.value.dValue;
+                r = &pCtrl->ACP.Speed;
+            }
+            break;
+        case BGNET_SPD_MAN:
+            switch(pCtrl->ACP.MANSPEED_SEL.value.nByte) {
+                case BGNET_SPD_MAN_FST:
+                    memcpy(pV,&pCtrl->ACP.MANSPEED_FST,sizeof(NMEA2K_VALUE));
+                    r = &pCtrl->ACP.MANSPEED_FST;
+                    break;
+                case BGNET_SPD_MAN_MED:
+                    memcpy(pV,&pCtrl->ACP.MANSPEED_MED,sizeof(NMEA2K_VALUE));
+                    r = &pCtrl->ACP.MANSPEED_MED;
+                    break;
+                case BGNET_SPD_MAN_SLW:
+                    memcpy(pV,&pCtrl->ACP.MANSPEED_SLW,sizeof(NMEA2K_VALUE));
+                    r = &pCtrl->ACP.MANSPEED_SLW;
+                    break;
+            }
+            if ((pCtrl->ACP.SystemTime.Counter.tTimestamp-pCtrl->ACP.Speed.Counter.tTimestamp)<10) {
+                memcpy(pV,&pCtrl->ACP.Speed,sizeof(NMEA2K_VALUE));
+                r = &pCtrl->ACP.Speed;
+            }
+            break;
+        case BGNET_SPD_SOG:
+            if ((pCtrl->ACP.SystemTime.Counter.tTimestamp-pCtrl->ACP.SOG.Counter.tTimestamp)<10) {
+                memcpy(pV,&pCtrl->ACP.SOG,sizeof(NMEA2K_VALUE));
+                pV->value.nLong = pCtrl->ACP.SOG.value.dValue;
+                r = &pCtrl->ACP.SOG;
+            }
+            break;
+    }
+    // if we do not have a valid selection, we pick the least erroneous solution. Having a NULL pointer is worse.
+    if (r == NULL) {
+        memcpy(pV,&pCtrl->ACP.MANSPEED_SLW,sizeof(NMEA2K_VALUE));
+        r = &pCtrl->ACP.MANSPEED_SLW;
+    }
+    r = pV; // let it point where the data is.
+    return(r);
+}
+
 // calculate the checksum over a bytes sequence.
 // Used generate a CR for sending messages, and checking the received CR
 unsigned char bgnet_checksum(unsigned char *pBuf, unsigned char init, int start, int max) {
@@ -150,7 +198,7 @@ void CounterUp(BGNET_COUNT *Counter, time_t t) {
     if (Counter->iCounter < SHRT_MAX) {
         Counter->iCounter++;
     } else {
-        Counter->iCounter = 1; // start at 1 because 0 means 'never touched'
+        Counter->iCounter = 1; // after a reset we start at 1 because 0 means 'never touched'
         Counter->tCounterReset = t;
     }
     Counter->tTimestamp = t;
@@ -235,7 +283,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         CounterInit(&pCtrl->ACP.Joystick.Counter, t);
 
         // PILOT SETUP parameters
-        pCtrl->ACP.SETUP_SPD.value.nByte = 1; //0=Transmitter, 1=Manual, 2=SOG
+        pCtrl->ACP.SETUP_SPD.value.nByte = BGNET_SPD_MAN; //0=Transmitter, 1=Manual, 2=SOG
         pCtrl->ACP.SETUP_SPD.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->ACP.SETUP_SPD.Counter, t);
 
@@ -272,7 +320,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         CounterInit(&pCtrl->ACP.SETUP_FR.Counter, t);
 
         // manual speed parameters
-        pCtrl->ACP.MANSPEED_SEL.value.nLong = 0;
+        pCtrl->ACP.MANSPEED_SEL.value.nLong = BGNET_SPD_MAN_NONE; // no selection made
         pCtrl->ACP.MANSPEED_SEL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->ACP.MANSPEED_SEL.Counter, t);
 
@@ -331,6 +379,14 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->ACP.SpeedAVG.value.nLong = 111; // reset with DRD
         pCtrl->ACP.SpeedAVG.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->ACP.SpeedAVG.Counter, t);
+
+        pCtrl->ACP.COG.value.nLong = 33;
+        pCtrl->ACP.COG.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.COG.Counter, t);
+
+        pCtrl->ACP.SOG.value.nLong = 22;
+        pCtrl->ACP.SOG.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->ACP.SOG.Counter, t);
 
         pCtrl->ACP.QUAD_DMP.value.nLong = 7;
         pCtrl->ACP.QUAD_DMP.source = BGN_SOURCE_ACP;
@@ -1519,7 +1575,13 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
         iIsValid = 1; // tricky: if we hit a 'default' in a switch we reset this, so statistics is not updated
 
         // log received frame (at least, i hope it's a frame)
-        //log_debug_frame(pFRx);
+        switch (pFRx->CMD) {
+            case BGNET_FRAME_CMD_01_DATA:
+                break;
+            default:
+                log_debug_frame(pFRx);
+                break;           
+        }
 
         // sorry, but the code branch and switch/cases have become more complex than i ever envisaged. It was developped over
         // many hours of reverse-engineering. You do not know where you are heading and what approch would be a neat solution
@@ -1830,6 +1892,10 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCtrl->ACP.MANSPEED_FST.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
                                                                 pCtrl->ACP.MANSPEED_FST.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->ACP.MANSPEED_FST.Counter, t);
+                                                                // set the SPD/MAN/SEL to FST
+                                                                pCtrl->ACP.MANSPEED_SEL.value.nByte = BGNET_SPD_MAN_FST;
+                                                                pCtrl->ACP.MANSPEED_SEL.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->ACP.MANSPEED_SEL.Counter, t);                                                                
                                                                 break;
                                                         }
                                                         break;                                               
@@ -1853,6 +1919,10 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCtrl->ACP.MANSPEED_SLW.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
                                                                 pCtrl->ACP.MANSPEED_SLW.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->ACP.MANSPEED_SLW.Counter, t);
+                                                                // set the SPD/MAN/SEL to SLW
+                                                                pCtrl->ACP.MANSPEED_SEL.value.nByte = BGNET_SPD_MAN_SLW;
+                                                                pCtrl->ACP.MANSPEED_SEL.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->ACP.MANSPEED_SEL.Counter, t);                                                                
                                                                 break;
                                                         }
                                                         break;
@@ -1937,7 +2007,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         break;
                                                     case BGNET_FRAME_CMD_D0_PILOT_SPDREQ:
                                                         // the SPEED key was pressed, 2 bytes payload.
-                                                        // 0=ACKSEQ, 1=0x46 -> retunr current selected SPD source
+                                                        // 0=ACKSEQ, 1=0x46 -> return current selected SPD source (TRA/MAN/SOG)
                                                         // in SETUP, FR option is requested, 2 bytes payload
                                                         // 0=ACKSEQ, 1=0x07 -> return current select FR state (1=OFF, 0=ON)
                                                         switch(pCHRx->s.CH) {
@@ -2105,6 +2175,10 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCtrl->ACP.MANSPEED_MED.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
                                                                 pCtrl->ACP.MANSPEED_MED.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->ACP.MANSPEED_MED.Counter, t);
+                                                                // set the SPD/MAN/SEL to MED
+                                                                pCtrl->ACP.MANSPEED_SEL.value.nByte = BGNET_SPD_MAN_MED;
+                                                                pCtrl->ACP.MANSPEED_SEL.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->ACP.MANSPEED_SEL.Counter, t);                                                                
                                                                 break;
                                                             // broadcast by PILOT to FF, 3 bytes payload, unknown 
                                                             // FF 50 03 D5 D9 B5 EB 0F FB

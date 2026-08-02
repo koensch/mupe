@@ -551,6 +551,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
     char cSource[32];
     time_t t;
+    NMEA2K_VALUE EBS, *pEBS = NULL; // Effective Boat Speed    
     struct tm * ptmInfo;
     char asciibuffer[256];
     // some variables have different datatypes, so we use different format specifiers
@@ -603,7 +604,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Fault Reporting Disable", "[0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->ACP.SETUP_FR.Counter.iCounter, t-pCtrl->ACP.SETUP_FR.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_FR.source), pCtrl->ACP.SETUP_FR.value.nByte);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed select", "[FST/MED/SLW]", pCtrl->ACP.MANSPEED_SEL.Counter.iCounter, t-pCtrl->ACP.MANSPEED_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_SEL.source), pCtrl->ACP.MANSPEED_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed select", "[3=FST/4=MED/5=SLW]", pCtrl->ACP.MANSPEED_SEL.Counter.iCounter, t-pCtrl->ACP.MANSPEED_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_SEL.source), pCtrl->ACP.MANSPEED_SEL.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed FST", "[1-990] x10", pCtrl->ACP.MANSPEED_FST.Counter.iCounter, t-pCtrl->ACP.MANSPEED_FST.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_FST.source), pCtrl->ACP.MANSPEED_FST.value.nLong);
     strcat(Buffer, cLine);
@@ -627,11 +628,19 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->ACP.DRDNM.Counter.iCounter, t-pCtrl->ACP.DRDNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DRDNM.source), ITOD(pCtrl->ACP.DRDNM.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->ACP.Speed.Counter.iCounter, t-pCtrl->ACP.Speed.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Speed.source), ITOD(pCtrl->ACP.Speed.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->ACP.Speed.Counter.iCounter, t-pCtrl->ACP.Speed.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Speed.source), ITOD(pCtrl->ACP.Speed.value.nLong));
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->ACP.SpeedMAX.Counter.iCounter, t-pCtrl->ACP.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedMAX.source), ITOD(pCtrl->ACP.SpeedMAX.value.nLong));
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->ACP.SpeedAVG.Counter.iCounter, t-pCtrl->ACP.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedAVG.source), ITOD(pCtrl->ACP.SpeedAVG.value.nLong));
+    strcat(Buffer, cLine);
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->ACP.COG.Counter.iCounter, t-pCtrl->ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.COG.source), pCtrl->ACP.COG.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->ACP.SOG.Counter.iCounter, t-pCtrl->ACP.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SOG.source), pCtrl->ACP.SOG.value.nLong);
+    strcat(Buffer, cLine);
+    pEBS = EffectiveBoatSpeed(pCtrl, &EBS);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Selected Boatspeed, by source selection and default [KT]", pEBS->Counter.iCounter, t-pEBS->Counter.tTimestamp, strSource(cSource, pEBS->source), pEBS->value.nLong);
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/DMP: Speed Damping", "Response time of speed value [s]", pCtrl->ACP.QUAD_DMP.Counter.iCounter, t-pCtrl->ACP.QUAD_DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD_DMP.source), pCtrl->ACP.QUAD_DMP.value.nLong);
@@ -685,7 +694,7 @@ static char* html_NMEA_row(char *Buffer) {
 
     snprintf(cLine, sizeof(cLine), cNMEARow, "STW", "Speed Through Water, usually from a speed sensor [KT]", g_n2kdata.boat.stw.Counter.iCounter, (t - g_n2kdata.boat.stw.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.stw.source), g_n2kdata.boat.stw.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "DEPTH", "Depth of the sea, usually corrected for the sensor depth [M]", g_n2kdata.boat.depth.Counter.iCounter, (t - g_n2kdata.boat.depth.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.depth.source), g_n2kdata.boat.depth.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "DEPTH", "Water depth, usually corrected for the sensor depth [M]", g_n2kdata.boat.depth.Counter.iCounter, (t - g_n2kdata.boat.depth.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.depth.source), g_n2kdata.boat.depth.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "SEATEMP", "Temperature of the seawater at sensor depth [degC]", g_n2kdata.boat.seatemp.Counter.iCounter, (t - g_n2kdata.boat.seatemp.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.seatemp.source), g_n2kdata.boat.seatemp.value.dValue);
     strcat(Buffer, cLine);
