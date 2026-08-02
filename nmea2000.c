@@ -110,6 +110,14 @@ static void parse_pgn_126992(BGNET_CTRL *pCtrl, const struct can_frame *f)
     }
 }
 
+/* 126993 – Heartbeat
+ * byte 0       Reserved        no data
+ */
+static void parse_pgn_126993()
+{
+    //log_debug("N2K 126993: Heartbeat");
+}
+
 /* 127245 – Rudder Angle
  * Angle: -PI (-180) to +Pi (+180) degrees, range 0-30000
  * mechanical limits are restricted between +/-45 and +/-90 degrees
@@ -438,6 +446,7 @@ void *nmea2000_thread(void *arg)
                     iValid = 1;
                     switch (pgn) {  // ADD: SEATEMP, HEADING
                         case 126992: parse_pgn_126992(pCtrl, &frame); break;   // system time
+                        case 126993: parse_pgn_126993(); break;   // heartbeat, no data
                         case 127245: parse_pgn_127245(pCtrl, &frame); break;   // rudder position
                         case 127250: parse_pgn_127250(pCtrl, &frame); break;   // Heading and Deviation (Magnetic Heading, True Heading)
                         case 128259: parse_pgn_128259(pCtrl, &frame); break;   // STW (Speed Through Water)
