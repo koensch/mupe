@@ -1105,37 +1105,40 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
     
 #define BGNET_ENABLE_QUAD_TX
 #ifdef BGNET_ENABLE_QUAD_TX
-    size_t len_msg;
-    int len_pl;
-    unsigned char payload[1024];
-    FRAME_H FTx, *pFTx;
-    pFTx = &FTx;
+    if (g_serial_mode == BGN_SERIAL_MODE_RW) {
 
-    len_pl = makeQUADresponse1(pCtrl, payload);
-    len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
-    register_DATA_frame(pCtrl, pFTx);
+            size_t len_msg;
+        int len_pl;
+        unsigned char payload[1024];
+        FRAME_H FTx, *pFTx;
+        pFTx = &FTx;
 
-    //log_debug_frame(pFTx);
+        len_pl = makeQUADresponse1(pCtrl, payload);
+        len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+        register_DATA_frame(pCtrl, pFTx);
 
-    // put it for transmission
-    memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
-    r = r + len_msg; // increment byte counter in TX buffer
+        //log_debug_frame(pFTx);
 
-    // update statistics
-    memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-    CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
+        // put it for transmission
+        memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+        r = r + len_msg; // increment byte counter in TX buffer
 
-    len_pl = makeQUADresponse2(pCtrl, payload);
-    len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
-    register_DATA_frame(pCtrl, pFTx);
+        // update statistics
+        memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+        CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
+
+        len_pl = makeQUADresponse2(pCtrl, payload);
+        len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+        register_DATA_frame(pCtrl, pFTx);
         
-    // put it for transmission
-    memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
-    r = r + len_msg; // increment byte counter in TX buffer
+        // put it for transmission
+        memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+        r = r + len_msg; // increment byte counter in TX buffer
 
-    // update statistics
-    memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-    CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
+        // update statistics
+        memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+        CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
+    }
 #endif
 
     // stage 5 - check if we are allowed to send output
@@ -1654,24 +1657,27 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                             CounterUp(&pCtrl->ACP.PILOTWD.Counter, t);
                             pthread_mutex_unlock(&g_data_mutex);
 
-                            // this reply gets the PILOT out of the "No PILOT" state
-                            pFTx = (FRAME_H*)&TxBuf[TxSize];
-                            len_pl = makeACPresponseMINI(pCtrl, payload);
-                            len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
-                            register_DATA_frame(pCtrl, pFTx);
+                            if (g_serial_mode == BGN_SERIAL_MODE_RO) {
+                                // nothing to do
+                            } else {
+                                // this reply gets the PILOT out of the "No PILOT" state
+                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                len_pl = makeACPresponseMINI(pCtrl, payload);
+                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+                                register_DATA_frame(pCtrl, pFTx);
 
-                            memcpy(pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-                            CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
-                            memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                            CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                            TxSize = TxSize + len_msg;
+                                memcpy(pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
+                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                TxSize = TxSize + len_msg;
 
-                            // put it for transmission
-                            pthread_mutex_lock(&g_data_mutex);
-                            memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
-                            g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
-                            pthread_mutex_unlock(&g_data_mutex);
-
+                                // put it for transmission
+                                pthread_mutex_lock(&g_data_mutex);
+                                memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+                                g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                pthread_mutex_unlock(&g_data_mutex);
+                            }
                             break;
                         case BGNET_FRAME_CMD_0A_POWERUP:
                             pCtrl->DEV[pFRx->FROM].iPowerUp = 1;

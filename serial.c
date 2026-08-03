@@ -105,7 +105,7 @@ void *serial_thread(void *arg)
     if (strcmp(cfg->mode, "readwrite") == 0) {
         g_serial_mode = BGN_SERIAL_MODE_RW; // write actively
     } else {
-        if (strcmp(cfg->mode, "readwrite") == 0) {
+        if (strcmp(cfg->mode, "passive") == 0) {
             g_serial_mode = BGN_SERIAL_MODE_PASSIVE; // only write when explicitly requested
         } else {
             g_serial_mode = BGN_SERIAL_MODE_RO; // do not write anything

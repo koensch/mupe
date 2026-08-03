@@ -458,15 +458,15 @@ static char* html_interface_top(char *Buffer) {
         "<h2>B&G Network Statistics</h2>"
         "<h3>Serial Interface</h3>"
         "<table>"
-        "<tr><th rowspan='2'>Interface</th><th rowspan='2'>Communication Parameters</th><th rowspan='2'>Service</th><th colspan='2'>Device</th></tr>"
-        "<tr><th>Node</th><th>Type</th></tr>";
+        "<tr><th rowspan='2'>Interface</th><th rowspan='2'>Communication Parameters</th><th colspan='2'>Service</th><th colspan='2'>Device</th></tr>"
+        "<tr><th>Mode</th><th>State</th><th>Node</th><th>Type</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
     const char *cInfRow =
-        "<tr><td>%s</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
+        "<tr><td>%s</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
     snprintf(cLine, sizeof(cLine), cInfRow,
                                             pCtrl->pCfg->serial_port,
                                             pCtrl->pCfg->baudrate,
@@ -474,6 +474,7 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->databits,
                                             pCtrl->pCfg->stopbits,
                                             pCtrl->pCfg->mode,
+                                            (pCtrl->ACP.PILOTWD.value.nLong<BGNET_PILOTWD_SET?"active":"inactive"),
                                             BGNET_ADDRESS_ME,
                                             pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_ADDRESS_ME)].sProdName
                                         );
@@ -719,7 +720,7 @@ static char* html_command_top(char *Buffer) {
     const char *cDevTop =
         "<h3>Commands</h3>"
         "<table>"
-        "<tr><th colspan='2'>Command</th><th colspan='3'>Rx (input FROM interface)</th><th colspan='3'>Tx (output TO interface)</th></tr>"
+        "<tr><th colspan='2'>Command</th><th colspan='3'>Rx (ACP input FROM node)</th><th colspan='3'>Tx (ACP output TO node)</th></tr>"
         "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
