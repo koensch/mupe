@@ -475,8 +475,8 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->stopbits,
                                             pCtrl->pCfg->mode,
                                             (pCtrl->ACP.PILOTWD.value.nLong<BGNET_PILOTWD_SET?"active":"inactive"),
-                                            BGNET_ADDRESS_ME,
-                                            pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_ADDRESS_ME)].sProdName
+                                            BGNET_TYPE_NETACP,
+                                            pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_TYPE_NETACP)].sProdName
                                         );
     strcpy(Buffer, cLine);
     return(Buffer);

@@ -1114,7 +1114,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
         pFTx = &FTx;
 
         len_pl = makeQUADresponse1(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+        len_msg = bgnet_encode_frame(pCtrl, pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
         register_DATA_frame(pCtrl, pFTx);
 
         //log_debug_frame(pFTx);
@@ -1128,7 +1128,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
 
         len_pl = makeQUADresponse2(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+        len_msg = bgnet_encode_frame(pCtrl, pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
         register_DATA_frame(pCtrl, pFTx);
         
         // put it for transmission
@@ -1625,7 +1625,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
             // The HEADER is OK, process it. Note that some CMD's do not have a body and in such case, we should skip the body & CS part.
             RxSize = bgnet_sizeof_frame(pFRx); // expected framesize
             // check if this subframe is adressed TO us and not FROM us
-            if (pFRx->FROM == BGNET_ADDRESS_ME) {
+            if (pFRx->FROM == BGNET_TYPE_NETACP) {
                 // do not process this (sub)frame
             } else {
                 // When we receive someting from the network, we register it, regardless whether it has a CS error,
@@ -1663,7 +1663,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                 // this reply gets the PILOT out of the "No PILOT" state
                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
                                 len_pl = makeACPresponseMINI(pCtrl, payload);
-                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
                                 register_DATA_frame(pCtrl, pFTx);
 
                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
@@ -1738,7 +1738,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                     payload[1] = BGN_CNR_CF_TRIPNM;
                                     len_pl = 2;
                                     pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                    len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_TYPE_NETQUAD, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_CD_PILOT_DMPREQ, payload, len_pl);
+                                    len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_TYPE_NETQUAD, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_CD_PILOT_DMPREQ, payload, len_pl);
                                                         
                                     memcpy(pCtrl->CMD[BGNET_FRAME_CMD_CD_PILOT_DMPREQ].Tx.ucFrame, pFTx, len_msg);
                                     CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_CD_PILOT_DMPREQ].CounterTx, t);
@@ -1878,13 +1878,13 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 // make DATA command (to ALL, so also other PILOT units, if present, receive it)
                                                                 len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
                                                                 register_DATA_frame(pCtrl, pFTx);
                                                         
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
                                                                 TxSize =TxSize + len_msg;
                                                                 break;
                                                             // SPEED/MAN/FST entered speed value > ENTER
@@ -1971,13 +1971,13 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 // make DATA command (to ALL, so also other PILOT units, if present, receive it)
                                                                 len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, BGNET_FRAME_TO_ALL, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
                                                                 register_DATA_frame(pCtrl, pFTx);
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                             // SETUP > SPEED SELECT (TRA/MAN/SOG) > ENTER
@@ -2032,7 +2032,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx->s.cv.uB[1] = pCtrl->ACP.SETUP_SPD.value.nByte;
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_D4_PILOT_MODE, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_D4_PILOT_MODE, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D4_PILOT_MODE].CounterTx, t);
@@ -2049,7 +2049,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 payload[4] = pCtrl->ACP.SETUP_FR.value.nByte;
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_D4_PILOT_MODE, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_D4_PILOT_MODE, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D4_PILOT_MODE].CounterTx, t);
@@ -2078,7 +2078,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.MANSPEED_FST.value.nLong);
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_D3_PILOT_AM, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_D3_PILOT_AM, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D3_PILOT_AM].CounterTx, t);
@@ -2101,7 +2101,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 payload[4] = pCtrl->ACP.SETUP_RESP.value.nByte;
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_D5_PILOT_RESPDAT, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_D5_PILOT_RESPDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D5_PILOT_RESPDAT].CounterTx, t);
@@ -2118,7 +2118,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.MANSPEED_MED.value.nLong);
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_D5_PILOT_RESPDAT, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_D5_PILOT_RESPDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D5_PILOT_RESPDAT].CounterTx, t);
@@ -2141,7 +2141,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.MANSPEED_SLW.value.nLong);
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_D6_PILOT_SLWDAT, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_D6_PILOT_SLWDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D6_PILOT_SLWDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D6_PILOT_SLWDAT].CounterTx, t);
@@ -2228,7 +2228,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.SETUP_WA_MIN.value.nLong);
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_21_PILOT_WADAT, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_21_PILOT_WADAT, payload, len_pl);
                                                         
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_21_PILOT_WADAT].CounterTx, t);
@@ -2296,7 +2296,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.SETUP_OC_DEG.value.nLong);
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_20_PILOT_OCDAT, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_20_PILOT_OCDAT, payload, len_pl);
                                                         
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_20_PILOT_OCDAT].CounterTx, t);
@@ -2364,7 +2364,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.CTS.value.nLong);
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
                                                                 register_DATA_frame(pCtrl, pFTx);
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
@@ -2394,7 +2394,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 payload[4] = pCtrl->ACP.SETUP_DMP.value.nByte; // (0-99)                                                        len_pl = 5;
                                                                 len_pl = 5;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_CE_PILOT_DMPDAT, payload, len_pl);
+                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_CE_PILOT_DMPDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_CE_PILOT_DMPDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_CE_PILOT_DMPDAT].CounterTx, t);
@@ -2430,7 +2430,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
                                                 len_pl = 1;
                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_ACK, payload, len_pl);
+                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_ACK, payload, len_pl);
                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_ACK].Tx.ucFrame, pFTx, len_msg);
                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].CounterTx, t);
                                                 memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);

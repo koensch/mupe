@@ -174,7 +174,6 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_DEVICE_MAX                0xFF
 
 // TO 'group' broadcast adresses (byte 0)
-#define BGNET_FRAME_TO_ALL              0xFF
 
 // FROM address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA os 0xD6, another time it's 0x60.
 // The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51
@@ -186,13 +185,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_TYPE_NETSPEED             0x40 //?
 #define BGNET_TYPE_NETDATA              0x60 // confirmed
 #define BGNET_TYPE_NETWIND              0x70 // confirmed
-
-// OK, i have a dilemma.....
-// when we want to send some data onto the net IO, i must have a FROM adrress (and implicit a 'devicetype'). I don't want to
-// conflict with real-world device adresses and devicetype.
-// i have decided to impersonate a ACP module with address 0x00. I don't know if this is going to hurt myself in the end. It's
-// just a educated guess.
-#define BGNET_ADDRESS_ME                  0x00
+#define BGNET_TYPE_ALL                  0xFF // used for broadcast (to ALL)
 
 // command (byte 3)
 #define BGNET_COMMAND_MAX                 0xFF
