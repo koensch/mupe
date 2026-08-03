@@ -53,7 +53,8 @@ BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 // this lookup table allows us:
 // - to lookup the channel label (looks nice in styatistics report)
 // - to obtain the format specifier (when making a output message, see note below)
-// - when sending a DATA broadcast, emulate the original providor of this channel with the repeat freqency
+// - when sending a DATA broadcast, emulate the original provider of this channel with the repeat freqency (we use the
+//   FROM field to use the source for the signal). The FROM field is entered, based on the broadcasts made in 'demo' mode.
 // - enable items for import or export
 // - import/export data to/from NMEA of Signal K interface
 // - get the NMEA PGN for import/export (if NMEA2000 enabled)
@@ -142,7 +143,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 47",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 48",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {BGN_CNR_49_HEADING,       "HEADING M",       BGN_FMT_08, BGNET_TYPE_NETPILOT,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {0,                        "UNKNOWN 4A",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_4A_DEPTHM,        "DEPTH M",         BGN_FMT_01, BGNET_TYPE_NETQUAD, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 4B",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 4C",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 4D",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -155,9 +156,9 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 54",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 55",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 56",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_57_TWINDSPEEDKT,  "TWS KT",          BGN_FMT_08, BGNET_TYPE_NETACP,  0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 130306,  ""},\
+    {BGN_CNR_57_TWINDSPEEDKT,  "TWS KT",          BGN_FMT_08, BGNET_TYPE_NETWIND, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 130306,  ""},\
     {0,                        "UNKNOWN 58",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_59_TWINDANGLE,    "TWA",             BGN_FMT_01, BGNET_TYPE_NETACP,  0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 130306,  ""},\
+    {BGN_CNR_59_TWINDANGLE,    "TWA",             BGN_FMT_01, BGNET_TYPE_NETWIND, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 130306,  ""},\
     {0,                        "UNKNOWN 5A",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 5B",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 5C",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -195,7 +196,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN 7C",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 7D",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 7E",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_7F_VMGKT,         "VMG KT",          BGN_FMT_08, BGNET_TYPE_NETACP,  0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_7F_VMGKT,         "VMG KT",          BGN_FMT_08, BGNET_TYPE_NETWIND,  0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 80",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {BGN_CNR_81_DRDNM,         "DRD NM",          BGN_FMT_08, BGNET_TYPE_NETQUAD, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN 82",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -261,9 +262,9 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
     {0,                        "UNKNOWN BE",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN BF",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN C0",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_C1_DEPTHM,        "DEPTH M",         BGN_FMT_01, BGNET_TYPE_NETDEPTH,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 128267,  ""},\
-    {BGN_CNR_C2_DEPTHFT,       "DEPTH FT",        BGN_FMT_01, BGNET_TYPE_NETDEPTH,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_C3_DEPTHFM,       "DEPTH FM",        BGN_FMT_01, BGNET_TYPE_NETDEPTH,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_C1_DEPTHM,        "DEPTH M",         BGN_FMT_01, BGNET_TYPE_NETQUAD, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 128267,  ""},\
+    {BGN_CNR_C2_DEPTHFT,       "DEPTH FT",        BGN_FMT_01, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
+    {BGN_CNR_C3_DEPTHFM,       "DEPTH FM",        BGN_FMT_01, BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {BGN_CNR_C4_DEPTHM,        "DEPTH M",         BGN_FMT_01, BGNET_TYPE_NETQUAD, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN C5",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {0,                        "UNKNOWN C6",      0x00,       BGNET_TYPE_MASK,    0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
@@ -323,7 +324,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
     {BGN_CNR_FC_SHALLOWALARM,  "SHALLOW ALARM",   BGN_FMT_04, BGNET_TYPE_NETQUAD, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {BGN_CNR_FD_DEPTHALARM,    "DEPTH ALARM",     BGN_FMT_01, BGNET_TYPE_NETQUAD, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
     {BGN_CNR_FE_ANCHORALARM,   "ANCHOR ALARM",    BGN_FMT_04, BGNET_TYPE_NETQUAD, 0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""},\
-    {BGN_CNR_FF_DEPTH_CAL,     "DEPTH CAL",       BGN_FMT_01, BGNET_TYPE_NETDEPTH,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""}\
+    {BGN_CNR_FF_DEPTH_CAL,     "DEPTH CAL",       BGN_FMT_01, BGNET_TYPE_NETQUAD ,0, BGN_CNR_IMPEXP_NONE,  BGN_CNR_IMPEXP_NONE, BGN_CNR_IMPEXP_NONE, 0,  ""}\
 };
 
 // COMMAND Definition Table

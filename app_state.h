@@ -35,6 +35,7 @@ extern int  g_serial_data_lenTx;      // number of bytes in serial buffer
 extern int  g_serial_data_counter;    // receive counter
 #define BGN_SERIAL_MODE_RO      0
 #define BGN_SERIAL_MODE_RW      1
+#define BGN_SERIAL_MODE_PASSIVE 2
 extern int  g_serial_mode;
 
 // NMEA2K value definition. We keep a timestamp for every individual value as we can not predict

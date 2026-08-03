@@ -101,10 +101,15 @@ void *serial_thread(void *arg)
     }
 
     // we allow readonly or readwrite on this communication. This allows us to be a 'monitor-only' application
+    // if you enter something wrong, you get RO mode
     if (strcmp(cfg->mode, "readwrite") == 0) {
-        g_serial_mode = BGN_SERIAL_MODE_RW;
+        g_serial_mode = BGN_SERIAL_MODE_RW; // write actively
     } else {
-        g_serial_mode = BGN_SERIAL_MODE_RO;
+        if (strcmp(cfg->mode, "readwrite") == 0) {
+            g_serial_mode = BGN_SERIAL_MODE_PASSIVE; // only write when explicitly requested
+        } else {
+            g_serial_mode = BGN_SERIAL_MODE_RO; // do not write anything
+        }
     }
 
     int flags = fcntl(fd, F_GETFL, 0);

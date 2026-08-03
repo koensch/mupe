@@ -1,13 +1,15 @@
 {
   "serial": {
+    "comment": "protocol for B&G NETWORK series",
     "port": "/dev/ttyUSB0",
     "baudrate": 11008,
     "databits": 8,
     "stopbits": 2,
     "parity": "odd",
-    "mode": "readwrite"
+    "mode": "readonly"
   },
   "ethernet": {
+    "comment": "network interface for SignalK protocol",
     "device": "eth0",
     "protocol": "tcp",
     "remote_ip": "192.168.0.10",
@@ -15,6 +17,7 @@
     "local_port": 1957
   },
   "nmea2000": {
+    "comment": "CAN bus interface for NMEA 2000 protocol",
     "can_interface": "can0"
   },
   "timer": {
@@ -22,6 +25,7 @@
     "interval_ms": 10
   },
   "webserver": {
+    "comment": "webserver for status page",
     "port": 8080
   },
   "logging": {

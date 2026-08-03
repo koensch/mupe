@@ -408,6 +408,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->iNewDevice = BGN_NEW_RESET;
         for (i=0; i<BGNET_DEVICE_MAX; i++) {
             pCtrl->DEV[i].iNewDevice = BGN_NEW_RESET;
+            pCtrl->DEV[i].iPowerUp = 0;
             // error counters Checksum
             pCtrl->DEV[i].iCSError_Header = 0;
             pCtrl->DEV[i].iCSError_Frame = 0;
@@ -1503,8 +1504,11 @@ void decode_command_SUBSCRIBE(BGNET_CTRL* pCtrl, FRAME_H* pF) {
     time_t t;
 
     time(&t);
-    if (pF->PL == 1) { // shall only have 1 payload byte
-        ucCHN = pF->payload[0]; // first payoad byte
+    // we check the size because we have limited space in the CHN table to store the raw frame
+    // if (for whatever reason) a some point we receive a longer frame than expected, i do not
+    // what the risk overwriting other parts of our CHN table 
+    if (pF->PL == 1) { // expect only 1 byte payload
+        ucCHN = pF->payload[0]; // first payoad byte is the ChannelID
         pCtrl->CHN[ucCHN].x06.ucTO = pF->TO;
         pCtrl->CHN[ucCHN].x06.ucFROM = pF->FROM;
         CounterUp(&pCtrl->CHN[ucCHN].x06.CounterRx, t);
@@ -1658,8 +1662,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                             memcpy(pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
                             CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
-                            memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                            CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                            memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                            CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                             TxSize = TxSize + len_msg;
 
                             // put it for transmission
@@ -1670,6 +1674,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                             break;
                         case BGNET_FRAME_CMD_0A_POWERUP:
+                            pCtrl->DEV[pFRx->FROM].iPowerUp = 1;
                             // when we receive this message one (or more) devices went though the startup process (ie. power was
                             // switch ON while we (the ACP) were still running.
                             // At this moment i see no reason to do something special at this occasion. Realise that most networks
@@ -1731,8 +1736,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         
                                     memcpy(pCtrl->CMD[BGNET_FRAME_CMD_CD_PILOT_DMPREQ].Tx.ucFrame, pFTx, len_msg);
                                     CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_CD_PILOT_DMPREQ].CounterTx, t);
-                                    memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                    CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                    memcpy(pCtrl->DEV[BGNET_TYPE_NETQUAD].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->DEV[BGNET_TYPE_NETQUAD].CounterTx, t);
                                     TxSize =TxSize + len_msg;
                                     log_info("Experimental - QUAD RESET COMMAND: TRIPLOG");
                                     log_debug_frame(pFTx);
@@ -2025,8 +2030,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D4_PILOT_MODE].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                             case BGN_CNR_07_AP_FR:
@@ -2042,8 +2047,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D4_PILOT_MODE].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                         }
@@ -2071,8 +2076,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D3_PILOT_AM].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                         }
@@ -2094,8 +2099,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D5_PILOT_RESPDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                             case BGN_CNR_46_AP_SPEED:
@@ -2111,8 +2116,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D5_PILOT_RESPDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                         }
@@ -2134,8 +2139,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_D6_PILOT_SLWDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_D6_PILOT_SLWDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                         }
@@ -2221,8 +2226,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_21_PILOT_WADAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                         }
@@ -2289,8 +2294,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_20_PILOT_OCDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                         }
@@ -2358,8 +2363,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize =TxSize + len_msg;
                                                                 break;
                                                         }
@@ -2387,8 +2392,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_CE_PILOT_DMPDAT].Tx.ucFrame, pFTx, len_msg);
                                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_CE_PILOT_DMPDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                                 TxSize = TxSize + len_msg;
                                                                 break;
                                                         }
@@ -2422,8 +2427,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_ADDRESS_ME, BGNET_FRAME_CMD_ACK, payload, len_pl);
                                                 memcpy(pCtrl->CMD[BGNET_FRAME_CMD_ACK].Tx.ucFrame, pFTx, len_msg);
                                                 CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_ACK].CounterTx, t);
-                                                memcpy(pCtrl->DEV[BGNET_ADDRESS_ME].Tx.ucFrame, pFTx, len_msg);
-                                                CounterUp(&pCtrl->DEV[BGNET_ADDRESS_ME].CounterTx, t);
+                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                 TxSize = TxSize + len_msg;
 
                                                 //log_debug_buffer(TxBuf, TxSize);

@@ -491,7 +491,7 @@ static char* html_device_top(char *Buffer) {
     const char *cDevTop =
         "<h3>NETWORK nodes</h3>"
         "<table>"
-        "<tr><th colspan='2'>Device</th><th colspan='5'>Rx (input FROM interface)</th><th colspan='3'>Tx (output TO interface)</th></tr>"
+        "<tr><th colspan='2'>Device</th><th colspan='5'>Rx (ACP input FROM node)</th><th rowspan='2'>PowerUp Command</th><th colspan='3'>Tx (ACP output TO node)</th></tr>"
         "<tr><th>Node</th><th>Type</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Err/Head</th><th>Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
@@ -502,7 +502,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     time_t t;
     char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII];
     const char *cDevRow =
-        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -522,6 +522,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
                         asciibufRx,
                         pCtrl->DEV[i].iCSError_Header, 
                         pCtrl->DEV[i].iCSError_Frame,
+                        pCtrl->DEV[i].iPowerUp,
                         pCtrl->DEV[i].CounterTx.iCounter,
                         (t - pCtrl->DEV[i].CounterTx.tTimestamp),
                         asciibufTx
@@ -766,13 +767,13 @@ static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
     const char *cChnTop =
         "\r<h3>Channel Information</h3>"
         "\r<table>"
-        "<tr><th colspan='2'>Channel</th>"
+        "<tr><th colspan='3'>Channel</th>"
             "<th colspan='5'>Command 0x01/%s [Tx/Rx]</th>"
             "<th colspan='4'>Command 0x02/%s [Rx]</th>"
             "<th colspan='3'>Command 0x06/%s [Rx]</th>"
             "<th colspan='7'>Various Commands/BUTTONS, ALARMS, RESETS [Tx/Rx]</th>"
             "</tr>"
-        "<tr><th>ID</th><th>Label</th>"
+        "<tr><th>ID</th><th>Label</th><th>Node</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Label</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th>"
@@ -789,7 +790,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine01[1024], cLine02[1024], cLine06[1024], cLine00[1024];
     char asciibuf01[256], asciibuf02[256], asciibuf06[256], asciibuf00[256];
 
-    const char *cDevRow_Start = "\r<tr %s><td>0x%02X</td><td>%s</td>";
+    const char *cDevRow_Start = "\r<tr %s><td>0x%02X</td><td>%s</td><td>0x%02X</td>";
     const char *cDevRow_End = "</tr>";
 
     const char *cDevRow01 = "<td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>%s</td>";
@@ -828,7 +829,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             strcpy(cLine02, cDevRow02E);
         } else {
             InUse++;
-            y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload
+            y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload (the label part is displayed )
             byte2ascii(asciibuf02, sizeof(asciibuf02), pCtrl->CHN[i].x02.ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine02, sizeof(cLine02), cDevRow02,
                                                     pCtrl->CHN[i].x02.CounterRx.iCounter,
@@ -840,7 +841,8 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             strcpy(cLine06, cDevRow06E);
         } else {
             InUse++;
-            y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload
+            //y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload
+            y = bgnet_sizeof_frame((FRAME_H*)(pCtrl->CHN[i].x06.ucRAW));
             byte2ascii(asciibuf06, sizeof(asciibuf06), pCtrl->CHN[i].x06.ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine06, sizeof(cLine06), cDevRow06,
                                                     pCtrl->CHN[i].x06.CounterRx.iCounter,
@@ -868,7 +870,8 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             snprintf(cLine, sizeof(cLine), cDevRow_Start,
                                                     ((pCtrl->CHN[i].iNewChannel==BGN_NEW_RESET)?"":"bgcolor='lightblue'"),
                                                     i,
-                                                    strChannelLabel(pCtrl, bufferCHN, i));
+                                                    strChannelLabel(pCtrl, bufferCHN, i),
+                                                    pCtrl->pCHNDT[i].ucFROM);
             strcat(cLine, cLine01);
             strcat(cLine, cLine02);
             strcat(cLine, cLine06);

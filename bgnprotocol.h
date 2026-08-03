@@ -332,7 +332,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGN_CNR_47_LONLAT           0x47 //send in ASCII via CMD03
 #define BGN_CNR_48_LONLAT           0x48 //send in ASCII via CMD03
 #define BGN_CNR_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
-#define BGN_CNR_4A_HEADINGRAW       0x4A // signal from the FLUX compass, prior correction or calibration
+#define BGN_CNR_4A_DEPTHM           0x4A // referenced by DATA via a LABEL/0x02 command, appears to be "DEPTH M", but seems incorrect
 #define BGN_CNR_4D_AWINDSPEEDKT     0x4D
 #define BGN_CNR_4E_AWINDSPEEDRAW    0x4E // signal from the paddlewheel, prior correction or calibration 
 #define BGN_CNR_4F_AWINDSPEEDMS     0x4F
@@ -567,6 +567,7 @@ typedef struct {
 
 // register device statistics
 typedef struct {
+    int iPowerUp; // POWERUP command seen
     int iNewDevice; // New DEVICE data might have been received
     BGNET_COUNT CounterRx;
     int iCSError_Header;
