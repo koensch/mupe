@@ -6,7 +6,7 @@
     "databits": 8,
     "stopbits": 2,
     "parity": "odd",
-    "mode": "readonly"
+    "mode": "passive"
   },
   "ethernet": {
     "comment": "network interface for SignalK protocol",

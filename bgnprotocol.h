@@ -143,18 +143,12 @@
 
 // FRAME definitions
 
-// realize that the CR uses a different seed for HEADER or BODY
+// realize that the CS uses a different seed for HEADER or BODY
 #define BGNET_FRAME_CR_HEAD             0x00
 #define BGNET_FRAME_CR_FRAME            0x56
 
-// HEADER layout
 #define BGNET_FRAME_HEAD                5   //size of HEADER (fixed)
-#define BGNET_FRAME_HEAD_TO             0   //position of TO byte
-#define BGNET_FRAME_HEAD_FROM           1   //position of FROM byte
-#define BGNET_FRAME_HEAD_SIZE           2   //position of SIZE byte (payload in the BODY, 0 if no body)
-#define BGNET_FRAME_HEAD_CMD            3   //position of CMD byte
-#define BGNET_FRAME_HEAD_CS             4   //position of CS byte
-
+#define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (checksum)
 typedef struct {        // for the FRAME header we use a pointer
     uint8_t TO;
     uint8_t FROM;
@@ -165,18 +159,12 @@ typedef struct {        // for the FRAME header we use a pointer
     // uint8_t CSP;     // Checksum payload is placed after the last payload byte
 } FRAME_H;
 
-// BODY layout
-
-// BODY size is variable. When non-0, add 1 byte for Checksum
-#define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (checksum)
-
 // FROM/TO adresses
 #define BGNET_DEVICE_MAX                0xFF
 
-// TO 'group' broadcast adresses (byte 0)
-
-// FROM address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA os 0xD6, another time it's 0x60.
-// The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51
+// FROM/TO address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA os 0xD6, another time it's 0x60.
+// The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51. As long as you have 1 of each it's simple. I do not have multiple
+// units of the same type, so i was never able to reverse-engineer the address negotiations.
 #define BGNET_TYPE_MASK                 0xF0 // mask the device type from the address
 #define BGNET_TYPE_NETACP               0x00 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
 #define BGNET_TYPE_NETQUAD              0x30 // confirmed
@@ -187,7 +175,6 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_TYPE_NETWIND              0x70 // confirmed
 #define BGNET_TYPE_ALL                  0xFF // used for broadcast (to ALL)
 
-// command (byte 3)
 #define BGNET_COMMAND_MAX                 0xFF
 #define BGNET_COMMAND_INIT                0x00
 
@@ -423,7 +410,13 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGN_CNR_E9_COGTRUE          0xE9 // Course Over Ground, True
 #define BGN_CNR_EA_COGMAG           0xEA // Course Over Ground, Magnetic
 #define BGN_CNR_EB_SOGKT            0xEB // Speed Over Ground, KT (via PILOT/NMEA/VTG/#5)
-#define BGN_CNR_EC_VMG2W            0xEC
+                                         // Is also observed with command 0xD5 (with a 3 byte payload) after setting FST/MED/SLW (Manual Speed selection on PILOT)
+                                         // It is send when you page though the selection option (from FST>MED>SLW>FST), but not the 1st time you press the <SPEED>
+                                         // button. The first 2 bytes stays the same (0xEB 0x0F), but the 3rd payload byte varies between 0x00-0xFF (and sometimes
+                                         // it does not change). The meaning of this command is unclear. The 3rd byte also does not seem te be a ASCII character.
+                                         // The occurance of this channel causes this application to log a message, because the 2nd bye is not a recognised FMT byte.
+                                         // Also, the frame with this perculiar command has a broadcast TO address 0xFF, so it is not meant for the whole network.
+                                         // example: FF 50 03 D5 D9 0C EB 0F A4                                         
 #define BGN_CNR_ED_TIMETOWP         0xED
 #define BGN_CNR_EE_XTE              0xEE
 #define BGN_CNR_EF_REMOTE0          0xEF

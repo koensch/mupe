@@ -1170,6 +1170,7 @@ size_t bgnet_sizeof_frame(FRAME_H* pF) {
 size_t bgnet_sizeof_channel(BGNET_CTRL* pCtrl, union CH* pCH) {
     int r,i,n;
     unsigned char ucFMT;
+    char asciibuf[32];
     // get FMT byte from target
     ucFMT = pCH->s.FMT;
     // make FMT into DataType, get length from Definition Table
@@ -1197,7 +1198,8 @@ size_t bgnet_sizeof_channel(BGNET_CTRL* pCtrl, union CH* pCH) {
         } else {
             // the value is unknown, i just make a guess. 4 is better than zero or -1
             r = 4; // just a guess
-            log_error("FMT specifier 0x%02X, invalid length %d, unknown datatype", ucFMT & BGN_FMT_MASK_DT, r);
+            byte2ascii(asciibuf, sizeof(asciibuf), (unsigned char*)pCH, r, BYTE2ASCII_SPACED);
+            log_error("Channel %s, invalid FMT specifier", asciibuf);
         }
     }
     // note: this return is used to advance though a frame/subframe. if this value is not positive,
@@ -1583,8 +1585,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
         // log received frame (at least, i hope it's a frame)
         switch (pFRx->CMD) {
-            case BGNET_FRAME_CMD_01_DATA:
-                break;
+            //case BGNET_FRAME_CMD_01_DATA:
+            //    break;
             default:
                 log_debug_frame(pFRx);
                 break;           
@@ -1800,7 +1802,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                             default:
                                                 // unhandled command, also no ACK required
                                                 iIsValid = 0; // do not update device/command statistics
-                                                x = bgnet_deviceindex(pCtrl, *(pBuf+BGNET_FRAME_HEAD_FROM)); // lookup by device address/type, so we can print the device name
+                                                x = bgnet_deviceindex(pCtrl, pFRx->FROM); // lookup by device address/type, so we can print the device name
                                                 log_info("  Command %02X (with body) IGNORED (from %02X %s)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName);
                                                 break;
                                         }
@@ -2193,8 +2195,11 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 break;
                                                             // broadcast by PILOT to FF, 3 bytes payload, unknown 
                                                             // FF 50 03 D5 D9 B5 EB 0F FB
+                                                            // 0xB5 could be a channel ID
                                                             // 0xEB could be a channel ID
-                                                            // 0x0F could be a format specifier to switch on or off something (we have seen a similar
+                                                            // 0x0F ??
+                                                            // FB   seems CS
+                                                            //      could be a format specifier to switch on or off something (we have seen a similar
                                                             //      behaviour with the WA and OC alarms ON/OFF), but we have  never encountered a FMT_07 before
                                                             // Because it's a broadcast, it should be relevant for all NETWORK attached units.
                                                             // For the time being, i just log it.  
@@ -2208,6 +2213,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
                                                                 decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
                                                                 CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                                //log_debug_frame(pFRx);
                                                                 break;
                                                         }
                                                         break;
@@ -2448,7 +2454,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                             default:
                                                 // unhandled command, also no ACK required
                                                 iIsValid = 0; // do not update device/command statistics
-                                                x = bgnet_deviceindex(pCtrl, *(pBuf+BGNET_FRAME_HEAD_FROM)); // lookup by device address/type, so we can print the device name
+                                                x = bgnet_deviceindex(pCtrl, pFRx->FROM); // lookup by device address/type, so we can print the device name
                                                 log_info("  Command %02X (with body) IGNORED (from %02X %s)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName);
                                                 break;
                                         }
