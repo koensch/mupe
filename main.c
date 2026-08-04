@@ -550,7 +550,7 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                                 "UNKNOWN D9"},\
     {0,                                 "UNKNOWN DA"},\
     {0,                                 "UNKNOWN DB"},\
-    {BGNET_FRAME_CMD_DC_PILOT_STEPDAT,  "PILOT STEP/START/DAT"},\
+    {BGNET_FRAME_CMD_DC_PILOT_STEPREQ,  "PILOT STEP/START/REQ"},\
     {0,                                 "UNKNOWN DD"},\
     {BGNET_FRAME_CMD_DE_PILOT_WAREQ,    "PILOT SETUP/WA/REQ"},\
     {BGNET_FRAME_CMD_DF_PILOT_OCREQ,    "PILOT SETUP/OC/REQ"},\

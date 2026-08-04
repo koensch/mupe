@@ -28,12 +28,12 @@ unsigned char bgnet_command_type(FRAME_H* pF) {
         case BGNET_FRAME_CMD_D4_PILOT_MODE:
         case BGNET_FRAME_CMD_DE_PILOT_WAREQ:
         case BGNET_FRAME_CMD_DF_PILOT_OCREQ:
+        case BGNET_FRAME_CMD_B1_PILOT_DELTADAT:
         //case BGNET_FRAME_CMD_EA_QUAD_UNKNOWN:
             r = BGNET_COMMANDTYPE_REQ;
             break;
         case BGNET_FRAME_CMD_20_PILOT_OCDAT:
         case BGNET_FRAME_CMD_21_PILOT_WADAT:
-        case BGNET_FRAME_CMD_B1_PILOT_DELTADAT:
         case BGNET_FRAME_CMD_D5_PILOT_RESPDAT:
             r = BGNET_COMMANDTYPE_DTA;
             break;
@@ -1254,7 +1254,7 @@ int decode_channel_numeric(union CH* puCH) {
             iRawValue = ntohs(puCH->s.cv.uW[0]);
             break;
         default:
-            iRawValue = -0;
+            iRawValue = 0;
             break;
     }
     return(iRawValue);
@@ -1585,8 +1585,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
         // log received frame (at least, i hope it's a frame)
         switch (pFRx->CMD) {
-            //case BGNET_FRAME_CMD_01_DATA:
-            //    break;
+            case BGNET_FRAME_CMD_01_DATA:
+                break;
             default:
                 log_debug_frame(pFRx);
                 break;           
@@ -1828,7 +1828,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                             // PILOT KEY actions
                                             case BGNET_FRAME_CMD_D3_PILOT_AM:
                                             case BGNET_FRAME_CMD_D4_PILOT_MODE:
-                                            case BGNET_FRAME_CMD_DC_PILOT_STEPDAT:
+                                            case BGNET_FRAME_CMD_DC_PILOT_STEPREQ:
                                             case BGNET_FRAME_CMD_B1_PILOT_DELTADAT:
 
                                                 // Step 4 - handle the data from the received command.
@@ -1841,6 +1841,15 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 // case that 1 (or both) must be send to ALL (0xFF) in case there are multiple PILOTS on the network. As i have only 1
                                                 // PILOT unit i could not establish one or the other and choose to do it like this.
                                                 switch(pFRx->CMD) {
+                                                    case BGNET_FRAME_CMD_DC_PILOT_STEPREQ:
+                                                        // the <10, >10, <1, >1 key was pressed. We receive 2 bytes payload (ath the same time also B1 with +/- 10/1)
+                                                        // 0=ACKSEQ, 1=0xA6
+                                                        switch(pCHRx->s.CH) {
+                                                            case BGN_CNR_A6_AP_CTARGET:
+                                                                // create command with current CTS value, but i do not know what command to use for REPLY
+                                                                break;
+                                                        }
+                                                        break;
                                                     case BGNET_FRAME_CMD_D3_PILOT_AM:
                                                         // the AUTO or OFF key was pressed. We receive 5 bytes payload.
                                                         // 0=ACKSEQ, 1=0xB5/AP_STATUS, 2=FMT_01, 3=0, 4= new state (1=AUTO , 0=STBY)
@@ -2362,22 +2371,10 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCtrl->ACP.CTS.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->ACP.CTS.Counter, t);
 
-                                                                // create command with current CTARGET setting
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
-                                                                pCHTx->s.CH = BGN_CNR_A6_AP_CTARGET;
-                                                                pCHTx->s.FMT = BGN_FMT_01;
-                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->ACP.CTS.value.nLong);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pCtrl, pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
-                                                                register_DATA_frame(pCtrl, pFTx);
-
-                                                                memcpy(pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize =TxSize + len_msg;
+                                                                // i would expect to create a CMD-DAT message with the new CTS value
+                                                                // but i do not know what command to use to send it
+                                                                // now i rely on the 'regular' broadcast of channel data. You will observe that
+                                                                // there is some delay in the update. It works, but i find it annoying
                                                                 break;
                                                         }
                                                         break;
@@ -2432,7 +2429,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         }
                                                         break;
                                                 }
-
+                                                // make the CMD-ACK for the CMD-REQ/CMD-DAT we received
                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
                                                 len_pl = 1;
                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
@@ -2442,8 +2439,6 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
                                                 CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                 TxSize = TxSize + len_msg;
-
-                                                //log_debug_buffer(TxBuf, TxSize);
 
                                                 // put it for transmission
                                                 pthread_mutex_lock(&g_data_mutex);
@@ -2459,8 +2454,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 break;
                                         }
                                         break;
-                                }
-                                
+                                }                                
                         }
                         // we only want to register our incoming command if we know what it is.
                         if (iIsValid > 0) {

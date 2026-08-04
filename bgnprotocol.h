@@ -227,8 +227,7 @@ typedef struct {        // for the FRAME header we use a pointer
                                                //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRAnsmitter, 1=MANual, 2=SOG)
 #define BGNET_FRAME_CMD_D5_PILOT_RESPDAT  0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: RESP MODE (0=Normal, 1=Eco, 2=Downwind)
 #define BGNET_FRAME_CMD_D6_PILOT_SLWDAT   0xD6 // 5 bytes payload (00 46 01 00 XX), 46= channel, XX: MANSLW speed (0-990)
-#define BGNET_FRAME_CMD_DC_PILOT_STEPDAT  0xDC // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}, is followed by
-                                               // command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
+#define BGNET_FRAME_CMD_DC_PILOT_STEPREQ  0xDC // 2 bytes payload (00 A6), A6= channel, is followed by command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
 #define BGNET_FRAME_CMD_DE_PILOT_WAREQ    0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
 #define BGNET_FRAME_CMD_DF_PILOT_OCREQ    0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
 #define BGNET_FRAME_CMD_EA_QUAD_UNKNOWN   0xEA // sometimes we get this CMD: 00 30 02 EA E4 03 01 A6 while stepping though SPEED SETUP (4th option)
