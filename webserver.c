@@ -587,32 +587,32 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "[1=COMP, 3=NAV, 4=VANE]", pCtrl->ACP.MODE.Counter.iCounter, t-pCtrl->ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MODE.source), pCtrl->ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Speed Select", "[0=TRAnsmitter, 1=MANual, 2=SOG]", pCtrl->ACP.SETUP_SPD.Counter.iCounter, t-pCtrl->ACP.SETUP_SPD.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_SPD.source), pCtrl->ACP.SETUP_SPD.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Speed Select", "[0=TRAnsmitter, 1=MANual, 2=SOG]", pCtrl->ACP.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.SPD.source), pCtrl->ACP.PILOT.SETUP.SPD.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Steering Response", "[0=Normal, 1=Economic, 2=Downwind]", pCtrl->ACP.SETUP_RESP.Counter.iCounter, t-pCtrl->ACP.SETUP_RESP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_RESP.source), pCtrl->ACP.SETUP_RESP.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Steering Response", "[0=Normal, 1=Economic, 2=Downwind]", pCtrl->ACP.PILOT.SETUP.RESP.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.RESP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.RESP.source), pCtrl->ACP.PILOT.SETUP.RESP.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm", "[1-360 Minutes]", pCtrl->ACP.SETUP_WA_MIN.Counter.iCounter, t-pCtrl->ACP.SETUP_WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_WA_MIN.source), pCtrl->ACP.SETUP_WA_MIN.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm", "[1-360 Minutes]", pCtrl->ACP.PILOT.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.WA_MIN.source), pCtrl->ACP.PILOT.SETUP.WA_MIN.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm ON/OFF", "[0=OFF, 1=ON]", pCtrl->ACP.SETUP_WA_STAT.Counter.iCounter, t-pCtrl->ACP.SETUP_WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_WA_STAT.source), pCtrl->ACP.SETUP_WA_STAT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm ON/OFF", "[0=OFF, 1=ON]", pCtrl->ACP.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.WA_STAT.source), pCtrl->ACP.PILOT.SETUP.WA_STAT.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm", "[1-99 Degrees]", pCtrl->ACP.SETUP_OC_DEG.Counter.iCounter, t-pCtrl->ACP.SETUP_OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_OC_DEG.source), pCtrl->ACP.SETUP_OC_DEG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm", "[1-99 Degrees]", pCtrl->ACP.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.OC_DEG.source), pCtrl->ACP.PILOT.SETUP.OC_DEG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm ON/OFF", "[0=OFF, 1=ON]", pCtrl->ACP.SETUP_OC_STAT.Counter.iCounter, t-pCtrl->ACP.SETUP_OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_OC_STAT.source), pCtrl->ACP.SETUP_OC_STAT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm ON/OFF", "[0=OFF, 1=ON]", pCtrl->ACP.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.OC_STAT.source), pCtrl->ACP.PILOT.SETUP.OC_STAT.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Compass Damping", "[1-99 sec, 4=default]", pCtrl->ACP.SETUP_DMP.Counter.iCounter, t-pCtrl->ACP.SETUP_DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_DMP.source), pCtrl->ACP.SETUP_DMP.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Compass Damping", "[1-99 sec, 4=default]", pCtrl->ACP.PILOT.SETUP.DMP.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.DMP.source), pCtrl->ACP.PILOT.SETUP.DMP.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Joystick Steering", "[NORMal, PROPortional]", pCtrl->ACP.SETUP_JSM.Counter.iCounter, t-pCtrl->ACP.SETUP_JSM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_JSM.source), pCtrl->ACP.SETUP_JSM.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Joystick Steering", "[NORMal, PROPortional]", pCtrl->ACP.PILOT.SETUP.JSM.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.JSM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.JSM.source), pCtrl->ACP.PILOT.SETUP.JSM.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Fault Reporting Disable", "[0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->ACP.SETUP_FR.Counter.iCounter, t-pCtrl->ACP.SETUP_FR.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SETUP_FR.source), pCtrl->ACP.SETUP_FR.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Fault Reporting Disable", "[0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->ACP.PILOT.SETUP.FR.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.FR.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.FR.source), pCtrl->ACP.PILOT.SETUP.FR.value.nByte);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed select", "[3=FST/4=MED/5=SLW]", pCtrl->ACP.MANSPEED_SEL.Counter.iCounter, t-pCtrl->ACP.MANSPEED_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_SEL.source), pCtrl->ACP.MANSPEED_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed select", "[3=FST/4=MED/5=SLW]", pCtrl->ACP.PILOT.SPEED.SEL.Counter.iCounter, t-pCtrl->ACP.PILOT.SPEED.SEL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SPEED.SEL.source), pCtrl->ACP.PILOT.SPEED.SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed FST", "[1-990] x10", pCtrl->ACP.MANSPEED_FST.Counter.iCounter, t-pCtrl->ACP.MANSPEED_FST.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_FST.source), pCtrl->ACP.MANSPEED_FST.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed FST", "[1-990] x10", pCtrl->ACP.PILOT.SPEED.FST.Counter.iCounter, t-pCtrl->ACP.PILOT.SPEED.FST.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SPEED.FST.source), pCtrl->ACP.PILOT.SPEED.FST.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed MED", "[1-990] x10", pCtrl->ACP.MANSPEED_MED.Counter.iCounter, t-pCtrl->ACP.MANSPEED_MED.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_MED.source), pCtrl->ACP.MANSPEED_MED.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed MED", "[1-990] x10", pCtrl->ACP.PILOT.SPEED.MED.Counter.iCounter, t-pCtrl->ACP.PILOT.SPEED.MED.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SPEED.MED.source), pCtrl->ACP.PILOT.SPEED.MED.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed SLW", "[1-990] x10", pCtrl->ACP.MANSPEED_FST.Counter.iCounter, t-pCtrl->ACP.MANSPEED_FST.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MANSPEED_SLW.source), pCtrl->ACP.MANSPEED_SLW.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed SLW", "[1-990] x10", pCtrl->ACP.PILOT.SPEED.SLW.Counter.iCounter, t-pCtrl->ACP.PILOT.SPEED.SLW.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SPEED.SLW.source), pCtrl->ACP.PILOT.SPEED.SLW.value.nLong);
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Backlight", "[0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", pCtrl->ACP.BackLight.Counter.iCounter, t-pCtrl->ACP.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.BackLight.source), pCtrl->ACP.BackLight.value.nByte);
@@ -636,6 +636,8 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->ACP.SpeedAVG.Counter.iCounter, t-pCtrl->ACP.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedAVG.source), ITOD(pCtrl->ACP.SpeedAVG.value.nLong));
     strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP: Damping", "Speed sensor damping [sec]", pCtrl->ACP.SpeedDAMPING.Counter.iCounter, t-pCtrl->ACP.SpeedDAMPING.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedDAMPING.source), pCtrl->ACP.SpeedDAMPING.value.nLong);
+    strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->ACP.COG.Counter.iCounter, t-pCtrl->ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.COG.source), pCtrl->ACP.COG.value.nLong);
     strcat(Buffer, cLine);
@@ -645,13 +647,11 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Selected Boatspeed, by source selection and default [KT]", pEBS->Counter.iCounter, t-pEBS->Counter.tTimestamp, strSource(cSource, pEBS->source), pEBS->value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/DMP: Speed Damping", "Response time of speed value [s]", pCtrl->ACP.QUAD_DMP.Counter.iCounter, t-pCtrl->ACP.QUAD_DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD_DMP.source), pCtrl->ACP.QUAD_DMP.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/DMP: Speed Damping", "Response time of speed value [s]", pCtrl->ACP.QUAD.SETUP.DMP.Counter.iCounter, t-pCtrl->ACP.QUAD.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD.SETUP.DMP.source), pCtrl->ACP.QUAD.SETUP.DMP.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/CAL: Speed Calibration", "Adjustment of boatspeed against a know speed (manual)", pCtrl->ACP.QUAD_CAL.Counter.iCounter, t-pCtrl->ACP.QUAD_CAL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD_CAL.source), pCtrl->ACP.QUAD_CAL.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/CAL: Speed Calibration", "Adjustment of boatspeed against a know speed (manual)", pCtrl->ACP.QUAD.SETUP.CAL.Counter.iCounter, t-pCtrl->ACP.QUAD.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD.SETUP.CAL.source), pCtrl->ACP.QUAD.SETUP.CAL.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/CAL-LOG: Speed Calibration", "Adjustment of the Hz/KT to get the correct speed and log (manual)", pCtrl->ACP.QUAD_CALLOG.Counter.iCounter, t-pCtrl->ACP.QUAD_CALLOG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD_CALLOG.source), pCtrl->ACP.QUAD_CALLOG.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/CAL-AUTO: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->ACP.QUAD_CALAUTO.Counter.iCounter, t-pCtrl->ACP.QUAD_CALAUTO.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD_CALAUTO.source), pCtrl->ACP.QUAD_CALAUTO.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/AUTOCAL: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->ACP.QUAD.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->ACP.QUAD.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD.SETUP.AUTOCAL.source), pCtrl->ACP.QUAD.SETUP.AUTOCAL.value.nLong);
     strcat(Buffer, cLine);
 
     return(Buffer);

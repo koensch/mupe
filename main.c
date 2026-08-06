@@ -564,7 +564,7 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                                 "ALARM OFF"},\
     {0,                                 "ALARM TOGGLE"},\
     {0,                                 "UNKNOWN E9"},\
-    {BGNET_FRAME_CMD_EA_QUAD_UNKNOWN,   "UNKNOWN EA"},\
+    {BGNET_FRAME_CMD_EA_QUAD_AUTOCAL,   "SPEED AUTO CAL"},\
     {0,                                 "UNKNOWN EB"},\
     {0,                                 "UNKNOWN EC"},\
     {0,                                 "UNKNOWN ED"},\

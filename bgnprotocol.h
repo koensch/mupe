@@ -230,7 +230,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_FRAME_CMD_DC_PILOT_STEPREQ  0xDC // 2 bytes payload (00 A6), A6= channel, is followed by command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
 #define BGNET_FRAME_CMD_DE_PILOT_WAREQ    0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
 #define BGNET_FRAME_CMD_DF_PILOT_OCREQ    0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
-#define BGNET_FRAME_CMD_EA_QUAD_UNKNOWN   0xEA // sometimes we get this CMD: 00 30 02 EA E4 03 01 A6 while stepping though SPEED SETUP (4th option)
+#define BGNET_FRAME_CMD_EA_QUAD_AUTOCAL   0xEA // sometimes we get this CMD: 00 30 02 EA E4 03 01 A6 while stepping though SPEED SETUP (4th option)
                                                // and i do not know what it does, so we just send a CMD-ACK
 #define BGNET_FRAME_CMD_ACK               0xFD // 1 byte payload
 
@@ -648,16 +648,29 @@ typedef struct {
 #define BGN_JOYSTICK_ON     1
 #define BGN_JOYSTICK_OFF    0
     NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
-    // PILOT/SETUP parameters
-    NMEA2K_VALUE SETUP_SPD;     // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
-    NMEA2K_VALUE SETUP_RESP;    // Steering response (Normal/Downwind/Eco)
-    NMEA2K_VALUE SETUP_WA_MIN;  // Watch Alarm (minutes)
-    NMEA2K_VALUE SETUP_WA_STAT; // Watch Alarm (status on/off)
-    NMEA2K_VALUE SETUP_OC_DEG;  // OffCourse Alarm (degrees)
-    NMEA2K_VALUE SETUP_OC_STAT; // OffCourse Alarm (status on/off)
-    NMEA2K_VALUE SETUP_JSM;     // Joystick Steering Mode (Normal or Proportional)
-    NMEA2K_VALUE SETUP_DMP;     // Compass heading display damping (1-99 sec, defaut =4)
-    NMEA2K_VALUE SETUP_FR;      // Fault Reporting ON/OFF
+    // parameters, we need to manage our service
+    struct {
+    } SERVICE;
+    struct {
+    // parameters, usually from the network (any device)
+    } NETWORK;
+    // parameters, usually hosted by ACP
+    struct {
+    } ACP;
+    // parameters, usually hosted by PILOT
+    struct {
+        struct {
+            // PILOT/SETUP parameters
+            NMEA2K_VALUE SPD;     // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
+            NMEA2K_VALUE RESP;    // Steering response (Normal/Downwind/Eco)
+            NMEA2K_VALUE WA_MIN;  // Watch Alarm (minutes)
+            NMEA2K_VALUE WA_STAT; // Watch Alarm (status on/off)
+            NMEA2K_VALUE OC_DEG;  // OffCourse Alarm (degrees)
+            NMEA2K_VALUE OC_STAT; // OffCourse Alarm (status on/off)
+            NMEA2K_VALUE JSM;     // Joystick Steering Mode (Normal or Proportional)
+            NMEA2K_VALUE DMP;     // Compass heading display damping (1-99 sec, defaut =4)
+            NMEA2K_VALUE FR;      // Fault Reporting ON/OFF
+        } SETUP;
     // PILOT/SPEED/SETUP - Manual speed selection
 #define BGNET_SPD_TRA           0
 #define BGNET_SPD_MAN           1
@@ -666,10 +679,27 @@ typedef struct {
 #define BGNET_SPD_MAN_MED       4
 #define BGNET_SPD_MAN_SLW       5
 #define BGNET_SPD_MAN_NONE      0
-    NMEA2K_VALUE MANSPEED_SEL;  // selected manual speed (FST/MED/SLW)
-    NMEA2K_VALUE MANSPEED_FST;  // speed FST x10
-    NMEA2K_VALUE MANSPEED_MED;  // speed MED x10
-    NMEA2K_VALUE MANSPEED_SLW;  // speed SLW x10
+        struct {
+            NMEA2K_VALUE SEL;  // selected manual speed (FST/MED/SLW)
+            NMEA2K_VALUE FST;  // speed FST x10
+            NMEA2K_VALUE MED;  // speed MED x10
+            NMEA2K_VALUE SLW;  // speed SLW x10
+        } SPEED;
+    } PILOT;
+    // parameters, usually hosted by QUAD
+    struct {
+        struct {
+            NMEA2K_VALUE DMP;      // QUAD/SPEED/SETUP/DMP, response time of speed value
+            NMEA2K_VALUE CAL;      // QUAD/SPEED/SETUP/CALibration, boatspeed adjustment
+            NMEA2K_VALUE AUTOCAL;  // QUAD/SPEED/SETUP/CAL AUTO
+        } SETUP;
+        struct {
+
+        } SPEED;
+        struct {
+
+        } DEPTH;
+    } QUAD;
 
     // NETWORK parameters
     NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
@@ -680,17 +710,16 @@ typedef struct {
     NMEA2K_VALUE TripLogNM;     // channel CF (trip log NM) is stored as a 2 byte register
     NMEA2K_VALUE DRDNM;         // channel 81 (Dead Reconing Distance) is stored as a 2 byte register
     NMEA2K_VALUE Speed;         // current boat speed (used as initializer for SpeedMAX and SpeedAVG
-    NMEA2K_VALUE SpeedMAX;      // reset with DRDNM
-    NMEA2K_VALUE SpeedAVG;      // reset with DRDNM
+    NMEA2K_VALUE SpeedMAX;      // MAX speed (since DRDNM reset)
+    NMEA2K_VALUE SpeedAVG;      // AVG speed (since DRDNM reset)
+    NMEA2K_VALUE SpeedDAMPING;  // SPEED/SETUP/DAMPING/#1
+    NMEA2K_VALUE SpeedCAL;      // SPEED/SETUP/CAL/#3
+    NMEA2K_VALUE SpeedLOGCAL;   // SPEED/SETUP/LOGCAL/#4
+   
     NMEA2K_VALUE COG;
     NMEA2K_VALUE SOG;
 
     // QUAD/SETUP
-    NMEA2K_VALUE QUAD_DMP;      // QUAD/SPEED/SETUP/DMP, response time of speed value
-    NMEA2K_VALUE QUAD_LOGUNITS; // QUAD/SPEED/SETUP/LOG UNITS [KT/MPH], also adjusting [NM/SM]
-    NMEA2K_VALUE QUAD_CAL;      // QUAD/SPEED/SETUP/CALibration, boatspeed adjustment
-    NMEA2K_VALUE QUAD_CALLOG;   // QUAD/SPEED/SETUP/CAL LOG, Hz/KT is manually adjusted
-    NMEA2K_VALUE QUAD_CALAUTO;  // QUAD/SPEED/SETUP/CAL AUTO
 
 } BGN_ACP;
 
