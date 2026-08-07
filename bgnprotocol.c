@@ -65,35 +65,41 @@ unsigned char bgnet_command_type(FRAME_H* pF) {
 unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H* pF) {
     unsigned char r;
     r = BGNET_FRAME_CR_FRAME;
-    if (pF->FROM == BGNET_TYPE_NETPILOT) {
-        switch (bgnet_command_type(pF)) {
-            // we observe this behaviour only with CMD-REQ and CMD-DTA commands
-            case BGNET_COMMANDTYPE_REQ:
-            case BGNET_COMMANDTYPE_DTA:
-                if (pCtrl->BGNET.weird.ACKSEQ > pF->payload[BGNET_FRAME_ACKSEQ]) {
-                    // out of sequence, this is weird
-                    log_debug("ACKSEQ out-of-sequence: 0x%02X (received) vs 0x%02X (stored)", pF->payload[BGNET_FRAME_ACKSEQ], pCtrl->BGNET.weird.ACKSEQ);
-                    // keep the default SEED, but patch the ACKSEQ to the correct value, this will result into a matching CS (received vs calculated)
-                    switch (pF->payload[BGNET_FRAME_ACKSEQ]) {
-                        case 0x0A:
-                            pF->payload[BGNET_FRAME_ACKSEQ] = 0x0D;  // correct ACKSEQ, makes calculated CS correct against the received CS
-                            break;
-                    }
-                } else {
-                    // normal behaviour is when the ACKSEQ is in sequential order.
-                    // because it's a unsigned number, we can not detect a roll-over (0xFF to 0x00), so we do that
-                    // as soon we see a ACKSEQ of 0xFF
-                    if (pF->payload[BGNET_FRAME_ACKSEQ] == 0xFF) {
-                        // roll-over when at 0xFF
-                        pCtrl->BGNET.weird.ACKSEQ = 0;
+    switch (pF->FROM & BGNET_TYPE_MASK) {
+        // this phenomenon is observed with PILOT and QUAD modules
+        case BGNET_TYPE_NETPILOT:
+        case BGNET_TYPE_NETQUAD:
+            switch (bgnet_command_type(pF)) {
+                // we observe this behaviour only with CMD-REQ and CMD-DTA commands
+                case BGNET_COMMANDTYPE_REQ:
+                case BGNET_COMMANDTYPE_DTA:
+                    if (pCtrl->BGNET.weird.ACKSEQ > pF->payload[BGNET_FRAME_ACKSEQ]) {
+                        // out of sequence, this is weird
+                        log_debug("ACKSEQ out-of-sequence: 0x%02X (received) vs 0x%02X (stored)", pF->payload[BGNET_FRAME_ACKSEQ], pCtrl->BGNET.weird.ACKSEQ);
+                        // keep the default SEED, but patch the ACKSEQ to the correct value, this will result into a matching CS (received vs calculated)
+                        switch (pF->payload[BGNET_FRAME_ACKSEQ]) {
+                            case 0x0A:
+                                pF->payload[BGNET_FRAME_ACKSEQ] = 0x0D;  // correct ACKSEQ, makes calculated CS correct against the received CS
+                                break;
+                        }
                     } else {
-                        // shift the current ACKSEQ to the previous one (for next cycle)
-                        pCtrl->BGNET.weird.ACKSEQprev = pCtrl->BGNET.weird.ACKSEQ;
-                        pCtrl->BGNET.weird.ACKSEQ = pF->payload[BGNET_FRAME_ACKSEQ];
+                        // normal behaviour is when the ACKSEQ is in sequential order.
+                        // because it's a unsigned number, we can not detect a roll-over (0xFF to 0x00), so we do that
+                        // as soon we see a ACKSEQ of 0xFF
+                        if (pF->payload[BGNET_FRAME_ACKSEQ] == 0xFF) {
+                            // roll-over when at 0xFF
+                            pCtrl->BGNET.weird.ACKSEQ = 0;
+                        } else {
+                            // shift the current ACKSEQ to the previous one (for next cycle)
+                            pCtrl->BGNET.weird.ACKSEQprev = pCtrl->BGNET.weird.ACKSEQ;
+                            pCtrl->BGNET.weird.ACKSEQ = pF->payload[BGNET_FRAME_ACKSEQ];
+                        }
                     }
-                }
-                break;
-        }
+                    break;
+            }
+            break;
+    }
+    if (pF->FROM == BGNET_TYPE_NETPILOT) {
     }
     return(r);
 }
