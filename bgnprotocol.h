@@ -642,27 +642,35 @@ typedef struct {
         unsigned char ACKSEQ; // last ACKSEQ received from PILOT
         unsigned char FRAME_SEED; // SEED to use
     } weird;
-    //NMEA2K_VALUE CommandACK;         // counter for ack messages, increment after each use.
-    NMEA2K_VALUE SystemTime;           // system time (our computer time)
-    NMEA2K_VALUE NetworkTime;          // network time
     
-#define BGNET_PILOTWD_SET   10
-    NMEA2K_VALUE PILOTWD;       // PILOT WatchDog: flunk timer. With every "PILOT_HELLO" we set this to 100, the timer counts it down (every device run)
-                                // when 0, ACP generates an error and falls back to STBY/COMP mode.
-    NMEA2K_VALUE STATE;
-    NMEA2K_VALUE MODE;
 
-#define BGN_JOYSTICK_ON     1
-#define BGN_JOYSTICK_OFF    0
-    NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
     // parameters, we need to manage our service
     struct {
+        NMEA2K_VALUE SystemTime;           // system time (our computer time)
+        NMEA2K_VALUE NetworkTime;          // network time
+#define BGNET_PILOTWD_SET   10
+        NMEA2K_VALUE PILOTWD;       // PILOT WatchDog: flunk timer. With every "PILOT_HELLO" we set this to 100, the timer counts it down (every device run)
+                                // when 0, ACP generates an error and falls back to STBY/COMP mode.
     } SERVICE;
     struct {
     // parameters, usually from the network (any device)
+        NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
     } NETWORK;
     // parameters, usually hosted by ACP
     struct {
+        NMEA2K_VALUE STATE;
+        NMEA2K_VALUE MODE;
+#define BGN_JOYSTICK_ON     1
+#define BGN_JOYSTICK_OFF    0
+        NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
+        NMEA2K_VALUE Speed;         // current boat speed (used as initializer for SpeedMAX and SpeedAVG
+        NMEA2K_VALUE SpeedMAX;      // MAX speed (since DRD reset)
+        NMEA2K_VALUE SpeedAVG;      // AVG speed (since DRD reset)
+        NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
+        NMEA2K_VALUE Heading;       // Compass Heading
+        NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
+        NMEA2K_VALUE COG;
+        NMEA2K_VALUE SOG;
     } ACP;
     // parameters, usually hosted by PILOT
     struct {
@@ -693,8 +701,17 @@ typedef struct {
             NMEA2K_VALUE SLW;  // speed SLW x10
         } SPEED;
     } PILOT;
-    // parameters, usually hosted by QUAD
+    // QUAD parameters (other than SPEED or DEPTH)
     struct {
+        struct {
+        } SPEED;
+    } QUAD;
+    // SPEED parameters
+    struct {
+        NMEA2K_VALUE Meas;         // Measured SPEED (current value)
+        NMEA2K_VALUE StoredLogNM;  // channel CD (stored log) is stored as 3-byte register
+        NMEA2K_VALUE TripLogNM;    // channel CF (trip log NM) is stored as a 2 byte register
+        NMEA2K_VALUE DRD;          // channel 81 (Dead Reconing Distance) is stored as a 2 byte register
         struct {
             NMEA2K_VALUE DMP;      // QUAD/SPEED/SETUP/#1/DMP, response time of speed value
             //                     // QUAD/SPEED/SETUP/#2 causes the units to change (and a retransmit of all CMD/0x02-LABEL to be send)
@@ -702,45 +719,22 @@ typedef struct {
             NMEA2K_VALUE AUTOCAL;  // QUAD/SPEED/SETUP/#5/AUTOCAL, 0=Off, 1=On
             //                     // QUAD/SPEED/SETUP/#6 is the DRD-RESET, no value set, just resetting the DRD (and speed AVG/MAX)
         } SETUP;
-        struct {
-
-        } SPEED;
-    } QUAD;
+    } SPEED;
+    // DEPTH parameters
     struct {
-        NMEA2K_VALUE Meas;   // Measured depth (current value)
+        NMEA2K_VALUE Meas;         // Measured DEPTH (current value)
         struct {
-            NMEA2K_VALUE SA_M;    // Shallow Alarm limit (meter, absolute)
-            NMEA2K_VALUE SA_STAT; // Shallow Alarm ON/OFF
-            NMEA2K_VALUE DA_M;    // Deep Alarm limit (meter, absolute)
-            NMEA2K_VALUE DA_STAT; // Deep Alarm ON/OFF
-            NMEA2K_VALUE ASA_M;   // Anchor Shallow Alarm limit (meter, relative to the depth at the moment of setting)
-            NMEA2K_VALUE ADA_M;   // Anchor Deep Alarm limit (meter, relative to the depth at the moment of setting)
-            NMEA2K_VALUE AMA_M;   // Anchor Measured depth at the moment of setting
-            NMEA2K_VALUE AA_STAT; // Anchor Alarm ON/OFF
+            NMEA2K_VALUE SA_M;     // Shallow Alarm limit (meter, absolute)
+            NMEA2K_VALUE SA_STAT;  // Shallow Alarm ON/OFF
+            NMEA2K_VALUE DA_M;     // Deep Alarm limit (meter, absolute)
+            NMEA2K_VALUE DA_STAT;  // Deep Alarm ON/OFF
+            NMEA2K_VALUE ASA_M;    // Anchor Shallow Alarm limit (meter, relative to the depth at the moment of setting)
+            NMEA2K_VALUE ADA_M;    // Anchor Deep Alarm limit (meter, relative to the depth at the moment of setting)
+            NMEA2K_VALUE AMA_M;    // Anchor Measured depth at the moment of setting
+            NMEA2K_VALUE AA_STAT;  // Anchor Alarm ON/OFF
         } SETUP;
     } DEPTH;
-
-    // NETWORK parameters
-    NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
-    NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
-    NMEA2K_VALUE Heading;       // Compass Heading
-    NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)
-    NMEA2K_VALUE StoredLogNM;   // channel CD (stored log) is stored as 3-byte register
-    NMEA2K_VALUE TripLogNM;     // channel CF (trip log NM) is stored as a 2 byte register
-    NMEA2K_VALUE DRDNM;         // channel 81 (Dead Reconing Distance) is stored as a 2 byte register
-    NMEA2K_VALUE Speed;         // current boat speed (used as initializer for SpeedMAX and SpeedAVG
-    NMEA2K_VALUE SpeedMAX;      // MAX speed (since DRDNM reset)
-    NMEA2K_VALUE SpeedAVG;      // AVG speed (since DRDNM reset)
-    //NMEA2K_VALUE SpeedDAMPING;  // SPEED/SETUP/DAMPING/#1
-    //NMEA2K_VALUE SpeedCAL;      // SPEED/SETUP/CAL/#3
-    //NMEA2K_VALUE SpeedLOGCAL;   // SPEED/SETUP/LOGCAL/#4
-   
-    NMEA2K_VALUE COG;
-    NMEA2K_VALUE SOG;
-
-    // QUAD/SETUP
-
-} BGN_ACP;
+} BGNET;
 
 #define BGNET_CTRL_INIT            1
 #define BGNET_CTRL_INIT_RESET      0
@@ -761,7 +755,7 @@ typedef struct {
     Config* pCfg;    // config structure
 
 
-    BGN_ACP ACP; // ACP status
+    BGNET BGNET; // ACP status
     BGN_DEVICE DEV[BGNET_DEVICE_MAX]; // device statistics
     BGN_COMMAND CMD[BGNET_COMMAND_MAX]; // commands statistics
     BGN_CHANNEL CHN[BGNET_CHANNEL_MAX]; // channels statistics

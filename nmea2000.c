@@ -90,7 +90,7 @@ static void parse_pgn_126992(BGNET_CTRL *pCtrl, const struct can_frame *f)
     pthread_mutex_lock(&g_data_mutex);
     g_n2kdata.boat.time.value.tTime = time_raw;
     g_n2kdata.boat.time.source = BGN_SOURCE_NMEA;
-    CounterUp(&g_n2kdata.boat.time.Counter, pCtrl->ACP.SystemTime.value.tTime);
+    CounterUp(&g_n2kdata.boat.time.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
     pthread_mutex_unlock(&g_data_mutex);
 
     struct tm *ptmInfo;
@@ -100,13 +100,13 @@ static void parse_pgn_126992(BGNET_CTRL *pCtrl, const struct can_frame *f)
 
     //log_debug("N2K 126992: received time= %s (localtime)", asciibuffer);
 
-    switch(pCtrl->ACP.NetworkTime.source) {
+    switch(pCtrl->BGNET.SERVICE.NetworkTime.source) {
         case BGN_SOURCE_NONE:
         case BGN_SOURCE_ACP:
         case BGN_SOURCE_NMEA:
-            pCtrl->ACP.NetworkTime.value.tTime = time_raw;
-            pCtrl->ACP.NetworkTime.source = BGN_SOURCE_NMEA;
-            CounterUp(&pCtrl->ACP.NetworkTime.Counter, pCtrl->ACP.SystemTime.value.tTime);
+            pCtrl->BGNET.SERVICE.NetworkTime.value.tTime = time_raw;
+            pCtrl->BGNET.SERVICE.NetworkTime.source = BGN_SOURCE_NMEA;
+            CounterUp(&pCtrl->BGNET.SERVICE.NetworkTime.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
     }
 }
 
@@ -138,18 +138,18 @@ static void parse_pgn_127245(BGNET_CTRL *pCtrl, const struct can_frame *f)
     pthread_mutex_lock(&g_data_mutex);
     g_n2kdata.boat.rudder.value.dValue = rudder_rad;
     g_n2kdata.boat.rudder.source = BGN_SOURCE_NMEA;
-    CounterUp(&g_n2kdata.boat.rudder.Counter, pCtrl->ACP.SystemTime.value.tTime);
+    CounterUp(&g_n2kdata.boat.rudder.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
     pthread_mutex_unlock(&g_data_mutex);
 
     //log_debug("N2K 127245: rudder %d, Order/Dir= %x, Order/Pos= %d, Actual/Pos %d [deg]", f->data[0], (f->data[1] & 0x03), (int)(order_rad*180/M_PI), (int)(rudder_rad*180/M_PI));
 
-    switch(pCtrl->ACP.Rudder.source) {
+    switch(pCtrl->BGNET.ACP.Rudder.source) {
         case BGN_SOURCE_NONE:
         case BGN_SOURCE_ACP:
         case BGN_SOURCE_NMEA:
-            pCtrl->ACP.Rudder.value.nLong = DTOIROUND(rudder_rad * 180/M_PI);
-            pCtrl->ACP.Rudder.source = BGN_SOURCE_NMEA;
-            CounterUp(&pCtrl->ACP.Rudder.Counter, pCtrl->ACP.SystemTime.value.tTime);
+            pCtrl->BGNET.ACP.Rudder.value.nLong = DTOIROUND(rudder_rad * 180/M_PI);
+            pCtrl->BGNET.ACP.Rudder.source = BGN_SOURCE_NMEA;
+            CounterUp(&pCtrl->BGNET.ACP.Rudder.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
             break;
     }
 }
@@ -175,7 +175,7 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
         pthread_mutex_lock(&g_data_mutex);
         g_n2kdata.boat.headingM.value.dValue = heading; // Magnetic (no compensation)
         g_n2kdata.boat.headingM.source = BGN_SOURCE_NMEA;
-        CounterUp(&g_n2kdata.boat.headingM.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        CounterUp(&g_n2kdata.boat.headingM.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
         if ((deviation_raw == 0x7FFF) | (variation_raw == 0x7FFF)) {
@@ -186,16 +186,16 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
             pthread_mutex_lock(&g_data_mutex);
             g_n2kdata.boat.headingT.value.dValue = (heading + deviation + variation); // True (with compensation)
             g_n2kdata.boat.headingT.source = BGN_SOURCE_NMEA;
-            CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->ACP.SystemTime.value.tTime);
+            CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
             pthread_mutex_unlock(&g_data_mutex);
 
-            switch(pCtrl->ACP.Heading.source) {
+            switch(pCtrl->BGNET.ACP.Heading.source) {
                 case BGN_SOURCE_NONE:
                 case BGN_SOURCE_ACP:
                 case BGN_SOURCE_NMEA:
-                    pCtrl->ACP.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
-                    pCtrl->ACP.Heading.source = BGN_SOURCE_NMEA;
-                    CounterUp(&pCtrl->ACP.Heading.Counter, pCtrl->ACP.SystemTime.value.tTime);
+                    pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
+                    pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_NMEA;
+                    CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                     break;
             }
         }
@@ -219,18 +219,18 @@ static void parse_pgn_128259(BGNET_CTRL *pCtrl, const struct can_frame *f)
         pthread_mutex_lock(&g_data_mutex);
         g_n2kdata.boat.stw.value.dValue = stw;
         g_n2kdata.boat.stw.source = BGN_SOURCE_NMEA;
-        CounterUp(&g_n2kdata.boat.stw.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        CounterUp(&g_n2kdata.boat.stw.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
         log_debug("N2K 128259: STW=%.2f m/s", stw);
 
-        switch(pCtrl->ACP.Heading.source) {
+        switch(pCtrl->BGNET.ACP.Speed.source) {
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->ACP.Speed.value.nLong = DTOIROUND(stw * 1.94384449 * 10); // convert m/s to KT*10
-                pCtrl->ACP.Speed.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->ACP.Speed.Counter, pCtrl->ACP.SystemTime.value.tTime);
+                pCtrl->BGNET.ACP.Speed.value.nLong = DTOIROUND(stw * 1.94384449 * 10); // convert m/s to KT*10
+                pCtrl->BGNET.ACP.Speed.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.ACP.Speed.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
     }
 }
@@ -253,7 +253,7 @@ static void parse_pgn_128267(BGNET_CTRL *pCtrl, const struct can_frame *f)
         pthread_mutex_lock(&g_data_mutex);
         g_n2kdata.boat.depth.value.dValue = (depth + offset);
         g_n2kdata.boat.depth.source = BGN_SOURCE_NMEA;
-        CounterUp(&g_n2kdata.boat.depth.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        CounterUp(&g_n2kdata.boat.depth.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
         log_debug("N2K 128267: depth=%.2f M", (depth + offset));
@@ -278,11 +278,11 @@ static void parse_pgn_129025(BGNET_CTRL *pCtrl, const struct can_frame *f)
         pthread_mutex_lock(&g_data_mutex);
         g_n2kdata.pos.lat.value.dValue = lat;
         g_n2kdata.pos.lat.source = BGN_SOURCE_NMEA;
-        CounterUp(&g_n2kdata.pos.lat.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        CounterUp(&g_n2kdata.pos.lat.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
 
         g_n2kdata.pos.lon.value.dValue = lon;
         g_n2kdata.pos.lon.source = BGN_SOURCE_NMEA;
-        CounterUp(&g_n2kdata.pos.lon.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        CounterUp(&g_n2kdata.pos.lon.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
         //log_debug("N2K 129025: lat=%.7f lon=%.7f", lat, lon);
@@ -304,16 +304,16 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
         pthread_mutex_lock(&g_data_mutex);
         g_n2kdata.pos.cog.value.dValue = cog;
         g_n2kdata.pos.cog.source = BGN_SOURCE_NMEA;
-        CounterUp(&g_n2kdata.pos.cog.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        CounterUp(&g_n2kdata.pos.cog.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
-        switch(pCtrl->ACP.COG.source) {
+        switch(pCtrl->BGNET.ACP.COG.source) {
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->ACP.COG.value.nLong = DTOIROUND(cog * 180/BGNET_PI); // convert rad to deg
-                pCtrl->ACP.COG.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->ACP.COG.Counter, pCtrl->ACP.SystemTime.value.tTime);
+                pCtrl->BGNET.ACP.COG.value.nLong = DTOIROUND(cog * 180/BGNET_PI); // convert rad to deg
+                pCtrl->BGNET.ACP.COG.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.ACP.COG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
         //log_debug("N2K 129026: COG=%.4f rad", cog);
     }
@@ -325,16 +325,16 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
         pthread_mutex_lock(&g_data_mutex);
         g_n2kdata.pos.sog.value.dValue = sog;
         g_n2kdata.pos.sog.source = BGN_SOURCE_NMEA;
-        CounterUp(&g_n2kdata.pos.sog.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        CounterUp(&g_n2kdata.pos.sog.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
-        switch(pCtrl->ACP.SOG.source) {
+        switch(pCtrl->BGNET.ACP.SOG.source) {
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->ACP.SOG.value.nLong = DTOIROUND(sog * 1.94384 *10); // convert m/s to KT
-                pCtrl->ACP.SOG.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->ACP.SOG.Counter, pCtrl->ACP.SystemTime.value.tTime);
+                pCtrl->BGNET.ACP.SOG.value.nLong = DTOIROUND(sog * 1.94384 *10); // convert m/s to KT
+                pCtrl->BGNET.ACP.SOG.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.ACP.SOG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
         //log_debug("N2K 129026: SOG=%.2f m/s", sog);
     }
@@ -360,7 +360,7 @@ static void parse_pgn_129029(BGNET_CTRL *pCtrl, const struct can_frame *f)
         pthread_mutex_lock(&g_data_mutex);
         g_n2kdata.pos.alt.value.dValue = alt;
         g_n2kdata.pos.alt.source = BGN_SOURCE_NMEA;
-        CounterUp(&g_n2kdata.pos.alt.Counter, pCtrl->ACP.SystemTime.value.tTime);
+        CounterUp(&g_n2kdata.pos.alt.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
         //log_debug("N2K 129029: ALT=%.4f M", alt);
@@ -393,19 +393,19 @@ static void parse_pgn_130306(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case 2: /* Apparent */
                 g_n2kdata.wind.aws.value.dValue = speed;
                 g_n2kdata.wind.aws.source = BGN_SOURCE_NMEA;
-                CounterUp(&g_n2kdata.wind.aws.Counter, pCtrl->ACP.SystemTime.value.tTime);
+                CounterUp(&g_n2kdata.wind.aws.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 g_n2kdata.wind.awa.value.dValue = angle;
                 g_n2kdata.wind.awa.source = BGN_SOURCE_NMEA;
-                CounterUp(&g_n2kdata.wind.awa.Counter, pCtrl->ACP.SystemTime.value.tTime);
+                CounterUp(&g_n2kdata.wind.awa.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 break;
             case 0: /* True (ground) */
             case 3: /* True (water) */
                 g_n2kdata.wind.tws.value.dValue = speed;
                 g_n2kdata.wind.tws.source = BGN_SOURCE_NMEA;
-                CounterUp(&g_n2kdata.wind.tws.Counter, pCtrl->ACP.SystemTime.value.tTime);
+                CounterUp(&g_n2kdata.wind.tws.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 g_n2kdata.wind.twa.value.dValue = angle;
                 g_n2kdata.wind.twa.source = BGN_SOURCE_NMEA;
-                CounterUp(&g_n2kdata.wind.twa.Counter, pCtrl->ACP.SystemTime.value.tTime);
+                CounterUp(&g_n2kdata.wind.twa.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 break;
             default:
                 break;

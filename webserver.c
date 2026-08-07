@@ -474,7 +474,7 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->databits,
                                             pCtrl->pCfg->stopbits,
                                             pCtrl->pCfg->mode,
-                                            (pCtrl->ACP.PILOTWD.value.nLong<BGNET_PILOTWD_SET?"active":"inactive"),
+                                            (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong<BGNET_PILOTWD_SET?"active":"inactive"),
                                             BGNET_TYPE_NETACP,
                                             pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_TYPE_NETACP)].sProdName
                                         );
@@ -567,108 +567,108 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     time(&t);
 
 
-    ptmInfo = localtime (&pCtrl->ACP.tTimestamp);
+    ptmInfo = localtime (&pCtrl->BGNET.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Running since", "Startup timestamp", t-pCtrl->ACP.tTimestamp, t-pCtrl->ACP.tTimestamp, strSource(cSource, BGN_SOURCE_NONE), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Running since", "Startup timestamp", t-pCtrl->BGNET.tTimestamp, t-pCtrl->BGNET.tTimestamp, strSource(cSource, BGN_SOURCE_NONE), asciibuffer);
     strcat(Buffer, cLine);
-    ptmInfo = localtime (&pCtrl->ACP.SystemTime.value.tTime);
+    ptmInfo = localtime (&pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: System Time", "Computer Time ", pCtrl->ACP.SystemTime.Counter.iCounter, t-pCtrl->ACP.SystemTime.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SystemTime.source), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: System Time", "Computer Time ", pCtrl->BGNET.SERVICE.SystemTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.SystemTime.source), asciibuffer);
     strcat(Buffer, cLine);
-    ptmInfo = localtime (&pCtrl->ACP.NetworkTime.value.tTime);
+    ptmInfo = localtime (&pCtrl->BGNET.SERVICE.NetworkTime.value.tTime);
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Time received from network", pCtrl->ACP.NetworkTime.Counter.iCounter, t-pCtrl->ACP.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.NetworkTime.source), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Time received from network", pCtrl->BGNET.SERVICE.NetworkTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.NetworkTime.source), asciibuffer);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", pCtrl->ACP.PILOTWD.Counter.iCounter, t-pCtrl->ACP.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOTWD.source), pCtrl->ACP.PILOTWD.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", pCtrl->BGNET.SERVICE.PILOTWD.Counter.iCounter, t-pCtrl->BGNET.SERVICE.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.PILOTWD.source), pCtrl->BGNET.SERVICE.PILOTWD.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "External switch [0=OFF, 1=ON]", pCtrl->ACP.Joystick.Counter.iCounter, t-pCtrl->ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Joystick.source), pCtrl->ACP.Joystick.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "External switch [0=OFF, 1=ON]", pCtrl->BGNET.ACP.Joystick.Counter.iCounter, t-pCtrl->BGNET.ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Joystick.source), pCtrl->BGNET.ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP STATE", "[0=STBY, 1=AUTO]", pCtrl->ACP.STATE.Counter.iCounter, t-pCtrl->ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.STATE.source), pCtrl->ACP.STATE.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP STATE", "[0=STBY, 1=AUTO]", pCtrl->BGNET.ACP.STATE.Counter.iCounter, t-pCtrl->BGNET.ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.STATE.source), pCtrl->BGNET.ACP.STATE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "[1=COMP, 3=NAV, 4=VANE]", pCtrl->ACP.MODE.Counter.iCounter, t-pCtrl->ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.MODE.source), pCtrl->ACP.MODE.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "[1=COMP, 3=NAV, 4=VANE]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Speed Select", "[0=TRAnsmitter, 1=MANual, 2=SOG]", pCtrl->ACP.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.SPD.source), pCtrl->ACP.PILOT.SETUP.SPD.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Speed Select", "[0=TRAnsmitter, 1=MANual, 2=SOG]", pCtrl->BGNET.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.SPD.source), pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Steering Response", "[0=Normal, 1=Economic, 2=Downwind]", pCtrl->ACP.PILOT.SETUP.RESP.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.RESP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.RESP.source), pCtrl->ACP.PILOT.SETUP.RESP.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Steering Response", "[0=Normal, 1=Economic, 2=Downwind]", pCtrl->BGNET.PILOT.SETUP.RESP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.RESP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.RESP.source), pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm", "[1-360 Minutes]", pCtrl->ACP.PILOT.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.WA_MIN.source), pCtrl->ACP.PILOT.SETUP.WA_MIN.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm", "[1-360 Minutes]", pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_MIN.source), pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm ON/OFF", "[0=OFF, 1=ON]", pCtrl->ACP.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.WA_STAT.source), pCtrl->ACP.PILOT.SETUP.WA_STAT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm ON/OFF", "[0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm", "[1-99 Degrees]", pCtrl->ACP.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.OC_DEG.source), pCtrl->ACP.PILOT.SETUP.OC_DEG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm", "[1-99 Degrees]", pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_DEG.source), pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm ON/OFF", "[0=OFF, 1=ON]", pCtrl->ACP.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.OC_STAT.source), pCtrl->ACP.PILOT.SETUP.OC_STAT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm ON/OFF", "[0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_STAT.source), pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Compass Damping", "[1-99 sec, 4=default]", pCtrl->ACP.PILOT.SETUP.DMP.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.DMP.source), pCtrl->ACP.PILOT.SETUP.DMP.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Compass Damping", "[1-99 sec, 4=default]", pCtrl->BGNET.PILOT.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.DMP.source), pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Joystick Steering", "[NORMal, PROPortional]", pCtrl->ACP.PILOT.SETUP.JSM.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.JSM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.JSM.source), pCtrl->ACP.PILOT.SETUP.JSM.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Joystick Steering", "[NORMal, PROPortional]", pCtrl->BGNET.PILOT.SETUP.JSM.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.JSM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.JSM.source), pCtrl->BGNET.PILOT.SETUP.JSM.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Fault Reporting Disable", "[0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->ACP.PILOT.SETUP.FR.Counter.iCounter, t-pCtrl->ACP.PILOT.SETUP.FR.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SETUP.FR.source), pCtrl->ACP.PILOT.SETUP.FR.value.nByte);
-    strcat(Buffer, cLine);
-
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed select", "[3=FST/4=MED/5=SLW]", pCtrl->ACP.PILOT.SPEED.SEL.Counter.iCounter, t-pCtrl->ACP.PILOT.SPEED.SEL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SPEED.SEL.source), pCtrl->ACP.PILOT.SPEED.SEL.value.nByte);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed FST", "[1-990] x10", pCtrl->ACP.PILOT.SPEED.FST.Counter.iCounter, t-pCtrl->ACP.PILOT.SPEED.FST.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SPEED.FST.source), pCtrl->ACP.PILOT.SPEED.FST.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed MED", "[1-990] x10", pCtrl->ACP.PILOT.SPEED.MED.Counter.iCounter, t-pCtrl->ACP.PILOT.SPEED.MED.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SPEED.MED.source), pCtrl->ACP.PILOT.SPEED.MED.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed SLW", "[1-990] x10", pCtrl->ACP.PILOT.SPEED.SLW.Counter.iCounter, t-pCtrl->ACP.PILOT.SPEED.SLW.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.PILOT.SPEED.SLW.source), pCtrl->ACP.PILOT.SPEED.SLW.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Fault Reporting Disable", "[0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->BGNET.PILOT.SETUP.FR.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.FR.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.FR.source), pCtrl->BGNET.PILOT.SETUP.FR.value.nByte);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Backlight", "[0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", pCtrl->ACP.BackLight.Counter.iCounter, t-pCtrl->ACP.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.BackLight.source), pCtrl->ACP.BackLight.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed select", "[3=FST/4=MED/5=SLW]", pCtrl->BGNET.PILOT.SPEED.SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.SEL.source), pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Course To Steer", "Autopilot Course setpoint (0-359 Degrees M)", pCtrl->ACP.CTS.Counter.iCounter, t-pCtrl->ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.CTS.source), pCtrl->ACP.CTS.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed FST", "[1-990] x10", pCtrl->BGNET.PILOT.SPEED.FST.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.FST.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.FST.source), pCtrl->BGNET.PILOT.SPEED.FST.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Heading", "Current compass reading (0-359 Degrees M)", pCtrl->ACP.Heading.Counter.iCounter, t-pCtrl->ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Heading.source), pCtrl->ACP.Heading.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed MED", "[1-990] x10", pCtrl->BGNET.PILOT.SPEED.MED.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.MED.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.MED.source), pCtrl->BGNET.PILOT.SPEED.MED.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Rudder", "Current rudder position (-45-+45 Degrees)", pCtrl->ACP.Rudder.Counter.iCounter, t-pCtrl->ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Rudder.source), pCtrl->ACP.Rudder.value.nLong);
-    strcat(Buffer, cLine);
-
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: STORLOG", "Stored log (QUAD or SPEED), stored in EEPROM, no reset) [NM]", pCtrl->ACP.StoredLogNM.Counter.iCounter, t-pCtrl->ACP.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.StoredLogNM.source), (ITOD(pCtrl->ACP.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->ACP.TripLogNM.Counter.iCounter, t-pCtrl->ACP.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.TripLogNM.source), (ITOD(pCtrl->ACP.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->ACP.DRDNM.Counter.iCounter, t-pCtrl->ACP.DRDNM.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DRDNM.source), ITOD(pCtrl->ACP.DRDNM.value.nLong));
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->ACP.Speed.Counter.iCounter, t-pCtrl->ACP.Speed.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.Speed.source), ITOD(pCtrl->ACP.Speed.value.nLong));
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->ACP.SpeedMAX.Counter.iCounter, t-pCtrl->ACP.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedMAX.source), ITOD(pCtrl->ACP.SpeedMAX.value.nLong));
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->ACP.SpeedAVG.Counter.iCounter, t-pCtrl->ACP.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedAVG.source), ITOD(pCtrl->ACP.SpeedAVG.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed SLW", "[1-990] x10", pCtrl->BGNET.PILOT.SPEED.SLW.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.SLW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.SLW.source), pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->ACP.COG.Counter.iCounter, t-pCtrl->ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.COG.source), pCtrl->ACP.COG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Backlight", "[0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", pCtrl->BGNET.NETWORK.BackLight.Counter.iCounter, t-pCtrl->BGNET.NETWORK.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.NETWORK.BackLight.source), pCtrl->BGNET.NETWORK.BackLight.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->ACP.SOG.Counter.iCounter, t-pCtrl->ACP.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SOG.source), pCtrl->ACP.SOG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Course To Steer", "Autopilot Course setpoint (0-359 Degrees M)", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Heading", "Current compass reading (0-359 Degrees M)", pCtrl->BGNET.ACP.Heading.Counter.iCounter, t-pCtrl->BGNET.ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Heading.source), pCtrl->BGNET.ACP.Heading.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Rudder", "Current rudder position (-45-+45 Degrees)", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
+    strcat(Buffer, cLine);
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: STORLOG", "Stored log (QUAD or SPEED), stored in EEPROM, no reset) [NM]", pCtrl->BGNET.SPEED.StoredLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.StoredLogNM.source), (ITOD(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), (ITOD(pCtrl->BGNET.SPEED.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), ITOD(pCtrl->BGNET.SPEED.DRD.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.ACP.Speed.Counter.iCounter, t-pCtrl->BGNET.ACP.Speed.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Speed.source), ITOD(pCtrl->BGNET.ACP.Speed.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.ACP.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.ACP.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SpeedMAX.source), ITOD(pCtrl->BGNET.ACP.SpeedMAX.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.ACP.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.ACP.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SpeedAVG.source), ITOD(pCtrl->BGNET.ACP.SpeedAVG.value.nLong));
+    strcat(Buffer, cLine);
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->BGNET.ACP.COG.Counter.iCounter, t-pCtrl->BGNET.ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COG.source), pCtrl->BGNET.ACP.COG.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.ACP.SOG.Counter.iCounter, t-pCtrl->BGNET.ACP.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SOG.source), pCtrl->BGNET.ACP.SOG.value.nLong);
     strcat(Buffer, cLine);
     pEBS = EffectiveBoatSpeed(pCtrl, &EBS);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Selected Boatspeed, by source selection and default [KT]", pEBS->Counter.iCounter, t-pEBS->Counter.tTimestamp, strSource(cSource, pEBS->source), pEBS->value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/DMP: Speed Damping", "Response time of speed value [s]", pCtrl->ACP.QUAD.SETUP.DMP.Counter.iCounter, t-pCtrl->ACP.QUAD.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD.SETUP.DMP.source), pCtrl->ACP.QUAD.SETUP.DMP.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/DMP: Speed Damping", "Response time of speed value [s]", pCtrl->BGNET.SPEED.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.DMP.source), pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/CAL: Speed Calibration", "Adjustment of boatspeed against a know speed (manual)", pCtrl->ACP.QUAD.SETUP.CAL.Counter.iCounter, t-pCtrl->ACP.QUAD.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD.SETUP.CAL.source), pCtrl->ACP.QUAD.SETUP.CAL.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/CAL: Speed Calibration", "Adjustment of boatspeed against a know speed (manual)", pCtrl->BGNET.SPEED.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.CAL.source), pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/AUTOCAL: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->ACP.QUAD.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->ACP.QUAD.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD.SETUP.AUTOCAL.source), pCtrl->ACP.QUAD.SETUP.AUTOCAL.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/AUTOCAL: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.AUTOCAL.source), pCtrl->BGNET.SPEED.SETUP.AUTOCAL.value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SHALLOW ALARM: Alarm level", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.SA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.SA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.SA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.SA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SHALLOW ALARM: Alarm level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.SA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.SA_M.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/SHALLOW ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->ACP.DEPTH.SETUP.SA_STAT.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.SA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.SA_STAT.source), pCtrl->ACP.DEPTH.SETUP.SA_STAT.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/SHALLOW ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.SA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.SA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.SA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/DEEP ALARM: Alarm level", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.DA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.DA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.DA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.DA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/DEEP ALARM: Alarm level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.DA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.DA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.DA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.DA_M.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/DEEP ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->ACP.DEPTH.SETUP.DA_STAT.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.DA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.DA_STAT.source), pCtrl->ACP.DEPTH.SETUP.DA_STAT.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/DEEP ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.DA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.DA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.DA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Alarm Shallow level", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.ASA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.ASA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.ASA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.ASA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Alarm Shallow level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.ASA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.ASA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.ASA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Alarm Deep level", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.ADA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.ADA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.ADA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.ADA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Alarm Deep level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.ADA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.ADA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.ADA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Measured Depth at alarm activation", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.AMA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.AMA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.AMA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.AMA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Measured Depth at alarm activation", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AMA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/ANCHOR ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->ACP.DEPTH.SETUP.AA_STAT.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.AA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.AA_STAT.source), pCtrl->ACP.DEPTH.SETUP.AA_STAT.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/ANCHOR ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth [M]", pCtrl->ACP.DEPTH.Meas.Counter.iCounter, t-pCtrl->ACP.DEPTH.Meas.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.Meas.source), ITOD(pCtrl->ACP.DEPTH.Meas.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth [M]", pCtrl->BGNET.DEPTH.Meas.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Meas.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Meas.source), ITOD(pCtrl->BGNET.DEPTH.Meas.value.nLong));
     strcat(Buffer, cLine);
 
     return(Buffer);

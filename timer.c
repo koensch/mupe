@@ -19,9 +19,9 @@ void *timer_thread(void *arg)
 
         // get time, update our system time 
         time(&t);
-        pCtrl->ACP.SystemTime.value.tTime = t;
-        pCtrl->ACP.SystemTime.source = BGN_SOURCE_ACP;
-        CounterUp(&pCtrl->ACP.SystemTime.Counter, t);
+        pCtrl->BGNET.SERVICE.SystemTime.value.tTime = t;
+        pCtrl->BGNET.SERVICE.SystemTime.source = BGN_SOURCE_ACP;
+        CounterUp(&pCtrl->BGNET.SERVICE.SystemTime.Counter, t);
 
         // check if there is serial data ready
         pthread_mutex_lock(&g_data_mutex);
@@ -92,24 +92,24 @@ void *timer_thread(void *arg)
           if (g_serial_mode == BGN_SERIAL_MODE_RO) {
             // no need for WD in readonly mode, we are not in control
           } else {
-            if (pCtrl->ACP.PILOTWD.value.nLong > 0) {
-              pCtrl->ACP.PILOTWD.value.nLong--;
-              pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
-              CounterUp(&pCtrl->ACP.PILOTWD.Counter, t);
+            if (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong > 0) {
+              pCtrl->BGNET.SERVICE.PILOTWD.value.nLong--;
+              pCtrl->BGNET.SERVICE.PILOTWD.source = BGN_SOURCE_ACP;
+              CounterUp(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
             } else {
-              log_error("PILOTWD expired at %d, fallback to STBY/COMP", pCtrl->ACP.PILOTWD.value.nLong);
+              log_error("PILOTWD expired at %d, fallback to STBY/COMP", pCtrl->BGNET.SERVICE.PILOTWD.value.nLong);
               // force controller into STBY
-              pCtrl->ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
-              pCtrl->ACP.STATE.source = BGN_SOURCE_ACP;
-              CounterUp(&pCtrl->ACP.STATE.Counter, t);
+              pCtrl->BGNET.ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
+              pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_ACP;
+              CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
               // force controller into COMP
-              pCtrl->ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
-              pCtrl->ACP.MODE.source = BGN_SOURCE_ACP;
-              CounterUp(&pCtrl->ACP.MODE.Counter, t);
+              pCtrl->BGNET.ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
+              pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_ACP;
+              CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t);
               // reset the watchdog
-              pCtrl->ACP.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
-              pCtrl->ACP.PILOTWD.source = BGN_SOURCE_ACP;
-              CounterInit(&pCtrl->ACP.PILOTWD.Counter, t);
+              pCtrl->BGNET.SERVICE.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
+              pCtrl->BGNET.SERVICE.PILOTWD.source = BGN_SOURCE_ACP;
+              CounterInit(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
             }
           }
 
