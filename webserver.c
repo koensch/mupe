@@ -636,8 +636,6 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->ACP.SpeedAVG.Counter.iCounter, t-pCtrl->ACP.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedAVG.source), ITOD(pCtrl->ACP.SpeedAVG.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP: Damping", "Speed sensor damping [sec]", pCtrl->ACP.SpeedDAMPING.Counter.iCounter, t-pCtrl->ACP.SpeedDAMPING.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.SpeedDAMPING.source), pCtrl->ACP.SpeedDAMPING.value.nLong);
-    strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->ACP.COG.Counter.iCounter, t-pCtrl->ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.COG.source), pCtrl->ACP.COG.value.nLong);
     strcat(Buffer, cLine);
@@ -652,6 +650,25 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/CAL: Speed Calibration", "Adjustment of boatspeed against a know speed (manual)", pCtrl->ACP.QUAD.SETUP.CAL.Counter.iCounter, t-pCtrl->ACP.QUAD.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD.SETUP.CAL.source), pCtrl->ACP.QUAD.SETUP.CAL.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/AUTOCAL: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->ACP.QUAD.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->ACP.QUAD.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.QUAD.SETUP.AUTOCAL.source), pCtrl->ACP.QUAD.SETUP.AUTOCAL.value.nLong);
+    strcat(Buffer, cLine);
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SHALLOW ALARM: Alarm level", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.SA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.SA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.SA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.SA_M.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/SHALLOW ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->ACP.DEPTH.SETUP.SA_STAT.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.SA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.SA_STAT.source), pCtrl->ACP.DEPTH.SETUP.SA_STAT.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/DEEP ALARM: Alarm level", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.DA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.DA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.DA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.DA_M.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/DEEP ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->ACP.DEPTH.SETUP.DA_STAT.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.DA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.DA_STAT.source), pCtrl->ACP.DEPTH.SETUP.DA_STAT.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Alarm Shallow level", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.ASA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.ASA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.ASA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.ASA_M.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Alarm Deep level", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.ADA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.ADA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.ADA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.ADA_M.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Measured Depth at alarm activation", "Alarm depth [M]", pCtrl->ACP.DEPTH.SETUP.AMA_M.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.AMA_M.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.AMA_M.source), ITOD(pCtrl->ACP.DEPTH.SETUP.AMA_M.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/ANCHOR ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->ACP.DEPTH.SETUP.AA_STAT.Counter.iCounter, t-pCtrl->ACP.DEPTH.SETUP.AA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.SETUP.AA_STAT.source), pCtrl->ACP.DEPTH.SETUP.AA_STAT.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth [M]", pCtrl->ACP.DEPTH.Meas.Counter.iCounter, t-pCtrl->ACP.DEPTH.Meas.Counter.tTimestamp, strSource(cSource, pCtrl->ACP.DEPTH.Meas.source), ITOD(pCtrl->ACP.DEPTH.Meas.value.nLong));
     strcat(Buffer, cLine);
 
     return(Buffer);

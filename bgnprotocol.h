@@ -206,7 +206,9 @@ typedef struct {        // for the FRAME header we use a pointer
                                                // PILOT broadcasts this command in 'normal' mode, and also in 'demo' mode.
                                                // if PILOT receives a DATA command (with some minimal channels), it leaves the "NO PILOT" state
 #define BGNET_FRAME_CMD_20_PILOT_OCDAT    0x20 // 5 bytes payload after SET of WA minutes, CH = AF
+                                               // 3 or 5 bytes payload for ANCHOR ALARM status (on QUAD): On/Off (3 bytes) and level (in meters, 5 bytes)
 #define BGNET_FRAME_CMD_21_PILOT_WADAT    0x21 // 5 bytes payload after SET of WA minutes, CH = 76
+#define BGNET_FRAME_CMD_22_DEPTH_DADAT    0x22 // 3 or 5 bytes payload for DEEP ALARM status (on QUAD): On/Off (3 bytes) and level (in meters, 5 bytes)
 #define BGNET_FRAME_CMD_B1_PILOT_DELTADAT 0xB1 // STEP/ADJUST -10/-1/+1/+10, 5 bytes payload (00 A6 01 FF F6) = -10
 #define BGNET_FRAME_CMD_C9_BACKLIGHT      0xC9 // LIGHTS button pressed (all units) -> header + 1 bytes payload: {0|1|2|3}
                                                // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
@@ -228,6 +230,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_FRAME_CMD_D5_PILOT_RESPDAT  0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: RESP MODE (0=Normal, 1=Eco, 2=Downwind)
 #define BGNET_FRAME_CMD_D6_PILOT_SLWDAT   0xD6 // 5 bytes payload (00 46 01 00 XX), 46= channel, XX: MANSLW speed (0-990)
 #define BGNET_FRAME_CMD_DC_PILOT_STEPREQ  0xDC // 2 bytes payload (00 A6), A6= channel, is followed by command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
+#define BGNET_FRAME_CMD_DD_QUAD_SHAREQ    0xDD // 2 bytes payload (00 C4), C4=DEPTH
 #define BGNET_FRAME_CMD_DE_PILOT_WAREQ    0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
 #define BGNET_FRAME_CMD_DF_PILOT_OCREQ    0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
 #define BGNET_FRAME_CMD_EA_QUAD_AUTOCAL   0xEA // sometimes we get this CMD: 00 30 02 EA E4 03 01 A6 while stepping though SPEED SETUP (4th option)
@@ -432,7 +435,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGN_CNR_FA_NEXTWPDIST       0xFA
 #define BGN_CNR_FB_TIMETOLAYLINE    0xFB
 #define BGN_CNR_FC_SHALLOWALARM     0xFC // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF"
-#define BGN_CNR_FD_DEPTHALARM       0xFD // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF"
+#define BGN_CNR_FD_DEEPALARM        0xFD // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF"
                                          // When alarm limit is set, the alarm fires "C4 17 00 C4" channel value (transmitted via 0x01/DATA command)
 #define BGN_CNR_FE_ANCHORALARM      0xFE // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF". The ANCHOR alarms levels
                                          // consists of 2 values (shallow & deep) that are alternating on this channel.
@@ -482,6 +485,7 @@ union CH {
 #define BGN_FMT_00      0x00        // FMT initialized
 #define BGN_FMT_01      0x01        // 16 bit signed register, is used for a value that falls in range -255/+255 (rudder position, wind angle, temperature)
                                     // optionally scaled down to 25.5, 2.55, 0.255 using the divisor
+#define BGN_FMT_91      0x91
 #define BGN_FMT_03      0x03        // Timer value (5 bytes, 0x75 only), last 3 bytes are HH:MM:SS
 #define BGN_FMT_02      0x02        // 32 bit unsigned register (6 bytes) 
 #define BGN_FMT_42      0x42        // used by channel 0xCD, STORLOGNM (with divisor = 10)
@@ -499,6 +503,9 @@ union CH {
 #define BGN_FMT_48      0x48        // used by channel 0xCF, TRIPLOGNM (with divisor = 10)
 #define BGN_FMT_18      0x18        // used by WA and OC
 #define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
+#define BGN_FMT_0F      0x0F        // Boolean/switch value: 0x0F= Off, 0x1F= On
+#define BGN_FMT_9D      0x9D        // send by QUAD/DEPTH/SETUP anchor alarm (7 bytes payload)
+#define BGN_FMT_0D      0x0D        // used for dual values (Anchor Alarm Shallow & Deep, relative)
 
 #define BGNET_CMD_LABEL 22
 
@@ -689,17 +696,29 @@ typedef struct {
     // parameters, usually hosted by QUAD
     struct {
         struct {
-            NMEA2K_VALUE DMP;      // QUAD/SPEED/SETUP/DMP, response time of speed value
-            NMEA2K_VALUE CAL;      // QUAD/SPEED/SETUP/CALibration, boatspeed adjustment
-            NMEA2K_VALUE AUTOCAL;  // QUAD/SPEED/SETUP/CAL AUTO
+            NMEA2K_VALUE DMP;      // QUAD/SPEED/SETUP/#1/DMP, response time of speed value
+            //                     // QUAD/SPEED/SETUP/#2 causes the units to change (and a retransmit of all CMD/0x02-LABEL to be send)
+            NMEA2K_VALUE CAL;      // QUAD/SPEED/SETUP/#3, #4 CALibration, boatspeed adjustment by speed (#3) or by distance (#4)
+            NMEA2K_VALUE AUTOCAL;  // QUAD/SPEED/SETUP/#5/AUTOCAL, 0=Off, 1=On
+            //                     // QUAD/SPEED/SETUP/#6 is the DRD-RESET, no value set, just resetting the DRD (and speed AVG/MAX)
         } SETUP;
         struct {
 
         } SPEED;
-        struct {
-
-        } DEPTH;
     } QUAD;
+    struct {
+        NMEA2K_VALUE Meas;   // Measured depth (current value)
+        struct {
+            NMEA2K_VALUE SA_M;    // Shallow Alarm limit (meter, absolute)
+            NMEA2K_VALUE SA_STAT; // Shallow Alarm ON/OFF
+            NMEA2K_VALUE DA_M;    // Deep Alarm limit (meter, absolute)
+            NMEA2K_VALUE DA_STAT; // Deep Alarm ON/OFF
+            NMEA2K_VALUE ASA_M;   // Anchor Shallow Alarm limit (meter, relative to the depth at the moment of setting)
+            NMEA2K_VALUE ADA_M;   // Anchor Deep Alarm limit (meter, relative to the depth at the moment of setting)
+            NMEA2K_VALUE AMA_M;   // Anchor Measured depth at the moment of setting
+            NMEA2K_VALUE AA_STAT; // Anchor Alarm ON/OFF
+        } SETUP;
+    } DEPTH;
 
     // NETWORK parameters
     NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
@@ -712,9 +731,9 @@ typedef struct {
     NMEA2K_VALUE Speed;         // current boat speed (used as initializer for SpeedMAX and SpeedAVG
     NMEA2K_VALUE SpeedMAX;      // MAX speed (since DRDNM reset)
     NMEA2K_VALUE SpeedAVG;      // AVG speed (since DRDNM reset)
-    NMEA2K_VALUE SpeedDAMPING;  // SPEED/SETUP/DAMPING/#1
-    NMEA2K_VALUE SpeedCAL;      // SPEED/SETUP/CAL/#3
-    NMEA2K_VALUE SpeedLOGCAL;   // SPEED/SETUP/LOGCAL/#4
+    //NMEA2K_VALUE SpeedDAMPING;  // SPEED/SETUP/DAMPING/#1
+    //NMEA2K_VALUE SpeedCAL;      // SPEED/SETUP/CAL/#3
+    //NMEA2K_VALUE SpeedLOGCAL;   // SPEED/SETUP/LOGCAL/#4
    
     NMEA2K_VALUE COG;
     NMEA2K_VALUE SOG;
