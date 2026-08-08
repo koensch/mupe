@@ -745,7 +745,7 @@ static char* html_command_top(char *Buffer) {
 static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     time_t t;
-    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII], asciibufCMD[BGNET_CMD_LABEL];
+    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII], asciibufCMD[BGNET_CMD_LABEL_MAX];
     const char *cDevRow =
         "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
@@ -797,14 +797,14 @@ static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
             "<th>Count</th><th>Sec</th><th>LastRaw</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>TO</th><th>FROM</th><th>CMD</th><th>Display</th>"
             "</tr>";
-    snprintf(cLine, sizeof(cLine), cChnTop, strCommandLabel(pCtrl, asciibuf01, BGNET_FRAME_CMD_01_DATA), strCommandLabel(pCtrl, asciibuf02, BGNET_FRAME_CMD_02_LABEL), strCommandLabel(pCtrl, asciibuf06, BGNET_FRAME_CMD_06_SUBSCRIBE));
+    snprintf(cLine, sizeof(cLine), cChnTop, strCommandLabel(pCtrl, asciibuf01, BGNET_CMD_01_DATA), strCommandLabel(pCtrl, asciibuf02, BGNET_CMD_02_LABEL), strCommandLabel(pCtrl, asciibuf06, BGNET_CMD_06_SUBSCRIBE));
     strcpy(Buffer, cLine);
     return(Buffer);
 }
 static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i,y, InUse;
     time_t t;
-    char cLine[2048], bufferCHN[BGNET_CMD_LABEL];
+    char cLine[2048], bufferCHN[BGNET_CMD_LABEL_MAX];
     char cLine01[1024], cLine02[1024], cLine06[1024], cLine00[1024];
     char asciibuf01[256], asciibuf02[256], asciibuf06[256], asciibuf00[256];
 
