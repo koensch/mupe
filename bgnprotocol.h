@@ -347,7 +347,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGN_CNR_7D_TARGETBOATSPEED  0x7D
 #define BGN_CNR_7F_VMGKT            0x7F // calculted by WIND, displayed on DATA (only when WIND is present) under the WIND button
 #define BGN_CNR_80_UNKNOWN          0x80
-#define BGN_CNR_81_DRDNM            0x81 // QUAD/SPEED: Dead Recogning Distance travelled, resettable
+#define BGN_CNR_81_DRD              0x81 // QUAD/SPEED: Dead Recogning Distance travelled, resettable
 #define BGN_CNR_82_LEEWAY           0x82
 #define BGN_CNR_83_TIDALDRIFT       0x83
 #define BGN_CNR_84_TIDALSET         0x84
@@ -396,7 +396,7 @@ typedef struct {        // for the FRAME header we use a pointer
     #define BGNET_DIVISOR_STORLOG       10.0
 #define BGN_CNR_CF_TRIPNM           0xCF // QUAD/SPEED/DATA: TripLog, reset via QUAD
     #define BGNET_DIVISOR_TRIPLOG       10.0
-#define BGN_CNR_D3_DR_COURSE        0xD3 // displayed by SPEED and DATA, reset via QUAD
+#define BGN_CNR_D3_DRC              0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGN_CNR_DC_LOCALTIME        0xDC
 #define BGN_CNR_DD_UTCTIME          0xDD
 #define BGN_CNR_DE_WPB              0xDE // WP Bearing (via PILOT/NMEA/APB/#11 en PILOT/NMEA/RMB/#11)
@@ -663,7 +663,8 @@ typedef struct {
 #define BGN_JOYSTICK_ON     1
 #define BGN_JOYSTICK_OFF    0
         NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
-        NMEA2K_VALUE Speed;         // current boat speed (used as initializer for SpeedMAX and SpeedAVG
+        NMEA2K_VALUE EBS;           // Effective Boat Speed, result of speed selection, used as initializer for SpeedMAX and SpeedAVG
+        NMEA2K_VALUE EBS_SEL;       // Effective Boat Speed, selector
         NMEA2K_VALUE SpeedMAX;      // MAX speed (since DRD reset)
         NMEA2K_VALUE SpeedAVG;      // AVG speed (since DRD reset)
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
@@ -688,12 +689,10 @@ typedef struct {
         } SETUP;
     // PILOT/SPEED/SETUP - Manual speed selection
 #define BGNET_SPD_TRA           0
-#define BGNET_SPD_MAN           1
+#define BGNET_SPD_MAN_FST       1
 #define BGNET_SPD_SOG           2
-#define BGNET_SPD_MAN_FST       3
-#define BGNET_SPD_MAN_MED       4
-#define BGNET_SPD_MAN_SLW       5
-#define BGNET_SPD_MAN_NONE      0
+#define BGNET_SPD_MAN_MED       3
+#define BGNET_SPD_MAN_SLW       4
         struct {
             NMEA2K_VALUE SEL;  // selected manual speed (FST/MED/SLW)
             NMEA2K_VALUE FST;  // speed FST x10
@@ -708,13 +707,16 @@ typedef struct {
     } QUAD;
     // SPEED parameters
     struct {
-        NMEA2K_VALUE Meas;         // Measured SPEED (current value)
+        // Note: if you change from C/F only a new LABEL command is broadcast. No CMD-REQ/CMD-DAT/CMD-ACK sequence is involved
+        NMEA2K_VALUE Temperature;  // Measured TEMP (current value)
+        // Note: if you change from KT/MPH only a new LABEL command is broadcast. No CMD-REQ/CMD-DAT/CMD-ACK sequence is involved
+        NMEA2K_VALUE Speed;        // Measured SPEED (current value)
         NMEA2K_VALUE StoredLogNM;  // channel CD (stored log) is stored as 3-byte register
         NMEA2K_VALUE TripLogNM;    // channel CF (trip log NM) is stored as a 2 byte register
         NMEA2K_VALUE DRD;          // channel 81 (Dead Reconing Distance) is stored as a 2 byte register
         struct {
             NMEA2K_VALUE DMP;      // QUAD/SPEED/SETUP/#1/DMP, response time of speed value
-            //                     // QUAD/SPEED/SETUP/#2 causes the units to change (and a retransmit of all CMD/0x02-LABEL to be send)
+            //                     // QUAD/SPEED/SETUP/#2 causes the units to change (with revised LABEL/0x02 CMD)
             NMEA2K_VALUE CAL;      // QUAD/SPEED/SETUP/#3, #4 CALibration, boatspeed adjustment by speed (#3) or by distance (#4)
             NMEA2K_VALUE AUTOCAL;  // QUAD/SPEED/SETUP/#5/AUTOCAL, 0=Off, 1=On
             //                     // QUAD/SPEED/SETUP/#6 is the DRD-RESET, no value set, just resetting the DRD (and speed AVG/MAX)
@@ -781,7 +783,7 @@ int makeRESPresponse(BGNET_CTRL *, unsigned char *);
 int makeWAresponse(BGNET_CTRL *, unsigned char *);
 int makeOCresponse(BGNET_CTRL *, unsigned char *);
 size_t register_DATA_frame(BGNET_CTRL *, FRAME_H *);
-NMEA2K_VALUE *EffectiveBoatSpeed(BGNET_CTRL *, NMEA2K_VALUE *);
+uint16_t EffectiveBoatSpeed(BGNET_CTRL *, NMEA2K_VALUE *);
 
 void CounterInit(BGNET_COUNT*, time_t);
 void CounterUp(BGNET_COUNT*, time_t);

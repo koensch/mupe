@@ -146,52 +146,28 @@ void bgnet_autoscale(union CH *pCH, unsigned char ucCHN, unsigned char ucFMT, NM
 }
 
 // select the effective speed based on the speedselector and manual FST/MED/SLW selection
-NMEA2K_VALUE *EffectiveBoatSpeed(BGNET_CTRL* pCtrl, NMEA2K_VALUE *pV) {
-    NMEA2K_VALUE *r = NULL;
+uint16_t EffectiveBoatSpeed(BGNET_CTRL* pCtrl, NMEA2K_VALUE *pV) {
     switch(pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte) {
+        default:
         case BGNET_SPD_TRA:
-            if ((pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp-pCtrl->BGNET.ACP.Speed.Counter.tTimestamp) < 10) {
-                // make sure we only use a current speed signal
-                memcpy(pV, &pCtrl->BGNET.ACP.Speed, sizeof(NMEA2K_VALUE));
-                pV->value.nLong = pCtrl->BGNET.ACP.Speed.value.dValue;
-                r = &pCtrl->BGNET.ACP.Speed;
-            }
+            pV->value.nLong = pCtrl->BGNET.SPEED.Speed.value.nLong;
             break;
-        case BGNET_SPD_MAN:
-            switch(pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte) {
-                case BGNET_SPD_MAN_FST:
-                    memcpy(pV, &pCtrl->BGNET.PILOT.SPEED.FST, sizeof(NMEA2K_VALUE));
-                    r = &pCtrl->BGNET.PILOT.SPEED.FST;
-                    break;
-                case BGNET_SPD_MAN_MED:
-                    memcpy(pV, &pCtrl->BGNET.PILOT.SPEED.MED, sizeof(NMEA2K_VALUE));
-                    r = &pCtrl->BGNET.PILOT.SPEED.MED;
-                    break;
-                case BGNET_SPD_MAN_SLW:
-                    memcpy(pV, &pCtrl->BGNET.PILOT.SPEED.SLW, sizeof(NMEA2K_VALUE));
-                    r = &pCtrl->BGNET.PILOT.SPEED.SLW;
-                    break;
-            }
-            if ((pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp-pCtrl->BGNET.ACP.Speed.Counter.tTimestamp) < 10) {
-                memcpy(pV,&pCtrl->BGNET.ACP.Speed,sizeof(NMEA2K_VALUE));
-                r = &pCtrl->BGNET.ACP.Speed;
-            }
+        case BGNET_SPD_MAN_FST:
+            pV->value.nLong = pCtrl->BGNET.PILOT.SPEED.FST.value.nLong;
             break;
         case BGNET_SPD_SOG:
-            if ((pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp-pCtrl->BGNET.ACP.SOG.Counter.tTimestamp) < 10) {
-                memcpy(pV,&pCtrl->BGNET.ACP.SOG,sizeof(NMEA2K_VALUE));
-                pV->value.nLong = pCtrl->BGNET.ACP.SOG.value.dValue;
-                r = &pCtrl->BGNET.ACP.SOG;
-            }
+            pV->value.nLong = pCtrl->BGNET.ACP.SOG.value.nLong;
+            break;
+        case BGNET_SPD_MAN_MED:
+            pV->value.nLong = pCtrl->BGNET.PILOT.SPEED.MED.value.nLong;
+            break;
+        case BGNET_SPD_MAN_SLW:
+            pV->value.nLong = pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong;
             break;
     }
-    // if we do not have a valid selection, we pick the least erroneous solution. Having a NULL pointer is worse.
-    if (r == NULL) {
-        memcpy(pV, &pCtrl->BGNET.PILOT.SPEED.SLW, sizeof(NMEA2K_VALUE));
-        r = &pCtrl->BGNET.PILOT.SPEED.SLW;
-    }
-    r = pV; // let it point where the data is.
-    return(r);
+    pV->source = BGN_SOURCE_ACP;
+    CounterUp(&pV->Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+    return(pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte);
 }
 
 // calculate the checksum over a bytes sequence.
@@ -323,7 +299,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
 
         // NetworkTime // this is the time received from external source (GPS, TFTP, API or whatever), this indicates what others think the time is
         pCtrl->BGNET.SERVICE.NetworkTime.value.tTime = t;
-        pCtrl->BGNET.SERVICE.NetworkTime.source = BGN_SOURCE_ACP;
+        pCtrl->BGNET.SERVICE.NetworkTime.source = BGN_SOURCE_NONE;
         CounterInit(&pCtrl->BGNET.SERVICE.NetworkTime.Counter, t);
 
         // PILOT watchdog (set by PILOT_HELLO, count-down by timer)
@@ -345,7 +321,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         CounterInit(&pCtrl->BGNET.ACP.Joystick.Counter, t);
 
         // PILOT SETUP parameters
-        pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte = BGNET_SPD_MAN; //0=Transmitter, 1=Manual, 2=SOG
+        pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte = BGNET_SPD_TRA;
         pCtrl->BGNET.PILOT.SETUP.SPD.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SETUP.SPD.Counter, t);
 
@@ -382,7 +358,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         CounterInit(&pCtrl->BGNET.PILOT.SETUP.FR.Counter, t);
 
         // manual speed parameters
-        pCtrl->BGNET.PILOT.SPEED.SEL.value.nLong = BGNET_SPD_MAN_NONE; // no selection made
+        pCtrl->BGNET.PILOT.SPEED.SEL.value.nLong = BGNET_SPD_MAN_FST; // default FST
         pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);
 
@@ -430,9 +406,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.DRD.Counter, t);
 
-        pCtrl->BGNET.ACP.Speed.value.nLong = 125; // used to initialize SpeedMAX and SpeedAVG
-        pCtrl->BGNET.ACP.Speed.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.ACP.Speed.Counter, t);
+        pCtrl->BGNET.SPEED.Speed.value.nLong = 125; // used to initialize SpeedMAX and SpeedAVG
+        pCtrl->BGNET.SPEED.Speed.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.SPEED.Speed.Counter, t);
 
         pCtrl->BGNET.ACP.SpeedMAX.value.nLong = 222; // reset with DRD
         pCtrl->BGNET.ACP.SpeedMAX.source = BGN_SOURCE_ACP;
@@ -449,6 +425,13 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.SOG.value.nLong = 22;
         pCtrl->BGNET.ACP.SOG.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.SOG.Counter, t);
+
+        // evaluate effective speed (do this AFTER SPD/TRA, MAN/SEL/FST/MED/SLW and SOG are initialized)
+        pCtrl->BGNET.ACP.EBS_SEL.value.nByte = EffectiveBoatSpeed(pCtrl, &pCtrl->BGNET.ACP.EBS);
+        pCtrl->BGNET.ACP.EBS_SEL.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.EBS_SEL.Counter, t);
+        pCtrl->BGNET.ACP.EBS.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.EBS.Counter, t);
 
         pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong = 33;
         pCtrl->BGNET.SPEED.SETUP.DMP.source = BGN_SOURCE_ACP;
@@ -597,7 +580,7 @@ size_t bgnet_encode_frame(BGNET_CTRL* pCtrl, FRAME_H* pFH, int iTo, int iFrom, i
 }
 
 // this one usually sends 8 channels
-int makeQUADresponse2(BGNET_CTRL* pCtrl, unsigned char* payload) {
+int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
     int r=0, c;
     union CH* puCH;
 
@@ -605,7 +588,7 @@ int makeQUADresponse2(BGNET_CTRL* pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Speed.value.nLong);
+    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.Speed.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGN_CNR_42_BOATSPEEDRAW;
@@ -641,7 +624,7 @@ int makeQUADresponse2(BGNET_CTRL* pCtrl, unsigned char* payload) {
 
     // the next values are always present 
 
-    c = BGN_CNR_81_DRDNM;
+    c = BGN_CNR_81_DRD;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -655,7 +638,7 @@ int makeQUADresponse2(BGNET_CTRL* pCtrl, unsigned char* payload) {
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.TripLogNM.value.nLong); 
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGN_CNR_D3_DR_COURSE;
+    c = BGN_CNR_D3_DRC;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -888,7 +871,7 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(222);
+    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     // when in AUTO, the diplay shows the COURSE TARGET (set of the autopilot)
@@ -969,14 +952,14 @@ int makeACPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Speed.value.nLong);
+    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.Speed.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGN_CNR_49_HEADING;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(77);
+    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGN_CNR_51_AWINDANGLE;
@@ -1131,34 +1114,35 @@ int makeOCresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
     return (r);
 }
-int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
-    int r = 0,c;
-    union CH* puCH;
+//int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
+//    int r = 0,c;
+//    union CH* puCH;
 
-    c = BGN_CNR_41_BOATSPEEDKT;
-    puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Speed.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+//    c = BGN_CNR_41_BOATSPEEDKT;
+//    puCH = (union CH*)&(payload[r]);
+//    puCH->s.CH = c;
+//    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+//    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.Speed.value.nLong);
+//    r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGN_CNR_EB_SOGKT;
-    puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(325);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+//    c = BGN_CNR_EB_SOGKT;
+//    puCH = (union CH*)&(payload[r]);
+//    puCH->s.CH = c;
+//    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+//    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.SOG.value.nLong);
+//    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+//
+//    return (r);
+//}
 
-    return (r);
-}
-
-// This is the "device processor".
+// This is the "device processor", called from the timer thread
 // We scan through the data stored by the frame decoder.
 // If we want to generate some output for transmission, put the frame in the transmission buffer
 // (at this moment we see no need to do such thing)
 size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
     int i;
     size_t r;
+    uint8_t ebs_sel;
     time_t t;
     time(&t); // save the time
 
@@ -1221,6 +1205,18 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
         }
         pCtrl->iNewDevice = BGN_NEW_RESET; // reset
     }
+
+    // update effective boatspeed (used for navigation purposes)
+    ebs_sel = EffectiveBoatSpeed(pCtrl, &pCtrl->BGNET.ACP.EBS);
+    log_debug("EBS_SEL= %d (%d), EBS= %d", ebs_sel, pCtrl->BGNET.ACP.EBS_SEL.value.nByte, pCtrl->BGNET.ACP.EBS.value.nLong);
+    if (ebs_sel == pCtrl->BGNET.ACP.EBS_SEL.value.nByte) {
+        // no change, no update
+    } else {
+        pCtrl->BGNET.ACP.EBS_SEL.value.nByte = ebs_sel;
+        pCtrl->BGNET.ACP.EBS_SEL.source = BGN_SOURCE_ACP;
+        CounterUp(&pCtrl->BGNET.ACP.EBS_SEL.Counter, t);
+    }
+
     
 #define BGNET_ENABLE_QUAD_TX
 #ifdef BGNET_ENABLE_QUAD_TX
@@ -1248,7 +1244,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
         memcpy(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
         CounterUp(&pCtrl->CMD[BGNET_FRAME_CMD_01_DATA].CounterTx, t);
 
-        len_pl = makeQUADresponse2(pCtrl, payload);
+        len_pl = makeSPEEDresponse(pCtrl, payload);
         len_msg = bgnet_encode_frame(pCtrl, pFTx,BGNET_TYPE_ALL, ucTO, BGNET_FRAME_CMD_01_DATA, payload, len_pl);
         register_DATA_frame(pCtrl, pFTx);
         
@@ -1272,7 +1268,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
     } else {
         r = 0; // destroy what we have in the buffer
     }
-    // if you want to send data, retrun the number of bytes in the output buffer
+    // if you want to send data, return the number of bytes in the output buffer
     return(r);
 };
 
@@ -2037,17 +2033,17 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
                                                                 break;
-                                                            case BGN_CNR_81_DRDNM:
+                                                            case BGN_CNR_81_DRD:
                                                                 // SPEED/DRD RESET, 2 bytes payload
                                                                 // a QUAD/r only sends a CMD_CB/CNH_81 (to the QUAD/t)
                                                                 // a QUAD/t or QUAD/d sends nothing.
                                                                 pCtrl->BGNET.SPEED.DRD.value.nLong = 0;
                                                                 pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.SPEED.DRD.Counter, t);
-                                                                pCtrl->BGNET.ACP.SpeedMAX.value.nLong = pCtrl->BGNET.ACP.Speed.value.nLong;
+                                                                pCtrl->BGNET.ACP.SpeedMAX.value.nLong = pCtrl->BGNET.SPEED.Speed.value.nLong;
                                                                 pCtrl->BGNET.ACP.SpeedMAX.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.ACP.SpeedMAX.Counter, t);
-                                                                pCtrl->BGNET.ACP.SpeedAVG.value.nLong = pCtrl->BGNET.ACP.Speed.value.nLong;
+                                                                pCtrl->BGNET.ACP.SpeedAVG.value.nLong = pCtrl->BGNET.SPEED.Speed.value.nLong;
                                                                 pCtrl->BGNET.ACP.SpeedAVG.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.ACP.SpeedAVG.Counter, t);
                                                                 break;

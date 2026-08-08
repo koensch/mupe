@@ -224,13 +224,13 @@ static void parse_pgn_128259(BGNET_CTRL *pCtrl, const struct can_frame *f)
 
         log_debug("N2K 128259: STW=%.2f m/s", stw);
 
-        switch(pCtrl->BGNET.ACP.Speed.source) {
+        switch(pCtrl->BGNET.SPEED.Speed.source) {
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.ACP.Speed.value.nLong = DTOIROUND(stw * 1.94384449 * 10); // convert m/s to KT*10
-                pCtrl->BGNET.ACP.Speed.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->BGNET.ACP.Speed.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                pCtrl->BGNET.SPEED.Speed.value.nLong = DTOIROUND(stw * 1.94384449 * 10); // convert m/s to KT*10
+                pCtrl->BGNET.SPEED.Speed.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.SPEED.Speed.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
     }
 }
