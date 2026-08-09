@@ -162,7 +162,7 @@ typedef struct {        // for the FRAME header we use a pointer
 // FROM/TO adresses
 #define BGNET_DEVICE_MAX                0xFF
 
-// FROM/TO address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA os 0xD6, another time it's 0x60.
+// FROM/TO address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA is 0xD6, another time it's 0x60.
 // The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51. As long as you have 1 of each it's simple. I do not have multiple
 // units of the same type, so i was never able to reverse-engineer the address negotiations.
 #define BGNET_TYPE_MASK                 0xF0 // mask the device type from the address
@@ -638,7 +638,7 @@ typedef struct {
     struct {
         unsigned char ACKSEQprev; // last ACKSEQ received from PILOT
         unsigned char ACKSEQ; // last ACKSEQ received from PILOT
-        unsigned char FRAME_SEED; // SEED to use
+        //unsigned char FRAME_SEED; // SEED to use
     } weird;
     
 
@@ -776,7 +776,7 @@ size_t bgnet_sizeof_channel(BGNET_CTRL *, union CH *);
 size_t bgnet_sizeof_frame(FRAME_H *);
 char* strCommandLabel(BGNET_CTRL *, char *, unsigned char);
 char* strChannelLabel(BGNET_CTRL *, char *, unsigned char);
-size_t bgnet_encode_frame(BGNET_CTRL *, FRAME_H *, int, int, int, unsigned char *, int);
+size_t bgnet_encode_frame(FRAME_H *, int, int, int, unsigned char *, int);
 int makeRESPresponse(BGNET_CTRL *, unsigned char *);
 int makeWAresponse(BGNET_CTRL *, unsigned char *);
 int makeOCresponse(BGNET_CTRL *, unsigned char *);
