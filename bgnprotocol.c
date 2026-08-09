@@ -403,9 +403,13 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
 
-        pCtrl->BGNET.SPEED.DRD.value.nLong = 123; // channel 81/DRDNM (on the real system this is stored in non-volitile memory by QUAD/SPEED, resetable)
+        pCtrl->BGNET.SPEED.DRD.value.nLong = 123; // resetable with DND-RESET)
         pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.DRD.Counter, t);
+
+        pCtrl->BGNET.SPEED.DRC.value.nLong = 358;
+        pCtrl->BGNET.SPEED.DRC.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.SPEED.DRC.Counter, t);
 
         pCtrl->BGNET.SPEED.STW.value.nLong = 125; // used to initialize SpeedMAX and SpeedAVG
         pCtrl->BGNET.SPEED.STW.source = BGN_SOURCE_ACP;
@@ -585,14 +589,14 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
     int r=0, c;
     union CH* puCH;
 
-    c = BGNET_CHN_41_BOATSPEEDKT;
+    c = BGNET_CHN_41_STW;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.STW.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_42_BOATSPEEDRAW;
+    c = BGNET_CHN_42_STWRAW;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -883,7 +887,7 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
  
-    c = BGNET_CHN_51_AWINDANGLE;
+    c = BGNET_CHN_51_AWA;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -938,7 +942,7 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
 }
 
 // scheduled response from ACP to PILOT (and others)
-int makeACPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeACPresponseXXX(BGNET_CTRL *pCtrl, unsigned char* payload) {
     int r = 0,c;
     union CH* puCH;
 
@@ -949,7 +953,7 @@ int makeACPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_41_BOATSPEEDKT;
+    c = BGNET_CHN_41_STW;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -963,7 +967,7 @@ int makeACPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.Heading.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_51_AWINDANGLE;
+    c = BGNET_CHN_51_AWA;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -1866,7 +1870,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                     // QUAD/SPEED/SETUP/#1
                                     payload[BGNET_FRAME_ACKSEQ] = 0x00;
-                                    payload[1] = BGNET_CHN_41_BOATSPEEDKT;
+                                    payload[1] = BGNET_CHN_41_STW;
                                     len_pl = 2;
                                     ucCMD = BGNET_CMD_CD_PILOT_DMPREQ;
                                     ucTO = BGNET_TYPE_NETQUAD;
@@ -2044,11 +2048,11 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                     case BGNET_CMD_CD_PILOT_DMPREQ:
                                                         switch(pCHRx->s.CH) {
                                                             // SPEED/SETUP/#1 = DMP
-                                                            case BGNET_CHN_41_BOATSPEEDKT:
+                                                            case BGNET_CHN_41_STW:
                                                                 // create command with current SPEED/SETUP/DMP value
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
                                                                 pCHTx = (union CH*)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_41_BOATSPEEDKT;
+                                                                pCHTx->s.CH = BGNET_CHN_41_STW;
                                                                 pCHTx->s.FMT = BGN_FMT_08;
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
                                                                 len_pl = 5;
@@ -2066,7 +2070,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                     case BGNET_CMD_CE_PILOT_DMPDAT:
                                                         switch(pCHRx->s.CH) {
                                                             // SPEED/SETUP/#1 = accept new setting
-                                                            case BGNET_CHN_41_BOATSPEEDKT:
+                                                            case BGNET_CHN_41_STW:
                                                                 // update the channel value
                                                                 pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                                 pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
@@ -2086,11 +2090,11 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         break;
                                                     case BGNET_CMD_CF_PILOT_MANREQ:
                                                         switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_41_BOATSPEEDKT:
+                                                            case BGNET_CHN_41_STW:
                                                                 // create command with current SPEED/SETUP/#3, with CAL value
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
                                                                 pCHTx = (union CH*)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_41_BOATSPEEDKT;
+                                                                pCHTx->s.CH = BGNET_CHN_41_STW;
                                                                 pCHTx->s.FMT = BGN_FMT_08;
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong);
                                                                 len_pl = 5;
@@ -2128,7 +2132,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                     case BGNET_CMD_D3_PILOT_AM:
                                                         switch(pCHRx->s.CH) {
                                                             // SPEED/SETUP/#3 = accept new CAL setting
-                                                            case BGNET_CHN_41_BOATSPEEDKT:
+                                                            case BGNET_CHN_41_STW:
                                                                 // update the channel value
                                                                 pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                                 pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;

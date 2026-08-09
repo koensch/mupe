@@ -607,7 +607,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed select", "[1=FST, 3=MED, 4=SLW]", pCtrl->BGNET.PILOT.SPEED.SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.SEL.source), pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed FST", "[1-990] x10", pCtrl->BGNET.PILOT.SPEED.FST.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.FST.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.FST.source), pCtrl->BGNET.PILOT.SPEED.FST.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed FST", "[1-990] x10, default", pCtrl->BGNET.PILOT.SPEED.FST.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.FST.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.FST.source), pCtrl->BGNET.PILOT.SPEED.FST.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED: Manual Speed MED", "[1-990] x10", pCtrl->BGNET.PILOT.SPEED.MED.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.MED.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.MED.source), pCtrl->BGNET.PILOT.SPEED.MED.value.nLong);
     strcat(Buffer, cLine);
@@ -628,6 +628,8 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), (ITOD(pCtrl->BGNET.SPEED.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), ITOD(pCtrl->BGNET.SPEED.DRD.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRC", "Dead Reconing Course (displayed on DATA or SPEED, resettable via QUAD) [0-359]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), ITOD(pCtrl->BGNET.SPEED.DRC.value.nLong));
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), ITOD(pCtrl->BGNET.SPEED.STW.value.nLong));
     strcat(Buffer, cLine);

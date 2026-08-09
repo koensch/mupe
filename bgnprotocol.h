@@ -274,55 +274,55 @@ typedef struct {        // for the FRAME header we use a pointer
                                           // 0x0E = "ERR ERR"
                                           // 0x0F = "ERR ERR"
 #define BGNET_CHN_0B_RUDDER           0X0B  // range (-,PORT)<99 or >99(+,STARBOARD)
-#define BGNET_CHN_0C_LINEAR5          0x0C
-#define BGNET_CHN_0D_LINEAR6          0x0D
-#define BGNET_CHN_0E_LINEAR7          0x0E
-#define BGNET_CHN_0F_LINEAR8          0x0F
-#define BGNET_CHN_10_LINEAR9          0x10
-#define BGNET_CHN_11_LINEAR10         0x11
-#define BGNET_CHN_12_LINEAR11         0x12
-#define BGNET_CHN_13_LINEAR12         0x13
-#define BGNET_CHN_14_LINEAR13         0x14
-#define BGNET_CHN_15_LINEAR14         0x15
-#define BGNET_CHN_16_LINEAR15         0x16
-#define BGNET_CHN_17_LINEAR16         0x17
-#define BGNET_CHN_1C_AIRTEMPF         0x1C
-#define BGNET_CHN_1D_AIRTEMPC         0x1D
-#define BGNET_CHN_1E_SEATEMPF         0x1E
-#define BGNET_CHN_1F_SEATEMPC         0x1F
+//#define BGNET_CHN_0C_LINEAR5          0x0C
+//#define BGNET_CHN_0D_LINEAR6          0x0D
+//#define BGNET_CHN_0E_LINEAR7          0x0E
+//#define BGNET_CHN_0F_LINEAR8          0x0F
+//#define BGNET_CHN_10_LINEAR9          0x10
+//#define BGNET_CHN_11_LINEAR10         0x11
+//#define BGNET_CHN_12_LINEAR11         0x12
+//#define BGNET_CHN_13_LINEAR12         0x13
+//#define BGNET_CHN_14_LINEAR13         0x14
+//#define BGNET_CHN_15_LINEAR14         0x15
+//#define BGNET_CHN_16_LINEAR15         0x16
+//#define BGNET_CHN_17_LINEAR16         0x17
+//#define BGNET_CHN_1C_AIRTEMPF         0x1C
+//#define BGNET_CHN_1D_AIRTEMPC         0x1D
+//#define BGNET_CHN_1E_SEATEMPF         0x1E
+//#define BGNET_CHN_1F_SEATEMPC         0x1F
 #define BGNET_CHN_20_SEATEMPQ         0x20 //as displayed on QUAD module, selectable C/F
-#define BGNET_CHN_27_HEADLIFTTREND    0x27
-#define BGNET_CHN_29_OFFCOURSE        0x29
+//#define BGNET_CHN_27_HEADLIFTTREND    0x27
+//#define BGNET_CHN_29_OFFCOURSE        0x29
 #define BGNET_CHN_31_ECHO_SNR         0x31 // DEPTH/QUAD: signal return strengh A-F (" A " is excellent, " F " is poor)
-#define BGNET_CHN_32_TACKPERF         0x32
-#define BGNET_CHN_33_REACHPERF        0x33
-#define BGNET_CHN_34_HEELANGLE        0x34
-#define BGNET_CHN_35_OPTWINDANGL      0x35
-#define BGNET_CHN_36_DEPTHGAIN        0x36
-#define BGNET_CHN_37_DEPTHNOISE       0x37
-#define BGNET_CHN_38_LINEAR1          0x38
-#define BGNET_CHN_39_LINEAR2          0x39
-#define BGNET_CHN_3A_LINEAR3          0x3A
-#define BGNET_CHN_3B_LINEAR4          0x3B
-#define BGNET_CHN_3C_ROLLRATE         0x3C
-#define BGNET_CHN_40_FORESTAY         0x40
-#define BGNET_CHN_41_BOATSPEEDKT      0x41 // from SPEED or QUAD (corrected), but also from PILOT/NMEA/VHW/#5
-#define BGNET_CHN_42_BOATSPEEDRAW     0x42 // from SPEED or QUAD (uncorrected), but also from PILOT/NMEA/VHW/#5
-#define BGNET_CHN_43_BOATSPEEDMS      0x43
-#define BGNET_CHN_44_YAWRATE          0x44
+//#define BGNET_CHN_32_TACKPERF         0x32
+//#define BGNET_CHN_33_REACHPERF        0x33
+//#define BGNET_CHN_34_HEELANGLE        0x34
+//#define BGNET_CHN_35_OPTWINDANGL      0x35
+//#define BGNET_CHN_36_DEPTHGAIN        0x36
+//#define BGNET_CHN_37_DEPTHNOISE       0x37
+//#define BGNET_CHN_38_LINEAR1          0x38
+//#define BGNET_CHN_39_LINEAR2          0x39
+//#define BGNET_CHN_3A_LINEAR3          0x3A
+//#define BGNET_CHN_3B_LINEAR4          0x3B
+//#define BGNET_CHN_3C_ROLLRATE         0x3C
+//#define BGNET_CHN_40_FORESTAY         0x40
+#define BGNET_CHN_41_STW              0x41 // from SPEED or QUAD (corrected), but also from PILOT/NMEA/VHW/#5
+#define BGNET_CHN_42_STWRAW           0x42 // from SPEED or QUAD (uncorrected), but also from PILOT/NMEA/VHW/#5
+//#define BGNET_CHN_43_BOATSPEEDMS      0x43
+//#define BGNET_CHN_44_YAWRATE          0x44
 #define BGNET_CHN_46_AP_SPEED         0x46 // SPEED selected (0=TRAnsmitter, 1= MANual, 2=SOG); send by PILOT using command 0x4D/46 
-#define BGNET_CHN_47_LONLAT           0x47 //send in ASCII via CMD03
-#define BGNET_CHN_48_LONLAT           0x48 //send in ASCII via CMD03
+//#define BGNET_CHN_47_LONLAT           0x47 //send in ASCII via CMD03
+//#define BGNET_CHN_48_LONLAT           0x48 //send in ASCII via CMD03
 #define BGNET_CHN_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
 #define BGNET_CHN_4A_DEPTHM           0x4A // referenced by DATA via a LABEL/0x02 command, appears to be "DEPTH M", but seems incorrect
-#define BGNET_CHN_4D_AWINDSPEEDKT     0x4D
-#define BGNET_CHN_4E_AWINDSPEEDRAW    0x4E // signal from the paddlewheel, prior correction or calibration 
-#define BGNET_CHN_4F_AWINDSPEEDMS     0x4F
-#define BGNET_CHN_50_AWINDSPEEDKT     0x50 // displayed by WIND (small display, when APP selected)
+//#define BGNET_CHN_4D_AWINDSPEEDKT     0x4D
+#define BGNET_CHN_4E_AWSRAW           0x4E // signal from the paddlewheel, prior correction or calibration 
+//#define BGNET_CHN_4F_AWINDSPEEDMS     0x4F
+#define BGNET_CHN_50_AWS              0x50 // displayed by WIND (small display, when APP selected)
                                          // displayed by DATA (when WIND button is pressed)
-#define BGNET_CHN_51_AWINDANGLE       0x51 // displayed by WIND (dial, when APP selected)
+#define BGNET_CHN_51_AWA              0x51 // displayed by WIND (dial, when APP selected)
                                          // displayed by PILOT (when in VANE mode)
-#define BGNET_CHN_52_AWINDANGLERAW    0x52 // signal from the direction sensor, prior correction, calibration or alignment
+#define BGNET_CHN_52_AWARAW           0x52 // signal from the direction sensor, prior correction, calibration or alignment
 #define BGNET_CHN_53_TARGET_TWA       0x53 // send by PILOT upon change/button pressed, Target True Wind Angle, fmt=0x01
 #define BGNET_CHN_55_TWINDSPEEDKT     0x55
 #define BGNET_CHN_56_TWINDSPEEDMS     0x56
