@@ -189,13 +189,13 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
             CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
             pthread_mutex_unlock(&g_data_mutex);
 
-            switch(pCtrl->BGNET.ACP.Heading.source) {
+            switch(pCtrl->BGNET.PILOT.Heading.source) {
                 case BGN_SOURCE_NONE:
                 case BGN_SOURCE_ACP:
                 case BGN_SOURCE_NMEA:
-                    pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
-                    pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_NMEA;
-                    CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                    pCtrl->BGNET.PILOT.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
+                    pCtrl->BGNET.PILOT.Heading.source = BGN_SOURCE_NMEA;
+                    CounterUp(&pCtrl->BGNET.PILOT.Heading.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                     break;
             }
         }
@@ -224,13 +224,13 @@ static void parse_pgn_128259(BGNET_CTRL *pCtrl, const struct can_frame *f)
 
         log_debug("N2K 128259: STW=%.2f m/s", stw);
 
-        switch(pCtrl->BGNET.SPEED.Speed.source) {
+        switch(pCtrl->BGNET.SPEED.STW.source) {
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.SPEED.Speed.value.nLong = DTOIROUND(stw * 1.94384449 * 10); // convert m/s to KT*10
-                pCtrl->BGNET.SPEED.Speed.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->BGNET.SPEED.Speed.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                pCtrl->BGNET.SPEED.STW.value.nLong = DTOIROUND(stw * 1.94384449 * 10); // convert m/s to KT*10
+                pCtrl->BGNET.SPEED.STW.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.SPEED.STW.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
     }
 }

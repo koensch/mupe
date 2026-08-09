@@ -618,7 +618,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Course To Steer", "Autopilot Course setpoint (0-359 Degrees M)", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Heading", "Current compass reading (0-359 Degrees M)", pCtrl->BGNET.ACP.Heading.Counter.iCounter, t-pCtrl->BGNET.ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Heading.source), pCtrl->BGNET.ACP.Heading.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Heading", "Current compass reading (0-359 Degrees M)", pCtrl->BGNET.PILOT.Heading.Counter.iCounter, t-pCtrl->BGNET.PILOT.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.Heading.source), pCtrl->BGNET.PILOT.Heading.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Rudder", "Current rudder position (-45-+45 Degrees)", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
     strcat(Buffer, cLine);
@@ -629,11 +629,11 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), ITOD(pCtrl->BGNET.SPEED.DRD.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.Speed.Counter.iCounter, t-pCtrl->BGNET.SPEED.Speed.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.Speed.source), ITOD(pCtrl->BGNET.SPEED.Speed.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), ITOD(pCtrl->BGNET.SPEED.STW.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.ACP.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.ACP.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SpeedMAX.source), ITOD(pCtrl->BGNET.ACP.SpeedMAX.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedMAX.source), ITOD(pCtrl->BGNET.SPEED.SpeedMAX.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.ACP.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.ACP.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SpeedAVG.source), ITOD(pCtrl->BGNET.ACP.SpeedAVG.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedAVG.source), ITOD(pCtrl->BGNET.SPEED.SpeedAVG.value.nLong));
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->BGNET.ACP.COG.Counter.iCounter, t-pCtrl->BGNET.ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COG.source), pCtrl->BGNET.ACP.COG.value.nLong);
@@ -668,7 +668,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/ANCHOR ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth [M]", pCtrl->BGNET.DEPTH.Meas.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Meas.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Meas.source), ITOD(pCtrl->BGNET.DEPTH.Meas.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth [M]", pCtrl->BGNET.DEPTH.Depth.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth.source), ITOD(pCtrl->BGNET.DEPTH.Depth.value.nLong));
     strcat(Buffer, cLine);
 
     return(Buffer);

@@ -113,10 +113,10 @@
 //    there is nothing and we have no heartbeat to adjust to.
 //
 
-// Data is send in 'frames'. A frame has a HEADER (with Checksum), and optionally a BODY (also with a checksum). The seed
-// of the 2 checksums is different. The BODY (if present) can be of variable size; the size is in the HEADER.
+// Data is send in 'frames'. A frame has a HEADER (with Checksum), and optionally a PAYLOAD (also with a checksum). The seed
+// of the 2 checksums is different. The PAYLOAD (if present) can be of variable size; the size is in the HEADER.
 // Frames are separated by 'silence', typically 40-50 msec.
-// When 1 device sends 2 frames, these can be combined into 1 transmission. We should expect that received frames consists
+// When 1 device sends 2 frames, these can be combined into 1 transmission. We should expect that received frames may consist
 // of multiple 'sub-frames'.
 
 // Note for my future me:
@@ -148,7 +148,7 @@
 #define BGNET_FRAME_CR_FRAME            0x56
 
 #define BGNET_FRAME_HEAD                5   //size of HEADER (fixed)
-#define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (checksum)
+#define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (payload checksum)
 typedef struct {        // for the FRAME header we use a pointer
     uint8_t TO;
     uint8_t FROM;
@@ -159,7 +159,8 @@ typedef struct {        // for the FRAME header we use a pointer
     // uint8_t CSP;     // Checksum payload is placed after the last payload byte
 } FRAME_H;
 
-// FROM/TO adresses
+// maximum number of possible devices. B&G advises a maximum of around 20 devices on the same network. Because
+// for us it's much faster to use the address as the index to the device, we use 0xFF as the maximum
 #define BGNET_DEVICE_MAX                0xFF
 
 // FROM/TO address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA is 0xD6, another time it's 0x60.
@@ -180,28 +181,28 @@ typedef struct {        // for the FRAME header we use a pointer
 
 #define BGNET_CMD_01_DATA               0x01 //DATA broadcast, variable length, instrument readings.
 #define BGNET_CMD_02_LABEL              0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
-                                               //  Ch#+3x bytes numerical+ascii string (variable length)+CS
-                                               //  QUAD:  20(TEMPC),31(ECHOSNR),41(BOATSPEEDKT),42(DEPTHM),4A(DEPTHM),64(AVGSPEEDKT),65(MAXSPEEDKT),75(TIMER),81(DRDISTANCENM),
-                                               //         C4(DEPTHM),CD(LOGNM),CF(TRIPNM),D3(DRCOURSEM),FC(SHALLOWALARM),FD(DEPTHALARM),FE(ANCHORALARM),FF(DEPTHCAL)
-                                               //  WIND:  50(AWINDSPEEDKT),51(AWINDANGLE),57(TWINDSPEEDKT),59(TWINDANGLE),7F(VMGKT),8D(BATTVOLTS)
-                                               //Note: Command is not send when device (QUAD/30, WIND/70) is in 'repeater' mode.
-                                               //In demo mode the follwing (simulated) data is send:
-                                               //  WIND:  4E(AWINDSPEEDRAW),50(AWINDSPEEDKT),51(AWINDANGLE),52(TWINDANGLERAW),8D(BATTVOLTS)
-                                               //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
-                                               //         (when AUTO) 53(TARGET TWA),A6 (COURSETARGET),A7 (AP WP BEARING),B5 (AP MODE)
-                                               //  QUAD:  20(SEATEMP),31(ECHOSND),41(BOATSPEEDKT),42(BOATSPEEDRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
-                                               //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOWALM),FD(DEPTHALM),FE(ANCHORALM)
-                                               //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
-                                               // QUAD: if you reconfigure the TEMP units, the new label is send with as 0x02/0x20 command to ALL (0xFF), making the DATA
-                                               //       units to display the corresponding value & units, but the channel 0x20 still transmits the value as degreeC.
-    #define BGNET_CMD_LABEL_MAX     22         // buffer size for storing data in the LABEL/0x02 command
+                                             //  Ch#+3x bytes numerical+ascii string (variable length)+CS
+                                             //  QUAD:  20(TEMPC),31(ECHOSNR),41(BOATSPEEDKT),42(DEPTHM),4A(DEPTHM),64(AVGSPEEDKT),65(MAXSPEEDKT),75(TIMER),81(DRDISTANCENM),
+                                             //         C4(DEPTHM),CD(LOGNM),CF(TRIPNM),D3(DRCOURSEM),FC(SHALLOWALARM),FD(DEPTHALARM),FE(ANCHORALARM),FF(DEPTHCAL)
+                                             //  WIND:  50(AWINDSPEEDKT),51(AWINDANGLE),57(TWINDSPEEDKT),59(TWINDANGLE),7F(VMGKT),8D(BATTVOLTS)
+                                             //Note: Command is not send when device (QUAD/30, WIND/70) is in 'repeater' mode.
+                                             //In demo mode the follwing (simulated) data is send:
+                                             //  WIND:  4E(AWINDSPEEDRAW),50(AWINDSPEEDKT),51(AWINDANGLE),52(TWINDANGLERAW),8D(BATTVOLTS)
+                                             //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
+                                             //         (when AUTO) 53(TARGET TWA),A6 (COURSETARGET),A7 (AP WP BEARING),B5 (AP MODE)
+                                             //  QUAD:  20(SEATEMP),31(ECHOSND),41(BOATSPEEDKT),42(BOATSPEEDRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
+                                             //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOWALM),FD(DEPTHALM),FE(ANCHORALM)
+                                             //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
+                                             // QUAD: if you reconfigure the TEMP units, the new label is send with as 0x02/0x20 command to ALL (0xFF), making the DATA
+                                             //       units to display the corresponding value & units, but the channel 0x20 still transmits the value as degreeC.
+    #define BGNET_CMD_LABEL_MAX     22       // buffer size for storing data in the LABEL/0x02 command
 #define BGNET_CMD_06_SUBSCRIBE          0x06 //at startup some stations (DATA/60) broadcast to providers (QUAD/30) a subscription request, payload= Ch#, CS
-                                               // DATA/60 to QUAD/30: FE(ANCHORALARM),FC(SHALLOWALARM),C4(DEPTHM),FD(DEPTHALARM),41(SPEEDKT),65(MAXSPEEDKT),
-                                               //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTNM),D3(DRCOURSEM)
-                                               //Note: Command is not send by DATA/60 when QUAD/30 is in 'repeater' mode.
+                                             // DATA/60 to QUAD/30: FE(ANCHORALARM),FC(SHALLOWALARM),C4(DEPTHM),FD(DEPTHALARM),41(SPEEDKT),65(MAXSPEEDKT),
+                                             //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTNM),D3(DRCOURSEM)
+                                             //Note: Command is not send by DATA/60 when QUAD/30 is in 'repeater' mode.
 #define BGNET_CMD_0A_POWERUP            0x0A //at startup all stations (QUAD/30, PILOT/50, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
-                                               //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
-                                               //(no firmware version number is included in NETWORK series)
+                                             //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
+                                             //(no firmware version number is included in NETWORK series)
 #define BGNET_CMD_0E_PILOT_HELLO        0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
                                                // PILOT: "00 51 00 0E A1" (no payload)
                                                // PILOT broadcasts this command in 'normal' mode, and also in 'demo' mode.
@@ -537,10 +538,13 @@ typedef struct {
 // Channel Definition Table
 typedef struct {
     uint8_t ucChannelIndex;         // Channel index
-    char cLabel[BGNET_CMD_LABEL_MAX];   // the label, variable name
+    char cName[BGNET_CMD_LABEL_MAX];   // the label, variable name
     uint8_t ucFMT;                  // default formatting
     uint8_t ucFROM;                 // instrument type that produces this channel
     uint8_t ucFreq;                 // frequency (0= none, 1=every run, 2= every other run, 3 = every 2nd run)
+    uint8_t ucPhase;                // phase, how to overlap (only when freq>1)
+    char cLabel[BGNET_CMD_LABEL_MAX];   // the label, variable name
+    uint8_t ucCMD_06;               // DeviceType that might SUBSCRIBE to this channel (so we can replicate that)
     int iImpExpEnable;              // allow Import or Export
     int iImportFrom;                // Import from NMEA2000 or SignalK
     int iExportTo;                  // Export to NMEA2000 of SignalK
@@ -654,7 +658,9 @@ typedef struct {
     // parameters, usually from the network (any device)
         NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
     } NETWORK;
-    // parameters, usually hosted by ACP
+    // parameters, usually hosted by ACP. How do we know what paramaters are hosted by what nodes? Some seem logical, others not.
+    // if we look the the command 0x06 that the DATA uses to register it's values, you see that it adresses the ACP/PILOT/QUAD/WIND node
+    // this is a clear indication where what parameters lives.
     struct {
         NMEA2K_VALUE STATE;
         NMEA2K_VALUE MODE;
@@ -663,16 +669,16 @@ typedef struct {
         NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
         NMEA2K_VALUE EBS;           // Effective Boat Speed, result of speed selection, used as initializer for SpeedMAX and SpeedAVG
         NMEA2K_VALUE EBS_SEL;       // Effective Boat Speed, selector
-        NMEA2K_VALUE SpeedMAX;      // MAX speed (since DRD reset)
-        NMEA2K_VALUE SpeedAVG;      // AVG speed (since DRD reset)
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
-        NMEA2K_VALUE Heading;       // Compass Heading
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
         NMEA2K_VALUE COG;
         NMEA2K_VALUE SOG;
+        NMEA2K_VALUE SHA_ALARM;
+        NMEA2K_VALUE DEEP_ALARM;
     } ACP;
     // parameters, usually hosted by PILOT
     struct {
+        NMEA2K_VALUE Heading;       // Compass Heading
         struct {
             // PILOT/SETUP parameters
             NMEA2K_VALUE SPD;     // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
@@ -698,20 +704,19 @@ typedef struct {
             NMEA2K_VALUE SLW;  // speed SLW x10
         } SPEED;
     } PILOT;
-    // QUAD parameters (other than SPEED or DEPTH)
-    struct {
-        struct {
-        } SPEED;
-    } QUAD;
     // SPEED parameters
     struct {
         // Note: if you change from C/F only a new LABEL command is broadcast. No CMD-REQ/CMD-DAT/CMD-ACK sequence is involved
         NMEA2K_VALUE Temperature;  // Measured TEMP (current value)
         // Note: if you change from KT/MPH only a new LABEL command is broadcast. No CMD-REQ/CMD-DAT/CMD-ACK sequence is involved
-        NMEA2K_VALUE Speed;        // Measured SPEED (current value)
+        NMEA2K_VALUE STW;          // Speed Through Water (Measured SPEED)
         NMEA2K_VALUE StoredLogNM;  // channel CD (stored log) is stored as 3-byte register
         NMEA2K_VALUE TripLogNM;    // channel CF (trip log NM) is stored as a 2 byte register
         NMEA2K_VALUE DRD;          // channel 81 (Dead Reconing Distance) is stored as a 2 byte register
+        NMEA2K_VALUE DRC;          // channel D3 (Dead Reconing Course) is stored as a 2 byte register
+        NMEA2K_VALUE SpeedMAX;     // MAX speed (since DRD reset)
+        NMEA2K_VALUE SpeedAVG;     // AVG speed (since DRD reset)
+        NMEA2K_VALUE TIMER;        // Timer (no yet implemented, but lives here)
         struct {
             NMEA2K_VALUE DMP;      // QUAD/SPEED/SETUP/#1/DMP, response time of speed value
             //                     // QUAD/SPEED/SETUP/#2 causes the units to change (with revised LABEL/0x02 CMD)
@@ -722,7 +727,8 @@ typedef struct {
     } SPEED;
     // DEPTH parameters
     struct {
-        NMEA2K_VALUE Meas;         // Measured DEPTH (current value)
+        NMEA2K_VALUE Depth;        // Measured DEPTH (current value)
+        NMEA2K_VALUE ACH_ALARM;
         struct {
             NMEA2K_VALUE SA_M;     // Shallow Alarm limit (meter, absolute)
             NMEA2K_VALUE SA_STAT;  // Shallow Alarm ON/OFF
@@ -734,6 +740,15 @@ typedef struct {
             NMEA2K_VALUE AA_STAT;  // Anchor Alarm ON/OFF
         } SETUP;
     } DEPTH;
+    struct {
+        NMEA2K_VALUE AWS;
+        NMEA2K_VALUE AWA;
+        NMEA2K_VALUE TWS;
+        NMEA2K_VALUE TWA;
+        NMEA2K_VALUE VMG;
+        NMEA2K_VALUE BATTERY;
+
+    } WIND;
 } BGNET;
 
 #define BGNET_CTRL_INIT            1
