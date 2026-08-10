@@ -324,13 +324,13 @@ typedef struct {        // for the FRAME header we use a pointer
                                          // displayed by PILOT (when in VANE mode)
 #define BGNET_CHN_52_AWARAW           0x52 // signal from the direction sensor, prior correction, calibration or alignment
 #define BGNET_CHN_53_TARGET_TWA       0x53 // send by PILOT upon change/button pressed, Target True Wind Angle, fmt=0x01
-#define BGNET_CHN_55_TWINDSPEEDKT     0x55
-#define BGNET_CHN_56_TWINDSPEEDMS     0x56
-#define BGNET_CHN_57_TWINDSPEEDKT     0x57
-#define BGNET_CHN_59_TWINDANGLE       0x59
+//#define BGNET_CHN_55_TWS              0x55 // in KT
+//#define BGNET_CHN_56_TWS              0x56 // in M/S
+#define BGNET_CHN_57_TWS              0x57
+#define BGNET_CHN_59_TWA              0x59
 #define BGNET_CHN_5A_MEASWINDANGLE    0x5A
-#define BGNET_CHN_64_SPEEDAVGKT       0x64 // displayed by QUAD
-#define BGNET_CHN_65_SPEEDMAXKT       0x65 // displayed by QUAD
+#define BGNET_CHN_64_SPEEDAVG         0x64 // displayed by QUAD
+#define BGNET_CHN_65_SPEEDMAX         0x65 // displayed by QUAD
 #define BGNET_CHN_66_KEELANGLE        0x66
 #define BGNET_CHN_67_CANARDANGLE      0x67
 #define BGNET_CHN_68_REQFORDATA       0x68
@@ -345,7 +345,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_77_ROLLTIMER        0x77
 #define BGNET_CHN_7C_POLARPERFORMANCE 0x7C
 #define BGNET_CHN_7D_TARGETBOATSPEED  0x7D
-#define BGNET_CHN_7F_VMGKT            0x7F // calculted by WIND, displayed on DATA (only when WIND is present) under the WIND button
+#define BGNET_CHN_7F_VMG              0x7F // calculted by WIND, displayed on DATA (only when WIND is present) under the WIND button
 #define BGNET_CHN_80_UNKNOWN          0x80
 #define BGNET_CHN_81_DRD              0x81 // QUAD/SPEED: Dead Recogning Distance travelled, resettable
 #define BGNET_CHN_82_LEEWAY           0x82
@@ -367,8 +367,8 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_9E_PITCHRATE        0x9E
 #define BGNET_CHN_A2_UNKNOWN          0xA2
 #define BGNET_CHN_A4_BOOMPOS          0xA4
-#define BGNET_CHN_A6_AP_CTARGET       0xA6 // send by PILOT upon change/button pressed, Target Course (in AUTO or memory when STBY), fmt=0x08
-                                         // seems to be used to communicate multiple type of values/status from ACP to PILOT
+#define BGNET_CHN_A6_AP_CTS           0xA6 // Course To Steer send by PILOT upon change/button pressed, Target Course (in AUTO or memory when STBY), fmt=0x08
+                                           // seems to be used to communicate multiple type of values/status from ACP to PILOT
 #define BGNET_CHN_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
 #define BGNET_CHN_AF_AP_OC_ALARM      0xAF
 #define BGNET_CHN_B3_COMPASSCAL       0xB3
@@ -391,10 +391,10 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_C1_DEPTHM           0xC1
 #define BGNET_CHN_C2_DEPTHFT          0xC2
 #define BGNET_CHN_C3_DEPTHFM          0xC3
-#define BGNET_CHN_C4_DEPTHM           0xC4 // displayed by QUAD and DATA, or "---" incase no measurement
-#define BGNET_CHN_CD_STORLOGNM        0xCD // QUAD/SPEED: saved in non-volitile memory; retained over the lifespan of the unit
+#define BGNET_CHN_C4_DEPTH            0xC4 // displayed by QUAD and DATA, or "---" incase no measurement
+#define BGNET_CHN_CD_STORLOG          0xCD // QUAD/SPEED: saved in non-volitile memory; retained over the lifespan of the unit
     #define BGNET_DIVISOR_STORLOG       10.0
-#define BGNET_CHN_CF_TRIPNM           0xCF // QUAD/SPEED/DATA: TripLog, reset via QUAD
+#define BGNET_CHN_CF_TRIPLOG          0xCF // QUAD/SPEED/DATA: TripLog, reset via QUAD
     #define BGNET_DIVISOR_TRIPLOG       10.0
 #define BGNET_CHN_D3_DRC              0xD3 // displayed by SPEED and DATA, reset via QUAD
 #define BGNET_CHN_DC_LOCALTIME        0xDC
