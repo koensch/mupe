@@ -216,6 +216,7 @@ typedef struct {        // for the FRAME header we use a pointer
                                                // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
                                                // cycles though 0-3-2-1-0
 #define BGNET_CMD_CB_QUAD_RESET         0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm, send by QUADr (QUADt or QUADd seems not to accept this reset)
+                                                // also used by PILOT when some bits in the STATE byte are received
 #define BGNET_CMD_CD_PILOT_DMPREQ       0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
                                                // Note: DRD is displayed on SPEED and DATA, not on QUAD.
                                                // Possibly also the reset command to a QUADt, but could not test this as i have no working QUADt
@@ -376,10 +377,17 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
                                          // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
                                          // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
-    #define BGN_AP_MODE1_MASK_STATE 0x01 // DATA1 - STATE (0=STBY, 1=AUTO) 
-    #define BGN_AP_MODE1_STBY       0x00 
-    #define BGN_AP_MODE1_AUTO       0x01
-    #define BGN_AP_MODE1_MASK_INIT  0x04 //         1=Change to AUTO (copy stored course to target)
+    #define BGN_AP_MODE1_MASK_STATE 0x01 // DATA1 - 1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO)
+    #define BGN_AP_MODE1_STBY       0x00 //         2 seems unused
+    #define BGN_AP_MODE1_AUTO       0x01 //         3 makes "MEM 000" displayed, PILOT sends command: 00 50 02 CB E3 1E A6 E6, expects MEM value back. When pressed OFF
+    #define BGN_AP_MODE1_MASK_INIT  0x04 //           goes into STBY, but you are unable to go back into AUTO.
+                                            //        Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
+                                         //         4 ??, PILOT sends command: 00 50 02 CB E3 0A A7 F9, expects some value back. When press OFF, goes into STBY
+                                         //           but you are unable to go back into AUTO
+                                         //         5 seems unused
+                                         //         6 DISPLAY, SETUP and SPEED buttons seems deactivated
+                                         //         7 seems unused
+                                         //         8 seems unused
     #define BGN_AP_MODE2_MASK_MODE  0x07 // DATA2 - MODE (1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
     #define BGN_AP_MODE2_COMP       0x01 //         note: if there is no WIND signal, you can not select VANE mode
     #define BGN_AP_MODE2_NAV        0x03
@@ -418,7 +426,7 @@ typedef struct {        // for the FRAME header we use a pointer
                                          // it does not change). The meaning of this command is unclear. The 3rd byte also does not seem te be a ASCII character.
                                          // The occurance of this channel causes this application to log a message, because the 2nd bye is not a recognised FMT byte.
                                          // Also, the frame with this perculiar command has a broadcast TO address 0xFF, so it is not meant for the whole network.
-                                         // example: FF 50 03 D5 D9 0C EB 0F A4                                         
+                                         // example: FF 50 03 D5 D9 0C EB 0F A4, note: "0F" might mean "OFF" ; we suspect that something is switch OFF                                        
 #define BGNET_CHN_ED_TIMETOWP         0xED
 #define BGNET_CHN_EE_XTE              0xEE
 #define BGNET_CHN_EF_REMOTE0          0xEF

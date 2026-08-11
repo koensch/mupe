@@ -309,7 +309,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         CounterInit(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
 
         // initialize AutoPilot to STBY/COMP; joystick OFF
-        pCtrl->BGNET.ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
+        pCtrl->BGNET.ACP.STATE.value.nByte = BGN_AP_MODE1_AUTO;
         pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.STATE.Counter, t);
 
@@ -908,8 +908,8 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.cv.sW[0] = htons(-57);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
  
-    // optional channels
-    switch(pCtrl->BGNET.ACP.STATE.value.nByte) {
+    // optional channels (only check the AUTO ON/OFF bit)
+    switch(pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) {
         case BGN_AP_MODE1_AUTO:
             break;
         case BGN_AP_MODE1_STBY:
@@ -1531,7 +1531,7 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, FRAME_H* pF) {
             // sometimes we have to do something when some data comes in
             switch(pCH->s.CH) {
                 case BGNET_CHN_B5_AP_STATUS:
-                    pCtrl->BGNET.ACP.STATE.value.nByte = (pCH->s.cv.uB[0] & BGN_AP_MODE1_MASK_STATE);  // get AUTO/STBY state into ACP
+                    pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE) | (pCH->s.cv.uB[0] & BGN_AP_MODE1_MASK_STATE);  // get AUTO/STBY state into ACP
                     pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
                     pCtrl->BGNET.ACP.MODE.value.nByte  = (pCH->s.cv.uB[1] & BGN_AP_MODE2_MASK_MODE);   // get COMP/NAV/VANE mode into ACP
@@ -2317,6 +2317,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                             case BGNET_CMD_21_PILOT_WADAT:
                                             case BGNET_CMD_DF_PILOT_OCREQ:
                                             case BGNET_CMD_20_PILOT_OCDAT:
+                                            case BGNET_CMD_CB_QUAD_RESET:
                                             case BGNET_CMD_CD_PILOT_DMPREQ:
                                             case BGNET_CMD_CE_PILOT_DMPDAT:
                                             case BGNET_CMD_CF_PILOT_MANREQ:
@@ -2339,6 +2340,20 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 // case that 1 (or both) must be send to ALL (0xFF) in case there are multiple PILOTS on the network. As i have only 1
                                                 // PILOT unit i could not establish one or the other and choose to do it like this.
                                                 switch(pFRx->CMD) {
+                                                    case BGNET_CMD_CB_QUAD_RESET:
+                                                        switch (pCHRx->s.CH) {
+                                                            case BGNET_CHN_A6_AP_CTS:
+                                                                // happens when PILOT wants the stored CTS from the ACP. I do not know
+                                                                // what command to use, so i do not do anything. At least is makes the PILOT
+                                                                // to receive the CMDACK, preventing an error beep
+                                                                break;
+                                                            case BGNET_CHN_A7_AP_WPB:
+                                                                // happens when PILOT wants 'some unknown value' ACP. I do not know
+                                                                // what command to use, so i do not do anything. At least is makes the PILOT
+                                                                // to receive the CMDACK, preventing an error beep
+                                                                break;
+                                                        }
+                                                        break;
                                                     case BGNET_CMD_DC_PILOT_STEPREQ:
                                                         // the <10, >10, <1, >1 key was pressed, 2 bytes payload (at the same time also B1 with +/- 10/1)
                                                         // 0=ACKSEQ, 1=0xA6
@@ -2370,8 +2385,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                     // we have no accurate HEADING data, i do not know where to steer the boad when going to AUTO
                                                                 }
                                                                 // get the new STATE; initialize the CTARGET with current HEADING if we go into AUTO
-                                                                if (pCtrl->BGNET.ACP.STATE.value.nByte == BGN_AP_MODE1_STBY) { // current STATE is STBY
-                                                                    if (pCHRx->s.cv.uB[1] == BGN_AP_MODE1_AUTO) { // new STATE is AUTO
+                                                                if ((pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) == (BGN_AP_MODE1_STBY & BGN_AP_MODE1_MASK_STATE)) { // current STATE is STBY
+                                                                    if ((pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE) == (BGN_AP_MODE1_AUTO & BGN_AP_MODE1_MASK_STATE)) { // new STATE is AUTO
                                                                         // it might be the case we do not have a recent HEADING channel received prior.
                                                                         // in such case we initialize to 0 (good luck!)
                                                                         // should we actually refuse to go into AUTO?
@@ -2381,7 +2396,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                     }
                                                                 }
                                                                 // set new STATE (AUTO or STBY)
-                                                                pCtrl->BGNET.ACP.STATE.value.nByte = pCHRx->s.cv.uB[1];
+                                                                pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE) | (pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE);
                                                                 pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
 
@@ -2697,9 +2712,9 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 break;
                                                             // broadcast by PILOT to FF, 3 bytes payload, unknown 
                                                             // FF 50 03 D5 D9 B5 EB 0F FB
-                                                            // 0xB5 could be a channel ID
+                                                            // 0xB5 could be a channel ID or a ACKSEQ
                                                             // 0xEB could be a channel ID
-                                                            // 0x0F ??
+                                                            // 0x0F means "OFF" (0x1F means ON)
                                                             // FB   seems CS
                                                             //      could be a format specifier to switch on or off something (we have seen a similar
                                                             //      behaviour with the WA and OC alarms ON/OFF), but we have  never encountered a FMT_07 before
