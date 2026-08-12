@@ -5,6 +5,7 @@
 #include <time.h>
 #include <limits.h>
 #include <string.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
 
 #include "app_state.h"
@@ -268,11 +269,22 @@ void log_debug_frame(FRAME_H* pF) {
     log_debug("log_debug_frame: Command 0x%02X -> %s", pF->CMD, asciibuf);
 }
 
-// a reset is usually done:
+// a reset is usually doSPEED.TIMERne:
 // - at startup of this driver
 // - when we observe "POWERUP" message(s) from the NETWORK (of any of the units)
 void bgnet_initialize_reset(BGNET_CTRL *pCtrl) {
     pCtrl->iInitialized = BGNET_CTRL_INIT_RESET; // reset initialized state
+}
+
+// worker routine to convert the timer into HH:MM:SS
+time_t TimerCalc(BGNET_CTRL *pCtrl, unsigned char *pHH, unsigned char *pMM, unsigned char *pSS) {
+    time_t r;
+    r = pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pCtrl->BGNET.SPEED.TIMER.value.tTime;
+    // do not write if there is a NULL pointer
+    if (pHH!=NULL) *pHH = labs(r/3600) % 24;
+    if (pMM!=NULL) *pMM = labs(r/60) % 60;
+    if (pSS!=NULL) *pSS = labs(r) % 60;
+    return(r);
 }
 // initialize our own internal structures
 void bgnet_initialize(BGNET_CTRL *pCtrl) {
@@ -433,6 +445,10 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.SPEED.SpeedAVG.value.nLong = 111; // reset with DRD
         pCtrl->BGNET.SPEED.SpeedAVG.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.SpeedAVG.Counter, t);
+
+        pCtrl->BGNET.SPEED.TIMER.value.tTime = t;            // the TIMER value is 'the current time' (SERVICE.SystemTime.value.tTime) minus this (SPEED.TIMER.value.tTime)
+        pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_ACP;    // converted to HH, MM and SS
+        CounterInit(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
 
         pCtrl->BGNET.ACP.COG.value.nLong = 33;
         pCtrl->BGNET.ACP.COG.source = BGN_SOURCE_ACP;
@@ -646,7 +662,7 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.DRD.value.nLong); 
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
+ 
     c = BGNET_CHN_CF_TRIPLOG;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
@@ -658,23 +674,21 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(-20); 
+    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.DRC.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_20_SEATEMPQ;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(12); 
+    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.Temperature.value.nLong); 
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_75_TIMER;
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uB[0] = 23; // HH
-    puCH->s.cv.uB[1] = 59; // MM
-    puCH->s.cv.uB[2] = 59; // SS
+    TimerCalc(pCtrl, &puCH->s.cv.uB[0], &puCH->s.cv.uB[1], &puCH->s.cv.uB[2]); // HH:MM:SS
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     return(r);
@@ -1926,6 +1940,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                             case BGNET_CMD_20_PILOT_OCDAT:
                                             case BGNET_CMD_21_PILOT_WADAT:
                                             case BGNET_CMD_22_DEPTH_DADAT:
+                                            case BGNET_CMD_CA_QUAD_TIMER:
                                             case BGNET_CMD_CB_QUAD_RESET:
                                             case BGNET_CMD_CD_PILOT_DMPREQ:
                                             case BGNET_CMD_CE_PILOT_DMPDAT:
@@ -2027,6 +2042,26 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                         CounterUp(&pCtrl->BGNET.DEPTH.SETUP.DA_M.Counter, t);
                                                                         break;
                                                                 }
+                                                                break;
+                                                        }
+                                                        break;
+                                                    case BGNET_CMD_CA_QUAD_TIMER:
+                                                        // 2 bytes payload: 0=ACKSEQ + 1=minutes (no CHN)
+                                                        switch(pFRx->payload[1]) {
+                                                            case 0x0A: // 10 minute count-down timer
+                                                                pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime + 10*60;
+                                                                pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
+                                                                break;
+                                                            case 0x05:
+                                                                pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime + 5*60;
+                                                                pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
+                                                                break;
+                                                            case 0x00:
+                                                                pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime + 0*60;
+                                                                pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
                                                                 break;
                                                         }
                                                         break;

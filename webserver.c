@@ -243,7 +243,7 @@ static void handle_api_signalk(int client_fd)
 // where {json} is like:
 //  {\"depth\":15.6}
 // good result returns "OK"
-static void handle_api_update(int client_fd, const char *body)
+static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body)
 {
     time_t t;
     cJSON *root = cJSON_Parse(body);
@@ -283,6 +283,10 @@ static void handle_api_update(int client_fd, const char *body)
     cJSON *cts       = cJSON_GetObjectItem(root, "cts");       // Course To Steer (0-359, compass)
     cJSON *triplog   = cJSON_GetObjectItem(root, "triplog");   // triplog, distance covered [M]
     cJSON *vmg       = cJSON_GetObjectItem(root, "vmg");       // Velocity Made Good, calculated from SOG and angle to the target
+    // autopilot remote control
+    cJSON *ap_state  = cJSON_GetObjectItem(root, "ap_state");  // "auto" or "off"
+    cJSON *ap_mode   = cJSON_GetObjectItem(root, "ap_mode");   // "comp", "nav" or "vane"
+    cJSON *ap_js     = cJSON_GetObjectItem(root, "ap_js");     // "on" or "off"
 
     pthread_mutex_lock(&g_data_mutex);
 
@@ -378,20 +382,90 @@ static void handle_api_update(int client_fd, const char *body)
     }
 
     // pilot information from navigation systems, autopilot, trip planners
+    // curl --data "{\"cts\":128.9}" http://localhost:8080/api/update
     if (cts) {
         g_n2kdata.pilot.cts.value.dValue = cts->valuedouble;
         g_n2kdata.pilot.cts.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pilot.cts.Counter, t);
+        pCtrl->BGNET.ACP.CTS.value.nLong = DTOIROUND(cts->valuedouble);
+        pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
     }
+    // curl --data "{\"triplog\":294.6}" http://localhost:8080/api/update
     if (triplog) {
         g_n2kdata.pilot.triplog.value.dValue = triplog->valuedouble;
         g_n2kdata.pilot.triplog.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pilot.triplog.Counter, t);
+        pCtrl->BGNET.SPEED.TripLogNM.value.nLong = DTOIROUND(triplog->valuedouble * BGNET_DIVISOR_TRIPLOG);
+        pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
     }
     if (vmg) {
         g_n2kdata.pilot.vmg.value.dValue = vmg->valuedouble;
         g_n2kdata.pilot.vmg.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pilot.vmg.Counter, t);
+        pCtrl->BGNET.WIND.VMG.value.nLong = DTOIROUND(vmg->valuedouble);
+        pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
+    }
+
+    // autopilot control
+
+    // curl --data "{\"ap_state\":\"off\"}" http://localhost:8080/api/update
+    // curl --data "{\"ap_state\":\"auto\"}" http://localhost:8080/api/update
+    if (ap_state) {
+        if (strcmp(ap_state->valuestring, "auto") == 0) {
+            pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte | BGN_AP_MODE1_MASK_STATE); // set AUTO bit
+            pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_API;
+            CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
+        } else if (strcmp(ap_state->valuestring, "off") == 0) {
+            pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE); // reset AUTO bit
+            pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_API;
+            CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
+        } else {
+            // nothing to do
+        }        
+    }
+    // curl --data "{\"ap_mode\":\"nav\"}" http://localhost:8080/api/update
+    // curl --data "{\"ap_mode\":\"vane\"}" http://localhost:8080/api/update
+    // curl --data "{\"ap_mode\":\"comp\"}" http://localhost:8080/api/update
+    if (ap_mode) {
+        if (strcmp(ap_mode->valuestring, "comp") == 0) {
+            pCtrl->BGNET.ACP.MODE.value.nByte = (pCtrl->BGNET.ACP.MODE.value.nByte & ~BGN_AP_MODE2_MASK_MODE) | BGN_AP_MODE2_COMP; // set COMP pattern
+            pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_API;
+            CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t); 
+        } else if (strcmp(ap_mode->valuestring, "nav") == 0) {
+            pCtrl->BGNET.ACP.MODE.value.nByte = (pCtrl->BGNET.ACP.MODE.value.nByte & ~BGN_AP_MODE2_MASK_MODE) | BGN_AP_MODE2_NAV; // set NAV pattern
+            pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_API;
+            CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t);
+        } else if (strcmp(ap_mode->valuestring, "vane") == 0) {
+            pCtrl->BGNET.ACP.MODE.value.nByte = (pCtrl->BGNET.ACP.MODE.value.nByte & ~BGN_AP_MODE2_MASK_MODE) | BGN_AP_MODE2_VANE; // set VANE pattern
+            pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_API;
+            CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t);
+        } else {
+            // nothing to do
+        }        
+    }
+    // curl --data "{\"ap_js\":\"on\"}" http://localhost:8080/api/update
+    // curl --data "{\"ap_js\":\"off\"}" http://localhost:8080/api/update
+    if (ap_js) {
+        if (strcmp(ap_js->valuestring, "on") == 0) {
+            pCtrl->BGNET.ACP.Joystick.value.nByte = BGN_JOYSTICK_ON;
+            pCtrl->BGNET.ACP.Joystick.source = BGN_SOURCE_API;
+            CounterUp(&pCtrl->BGNET.ACP.Joystick.Counter, t);
+            pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE); // reset AUTO bit
+            pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_API;
+            CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
+            pCtrl->BGNET.ACP.MODE.value.nByte = (pCtrl->BGNET.ACP.MODE.value.nByte & ~BGN_AP_MODE2_MASK_MODE) | BGN_AP_MODE2_COMP; // set COMP pattern
+            pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_API;
+            CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t); 
+        } else if (strcmp(ap_js->valuestring, "off") == 0) {
+            pCtrl->BGNET.ACP.Joystick.value.nByte = BGN_JOYSTICK_OFF;
+            pCtrl->BGNET.ACP.Joystick.source = BGN_SOURCE_API;
+            CounterUp(&pCtrl->BGNET.ACP.Joystick.Counter, t);
+        } else {
+            // nothing to do
+        }        
     }
 
     pthread_mutex_unlock(&g_data_mutex);
@@ -638,6 +712,8 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedMAX.source), ITOD(pCtrl->BGNET.SPEED.SpeedMAX.value.nLong));
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedAVG.source), ITOD(pCtrl->BGNET.SPEED.SpeedAVG.value.nLong));
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED: TIMER", "Timer value (since reset) [HH:MM:SS]", pCtrl->BGNET.SPEED.TIMER.Counter.iCounter, t-pCtrl->BGNET.SPEED.TIMER.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TIMER.source), TimerCalc(pCtrl, NULL, NULL, NULL));
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->BGNET.ACP.COG.Counter.iCounter, t-pCtrl->BGNET.ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COG.source), pCtrl->BGNET.ACP.COG.value.nLong);
@@ -982,7 +1058,6 @@ static void handle_bgnet_html(int client_fd, BGNET_CTRL *pCtrl)
 void *webserver_thread(void *arg)
 {
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
-    Config *cfg = pCtrl->pCfg;
 
     // warning: server should be in non-blocking mode SOCK_NONBLOCK
     // at present, the thread will not close when the application exits
@@ -1002,7 +1077,7 @@ void *webserver_thread(void *arg)
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(cfg->web_port);
+    addr.sin_port        = htons(pCtrl->pCfg->web_port);
     addr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
@@ -1017,7 +1092,7 @@ void *webserver_thread(void *arg)
         return NULL;
     }
 
-    log_info("webserver: Web listening on http://localhost:%d", cfg->web_port);
+    log_info("webserver: Web listening on http://localhost:%d", pCtrl->pCfg->web_port);
 
     while (g_running) {
         int client_fd = accept(server_fd, NULL, NULL);
@@ -1083,7 +1158,7 @@ void *webserver_thread(void *arg)
             char *body = strstr(req, "\r\n\r\n");
             if (body) {
                 body += 4;
-                handle_api_update(client_fd, body);
+                handle_api_update(pCtrl, client_fd, body);
             } else {
                 const char *err = "HTTP/1.1 400 Bad Request\r\n\r\n";
                 send(client_fd, err, strlen(err), 0);

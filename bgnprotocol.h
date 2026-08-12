@@ -215,6 +215,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CMD_C9_BACKLIGHT          0xC9 // LIGHTS button pressed (all units) -> header + 1 bytes payload: {0|1|2|3}
                                                // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
                                                // cycles though 0-3-2-1-0
+#define BGNET_CMD_CA_QUAD_TIMER         0xCA // 2 bytes payload, 10min timer: 00 0A, 5min timer: 00 05, count-up timer: 00 00 (no CHN ID)
 #define BGNET_CMD_CB_QUAD_RESET         0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm, send by QUADr (QUADt or QUADd seems not to accept this reset)
                                                 // also used by PILOT when some bits in the STATE byte are received
 #define BGNET_CMD_CD_PILOT_DMPREQ       0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
@@ -393,7 +394,7 @@ typedef struct {        // for the FRAME header we use a pointer
     #define BGN_AP_MODE2_NAV        0x03   //         4 PILOT SETUP option appears: "WIND A/T", behaviour unknown
     #define BGN_AP_MODE2_VANE       0x04   //         5 makeds "MEM 000" displayed, but no command observed
     #define BGN_AP_MODE2_JOYSTICK   0x06   //         6-7 seems unused
-    #define BGN_AP_MODE2_EXPERIM    0x04   // used for experiments
+    #define BGN_AP_MODE2_EXPERIM    0x00   // used for experiments
 #define BGNET_CHN_BA_UNKNOWN          0xBA
 #define BGNET_CHN_BB_LATITUDE         0xBB
 #define BGNET_CHN_BC_LONGITUDE        0xBC
@@ -756,7 +757,6 @@ typedef struct {
         NMEA2K_VALUE TWA;
         NMEA2K_VALUE VMG;
         NMEA2K_VALUE BATTERY;
-
     } WIND;
 } BGNET;
 
@@ -806,6 +806,7 @@ int makeWAresponse(BGNET_CTRL *, unsigned char *);
 int makeOCresponse(BGNET_CTRL *, unsigned char *);
 size_t register_DATA_frame(BGNET_CTRL *, FRAME_H *);
 uint16_t EffectiveBoatSpeed(BGNET_CTRL *, NMEA2K_VALUE *);
+time_t TimerCalc(BGNET_CTRL *, unsigned char *, unsigned char *, unsigned char *);
 
 void CounterInit(BGNET_COUNT*, time_t);
 void CounterUp(BGNET_COUNT*, time_t);
