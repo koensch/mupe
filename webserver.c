@@ -590,6 +590,8 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Steering Response", "[0=Normal, 1=Economic, 2=Downwind]", pCtrl->BGNET.PILOT.SETUP.RESP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.RESP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.RESP.source), pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte);
     strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Wind Select Type", "[0=Appearent, 1=True]", pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WIND_SEL.source), pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte);
+    strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm", "[1-360 Minutes]", pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_MIN.source), pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: WATCH Alarm ON/OFF", "[0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong);
