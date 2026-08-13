@@ -20,6 +20,7 @@
 unsigned char bgnet_command_type(FRAME_H* pF) {
     unsigned char r;
     switch(pF->CMD) {
+        case BGNET_CMD_CA_QUAD_TIMER:
         case BGNET_CMD_CB_QUAD_RESET:
         case BGNET_CMD_CD_PILOT_DMPREQ:
         case BGNET_CMD_CF_PILOT_MANREQ:
@@ -277,14 +278,23 @@ void bgnet_initialize_reset(BGNET_CTRL *pCtrl) {
 }
 
 // worker routine to convert the timer into HH:MM:SS
-time_t TimerCalc(BGNET_CTRL *pCtrl, unsigned char *pHH, unsigned char *pMM, unsigned char *pSS) {
+// timer runs to 99:59:59 maximum (= 100x3600-1 = 360000-1). Observe that TIMER channel 0x75 carries the timer value as 3
+// seperate bytes and does not hit the limit of a 16bits unsigned integer (65.535)
+time_t tTimerCalc(BGNET_CTRL *pCtrl, unsigned char *pHH, unsigned char *pMM, unsigned char *pSS) {
     time_t r;
-    r = pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pCtrl->BGNET.SPEED.TIMER.value.tTime;
+    r = BGNET_MIN(pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pCtrl->BGNET.SPEED.TIMER.value.tTime, 360000-1);
     // do not write if there is a NULL pointer
     if (pHH!=NULL) *pHH = labs(r/3600) % 24;
     if (pMM!=NULL) *pMM = labs(r/60) % 60;
     if (pSS!=NULL) *pSS = labs(r) % 60;
     return(r);
+}
+// return the TIMER value as a formatted string
+char *strTimerCalc(BGNET_CTRL *pCtrl, char *pBuf) {
+    unsigned char ucHH, ucMM, ucSS;
+    tTimerCalc(pCtrl, &ucHH, &ucMM, &ucSS);
+    sprintf(pBuf, "%02d:%02d:%02d", ucHH, ucMM, ucSS);
+    return(pBuf);
 }
 // initialize our own internal structures
 void bgnet_initialize(BGNET_CTRL *pCtrl) {
@@ -688,7 +698,7 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    TimerCalc(pCtrl, &puCH->s.cv.uB[0], &puCH->s.cv.uB[1], &puCH->s.cv.uB[2]); // HH:MM:SS
+    tTimerCalc(pCtrl, &puCH->s.cv.uB[0], &puCH->s.cv.uB[1], &puCH->s.cv.uB[2]); // HH:MM:SS
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     return(r);
@@ -1381,7 +1391,6 @@ char* CommandToAscii(char* asciibuf, size_t size, FRAME_H* pF) {
             strcat(asciibuf, cTail);
         }
     }
-    // return a null terminated ascii string
     return(asciibuf);
 }
 

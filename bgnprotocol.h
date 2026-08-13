@@ -180,12 +180,13 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_COMMAND_INIT              0x00
 
 #define BGNET_CMD_01_DATA               0x01 //DATA broadcast, variable length, instrument readings.
-#define BGNET_CMD_02_LABEL              0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Message format:
-                                             //  Ch#+3x bytes numerical+ascii string (variable length)+CS
+#define BGNET_CMD_02_LABEL              0x02 //at startup some stations (QUAD/30, WIND/70) broadcast (ALL/FF) the memnonics of their measurements. Payload format:
+                                             //  bytes 0-3: ChannelID+3 bytes, bytes 4-n: ascii string (variable length), followed by CS
                                              //  QUAD:  20(TEMPC),31(ECHOSNR),41(BOATSPEEDKT),42(DEPTHM),4A(DEPTHM),64(AVGSPEEDKT),65(MAXSPEEDKT),75(TIMER),81(DRDISTANCENM),
                                              //         C4(DEPTHM),CD(LOGNM),CF(TRIPNM),D3(DRCOURSEM),FC(SHALLOWALARM),FD(DEPTHALARM),FE(ANCHORALARM),FF(DEPTHCAL)
                                              //  WIND:  50(AWINDSPEEDKT),51(AWINDANGLE),57(TWINDSPEEDKT),59(TWINDANGLE),7F(VMGKT),8D(BATTVOLTS)
-                                             //Note: Command is not send when device (QUAD/30, WIND/70) is in 'repeater' mode.
+                                             //Note: Command is not send (at startup)when device (QUAD/30, WIND/70) is in 'repeater' mode. But it IS send when you 
+                                             //      change the units on a QUADr
                                              //In demo mode the follwing (simulated) data is send:
                                              //  WIND:  4E(AWINDSPEEDRAW),50(AWINDSPEEDKT),51(AWINDANGLE),52(TWINDANGLERAW),8D(BATTVOLTS)
                                              //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
@@ -806,7 +807,8 @@ int makeWAresponse(BGNET_CTRL *, unsigned char *);
 int makeOCresponse(BGNET_CTRL *, unsigned char *);
 size_t register_DATA_frame(BGNET_CTRL *, FRAME_H *);
 uint16_t EffectiveBoatSpeed(BGNET_CTRL *, NMEA2K_VALUE *);
-time_t TimerCalc(BGNET_CTRL *, unsigned char *, unsigned char *, unsigned char *);
+time_t tTimerCalc(BGNET_CTRL *, unsigned char *, unsigned char *, unsigned char *);
+char *strTimerCalc(BGNET_CTRL *, char *);
 
 void CounterInit(BGNET_COUNT*, time_t);
 void CounterUp(BGNET_COUNT*, time_t);

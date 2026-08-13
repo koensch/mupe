@@ -566,18 +566,18 @@ static char* html_device_top(char *Buffer) {
     const char *cDevTop =
         "<h3>NETWORK nodes</h3>"
         "<table>"
-        "<tr><th colspan='2'>Device</th><th colspan='5'>Rx (ACP input FROM node)</th><th rowspan='2'>PowerUp Command</th><th colspan='3'>Tx (ACP output TO node)</th></tr>"
-        "<tr><th>Node</th><th>Type</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Err/Head</th><th>Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
+        "<tr><th colspan='4'>Device</th><th colspan='5'>Rx (ACP input FROM node)</th><th colspan='3'>Tx (ACP output TO node)</th></tr>"
+        "<tr><th>Node</th><th>Type</th><th>PowerUp Command</th><th>Enabled</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>CS Err/Head</th><th>CS Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 
 static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
-    int i;
+    int i, x;
     time_t t;
-    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII];
+    char cLine[512], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII];
     const char *cDevRow =
-        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -586,21 +586,21 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
         if ((pCtrl->DEV[i].CounterRx.iCounter < 1) & (pCtrl->DEV[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
-            CommandToAscii(asciibufRx, sizeof(asciibufRx), &pCtrl->DEV[i].Rx.FH);
-            CommandToAscii(asciibufTx, sizeof(asciibufTx), &pCtrl->DEV[i].Tx.FH);
+            x = bgnet_deviceindex(pCtrl, i);
             snprintf(cLine, sizeof(cLine), cDevRow,
                         ((pCtrl->DEV[i].source == BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
                         i,
-                        pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, i)].sProdName,
+                        pCtrl->pDEVDT[x].sProdName,
+                        pCtrl->DEV[i].iPowerUp,
+                        pCtrl->pDEVDT[x].iEnable,
                         pCtrl->DEV[i].CounterRx.iCounter,
                         (t - pCtrl->DEV[i].CounterRx.tTimestamp),
-                        asciibufRx,
+                        CommandToAscii(asciibufRx, sizeof(asciibufRx), &pCtrl->DEV[i].Rx.FH),
                         pCtrl->DEV[i].iCSError_Header, 
                         pCtrl->DEV[i].iCSError_Frame,
-                        pCtrl->DEV[i].iPowerUp,
                         pCtrl->DEV[i].CounterTx.iCounter,
                         (t - pCtrl->DEV[i].CounterTx.tTimestamp),
-                        asciibufTx
+                        CommandToAscii(asciibufTx, sizeof(asciibufTx), &pCtrl->DEV[i].Tx.FH)
                     );
             strcat(Buffer, cLine);
         }
@@ -713,7 +713,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedAVG.source), ITOD(pCtrl->BGNET.SPEED.SpeedAVG.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED: TIMER", "Timer value (since reset) [HH:MM:SS]", pCtrl->BGNET.SPEED.TIMER.Counter.iCounter, t-pCtrl->BGNET.SPEED.TIMER.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TIMER.source), TimerCalc(pCtrl, NULL, NULL, NULL));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "QUAD/SPEED: TIMER", "Timer value (since reset) [HH:MM:SS]", pCtrl->BGNET.SPEED.TIMER.Counter.iCounter, t-pCtrl->BGNET.SPEED.TIMER.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TIMER.source), strTimerCalc(pCtrl, asciibuffer));
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->BGNET.ACP.COG.Counter.iCounter, t-pCtrl->BGNET.ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COG.source), pCtrl->BGNET.ACP.COG.value.nLong);
