@@ -158,7 +158,7 @@ uint16_t EffectiveBoatSpeed(BGNET_CTRL* pCtrl, NMEA2K_VALUE *pV) {
     switch(pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte) {
         default:
         case BGNET_SPD_TRA:
-            pV->value.nLong = pCtrl->BGNET.SPEED.STW.value.nLong;
+            pV->value.nLong = pCtrl->BGNET.SPEED.STW.value.dValue;
             break;
         case BGNET_SPD_MAN_FST:
             pV->value.nLong = pCtrl->BGNET.PILOT.SPEED.FST.value.nLong;
@@ -444,15 +444,19 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.SPEED.DRC.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.DRC.Counter, t);
 
-        pCtrl->BGNET.SPEED.STW.value.nLong = 125; // used to initialize SpeedMAX and SpeedAVG
+        pCtrl->BGNET.SPEED.Temperature.value.dValue= 19.26;
+        pCtrl->BGNET.SPEED.Temperature.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.SPEED.Temperature.Counter, t);
+
+        pCtrl->BGNET.SPEED.STW.value.dValue= 9.23; // used to initialize SpeedMAX and SpeedAVG
         pCtrl->BGNET.SPEED.STW.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.STW.Counter, t);
 
-        pCtrl->BGNET.SPEED.SpeedMAX.value.nLong = 222; // reset with DRD
+        pCtrl->BGNET.SPEED.SpeedMAX.value.dValue = 2.22; // reset with DRD
         pCtrl->BGNET.SPEED.SpeedMAX.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.SpeedMAX.Counter, t);
 
-        pCtrl->BGNET.SPEED.SpeedAVG.value.nLong = 111; // reset with DRD
+        pCtrl->BGNET.SPEED.SpeedAVG.value.dValue = 1.11; // reset with DRD
         pCtrl->BGNET.SPEED.SpeedAVG.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.SpeedAVG.Counter, t);
 
@@ -489,7 +493,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
 
         //====== DEPTH
 
-        pCtrl->BGNET.DEPTH.Depth.value.nLong = 6;
+        pCtrl->BGNET.DEPTH.Depth.value.dValue = 0.598;
         pCtrl->BGNET.DEPTH.Depth.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.DEPTH.Depth.Counter, t);
 
@@ -621,6 +625,57 @@ size_t bgnet_encode_frame(FRAME_H* pFH, int iTo, int iFrom, int iCmd, unsigned c
     return(bgnet_sizeof_frame(pFH));
 }
 
+// encode a double value into a numerical type (FMT 01, 08) channel
+size_t encode_channel_double(BGNET_CTRL* pCtrl, union CH* pCH, unsigned char ucCH, unsigned char ucFMT, double dV) {
+    uint8_t uD, uP;  // DIVisor and PADding
+    uint16_t uW; // unsigned 16-bit register
+    size_t sChannelSize;
+    // set ChannelID
+    pCH->s.CH = ucCH;
+    uP = 0; // we do not use padding (yet)
+    // set FMT byte. Skip auto-scaling when passed FMT is already scaled
+    if ((ucFMT & BGNET_FMT_DIVPAD) == 0) {
+        // do auto-scale, scale it before rounding/converting to int
+        if (dV < 1.0) {
+            uW = DTOIROUND(dV * 1000.0);
+            uD = 3;
+        } else {
+            if (dV < 10.0) {
+                uW = DTOIROUND(dV * 100.0);
+                uD = 2;
+            } else {
+                if (dV < 100.0) {
+                    uW = DTOIROUND(dV * 10.0);
+                    uD = 1;
+                } else {
+                    uW = DTOIROUND(dV); // in case of overflow, B&G devices show only the 3 rightmost digits
+                    uD = 0;
+                }
+            }
+        }
+        // pack the FMT specifier, shift DIV and inject PAD. Put all the bits into the FMT byte
+        pCH->s.FMT = (ucFMT & BGNET_FMT_DT)| ((uD<<6) & BGNET_FMT_DIVPAD_DIV) | (uP & BGNET_FMT_DIVPAD_PAD);
+    } else {
+        // skip autoscale (value is already scaled)
+        pCH->s.FMT = ucFMT;
+        uW = DTOIROUND(dV);
+    }
+    switch(ucFMT) {
+        case BGN_FMT_01: // convert unsigned to signed 16bit register
+            pCH->s.cv.sW[0] = (int16_t)htons(uW);
+            sChannelSize = 4;
+            break;
+        case BGN_FMT_08: // unsigned 16bit register
+            pCH->s.cv.uW[0] = htons(uW);
+            sChannelSize = 4;
+            break;
+        default:
+            // for every other type we do nothing, this is the wrong routine to use
+            sChannelSize = bgnet_sizeof_channel(pCtrl, pCH);
+    }
+    return(sChannelSize);
+}
+
 // this one usually sends 8 channels
 int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
     int r=0, c;
@@ -628,18 +683,17 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
 
     c = BGNET_CHN_41_STW;
     puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.STW.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.STW.value.dValue);
 
     c = BGNET_CHN_42_STWRAW;
     puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(225);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, 22.5);
 
+    //puCH->s.CH = c;
+    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    //puCH->s.cv.uW[0] = htons(225);
+    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
+ 
     // the next 3 values are 'rotated' by the QUAD: CD every other time, 64/65 every 4'th time
     // but that is too complex at this moment. Later i will build a rotating scheme.
 
@@ -652,17 +706,11 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
 
     c = BGNET_CHN_64_SPEEDAVG;
     puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SpeedAVG.value.nLong); 
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.SpeedAVG.value.dValue);
 
     c = BGNET_CHN_65_SPEEDMAX;
     puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SpeedMAX.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.SpeedMAX.value.dValue);
 
     // the next values are always present 
 
@@ -689,10 +737,11 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
 
     c = BGNET_CHN_20_SEATEMPQ;
     puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.Temperature.value.nLong); 
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    //puCH->s.CH = c;
+    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    //puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.Temperature.value.nLong); 
+    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.Temperature.value.dValue);
 
     c = BGNET_CHN_75_TIMER;
     puCH = (union CH*)&(payload[r]);
@@ -782,17 +831,19 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
     c = BGNET_CHN_C4_DEPTH;  // displayed on QUAD
     puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.DEPTH.Depth.value.nLong); 
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    //puCH->s.CH = c;
+    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    //puCH->s.cv.sW[0] = htons(pCtrl->BGNET.DEPTH.Depth.value.nLong); 
+    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth.value.dValue);
 
     c = BGNET_CHN_C1_DEPTHM;
     puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(22); 
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    //puCH->s.CH = c;
+    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    //puCH->s.cv.sW[0] = htons(22); 
+    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth.value.dValue);
 
     return(r);
 }
@@ -976,42 +1027,6 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
     return (r);
 }
 
-// scheduled response from ACP to PILOT (and others)
-int makeACPresponseXXX(BGNET_CTRL *pCtrl, unsigned char* payload) {
-    int r = 0,c;
-    union CH* puCH;
-
-    c = BGNET_CHN_0B_RUDDER;
-    puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    c = BGNET_CHN_41_STW;
-    puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.STW.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    c = BGNET_CHN_49_HEADING;
-    puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.Heading.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    c = BGNET_CHN_51_AWA;
-    puCH = (union CH*)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(-95);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    return (r);
-}
-
 // timer channel (FMT_03, channel 0x75 only)
 union CH* encode_value_timer(union CH* pCH, unsigned char ucCH, unsigned char ucFMT, uint8_t HH, uint8_t MM, uint8_t SS) {
     pCH->s.CH = ucCH;
@@ -1038,76 +1053,6 @@ union CH* encode_value_ascii(union CH* pCH, unsigned char ucCH, unsigned char uc
             break;
     }
     return(pCH);
-}
-
-// with host numerical variables (FMT 01, 02, 08, various channels)
-union CH* encode_value_double(union CH* pCH, unsigned char ucCH, unsigned char ucFMT, double dV) {
-    uint8_t iD;
-    uint16_t iW;
-    uint32_t iL;
-    pCH->s.CH = ucCH;
-    if ((ucFMT & BGNET_FMT_DIVPAD) == 0) {
-        // do auto-scale, scale it before rounding/converting to int
-        if (dV < 1.0) {
-            iW = DTOIROUND(dV*1000.0);
-            iD = 3;
-        } else {
-            if (dV < 10.0) {
-                iW = DTOIROUND(dV*100.0);
-                iD = 2;
-            } else {
-                if (dV < 100.0) {
-                    iW = DTOIROUND(dV*10.0);
-                    iD = 1;
-                } else {
-                    if (dV < 1000.0) {
-                        iW = DTOIROUND(dV);
-                        iD = 0;
-                    } else {
-                        iW = 999;
-                        iD = 0;
-                    }
-                }
-            }
-        }
-        // shift divisor bits into FMT byte
-        pCH->s.FMT = ucFMT | ((iD<<6) & BGNET_FMT_DIVPAD);
-    } else {
-        // skip autoscale (value is already scaled)
-        pCH->s.FMT = ucFMT;
-        iW = DTOIROUND(dV);
-        iL = DTOIROUND(dV);
-    }
-    switch(ucFMT) {
-        case BGN_FMT_01: // signed 16bit register
-            pCH->s.cv.sW[0] = (int16_t)htons(iW);
-            break;
-        case BGN_FMT_08: // unsigned 16bit register 
-            pCH->s.cv.uW[0] = htons(iW);
-            break;
-        case BGN_FMT_02: // unsigned 32bit register (only used by 0xCD, STORLOGNM, value *10)
-            pCH->s.cv.uL[0] = htonl(iL);
-            break;
-        default:
-            // for every other type we do nothing, we should never come here
-    }
-    return(pCH);
-}
-
-// encode a value to channel format
-int encode_channel(BGNET_CTRL *pCtrl, union CH* pCH) {
-    // check that CH and FMT were correctly set. Then it's safe to assume that also the
-    // data is present and correcly fonrmatted.
-    // if CH is not set, or our DataType is different than the default DataType it seems not right
-    if ((pCH->s.CH == BGNET_CHN_00_NODERESET) | ((pCH->s.FMT & BGNET_FMT_DT) != (pCtrl->pCHNDT[pCH->s.CH].ucFMT & BGNET_FMT_DT))) {
-        log_error("encode_channel: Channel 0x%02X seems incorrect", pCH->s.CH);
-        pCH->s.FMT = BGN_FMT_04;
-        pCH->s.cv.uB[0] = 0;
-        pCH->s.cv.uB[1] = 'E';
-        pCH->s.cv.uB[2] = 'R';
-        pCH->s.cv.uB[3] = 'R';
-    }
-    return(bgnet_sizeof_channel(pCtrl, pCH));
 }
 
 int makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
@@ -1972,7 +1917,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                         // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
                                                                         if (pCHRx->s.FMT == 0x1F) {
                                                                             // when activating the Anchor Alarm, also set the current depth
-                                                                            pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.nLong = pCtrl->BGNET.DEPTH.Depth.value.nLong;
+                                                                            pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.nLong = pCtrl->BGNET.DEPTH.Depth.value.dValue;
                                                                             pCtrl->BGNET.DEPTH.SETUP.AMA_M.source = BGN_SOURCE_BGNET;
                                                                             CounterUp(&pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter, t);
                                                                             // enable the anchor alarm
@@ -2091,10 +2036,10 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCtrl->BGNET.SPEED.DRD.value.nLong = 0;
                                                                 pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.SPEED.DRD.Counter, t);
-                                                                pCtrl->BGNET.SPEED.SpeedMAX.value.nLong = pCtrl->BGNET.SPEED.STW.value.nLong;
+                                                                pCtrl->BGNET.SPEED.SpeedMAX.value.dValue = pCtrl->BGNET.SPEED.STW.value.dValue;
                                                                 pCtrl->BGNET.SPEED.SpeedMAX.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.SPEED.SpeedMAX.Counter, t);
-                                                                pCtrl->BGNET.SPEED.SpeedAVG.value.nLong = pCtrl->BGNET.SPEED.STW.value.nLong;
+                                                                pCtrl->BGNET.SPEED.SpeedAVG.value.dValue = pCtrl->BGNET.SPEED.STW.value.dValue;
                                                                 pCtrl->BGNET.SPEED.SpeedAVG.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.SPEED.SpeedAVG.Counter, t);
                                                                 break;

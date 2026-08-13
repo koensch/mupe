@@ -707,11 +707,13 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRC", "Dead Reconing Course (displayed on DATA or SPEED, resettable via QUAD) [0-359]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), ITOD(pCtrl->BGNET.SPEED.DRC.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), ITOD(pCtrl->BGNET.SPEED.STW.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Temperature", "Seawater temperature", pCtrl->BGNET.SPEED.Temperature.Counter.iCounter, t-pCtrl->BGNET.SPEED.Temperature.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.Temperature.source), pCtrl->BGNET.SPEED.Temperature.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedMAX.source), ITOD(pCtrl->BGNET.SPEED.SpeedMAX.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), pCtrl->BGNET.SPEED.STW.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedAVG.source), ITOD(pCtrl->BGNET.SPEED.SpeedAVG.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedMAX.source), pCtrl->BGNET.SPEED.SpeedMAX.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedAVG.source), pCtrl->BGNET.SPEED.SpeedAVG.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "QUAD/SPEED: TIMER", "Timer value (since reset) [HH:MM:SS]", pCtrl->BGNET.SPEED.TIMER.Counter.iCounter, t-pCtrl->BGNET.SPEED.TIMER.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TIMER.source), strTimerCalc(pCtrl, asciibuffer));
     strcat(Buffer, cLine);
@@ -748,7 +750,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/ANCHOR ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth [M]", pCtrl->BGNET.DEPTH.Depth.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth.source), ITOD(pCtrl->BGNET.DEPTH.Depth.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth [M]", pCtrl->BGNET.DEPTH.Depth.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth.source), pCtrl->BGNET.DEPTH.Depth.value.dValue);
     strcat(Buffer, cLine);
 
     return(Buffer);
