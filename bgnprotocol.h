@@ -144,6 +144,8 @@
 
 #define BGNET_ASC_NULL                  0x00
 #define BGNET_ASC_SPACE                 0x20
+#define BGNET_ASC_QUEST                 0x3F
+#define BGNET_ASC_A                     0x41
 #define BGNET_ASC_F                     0x46
 #define BGNET_ASC_N                     0x4E
 #define BGNET_ASC_O                     0x4F
@@ -406,7 +408,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_BA_UNKNOWN          0xBA
 #define BGNET_CHN_BB_LATITUDE         0xBB
 #define BGNET_CHN_BC_LONGITUDE        0xBC
-#define BGNET_CHN_C1_DEPTH_RAW        0xC1 // i assume that this is the RAW depth value, but i am not sure
+#define BGNET_CHN_C1_DEPTHRAW         0xC1 // i assume that this is the RAW depth value, but i am not sure
 #define BGNET_CHN_C2_DEPTHFT          0xC2
 #define BGNET_CHN_C3_DEPTHFM          0xC3
 #define BGNET_CHN_C4_DEPTH            0xC4 // displayed by QUAD and DATA, or "---" incase no measurement
@@ -429,7 +431,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_E8_WPD              0xE8 // WP Distance (via PILOT/NMEA/RMB/#10)
 #define BGNET_CHN_E9_COGTRUE          0xE9 // Course Over Ground, True
 #define BGNET_CHN_EA_COGMAG           0xEA // Course Over Ground, Magnetic
-#define BGNET_CHN_EB_SOGKT            0xEB // Speed Over Ground, KT (via PILOT/NMEA/VTG/#5)
+#define BGNET_CHN_EB_SOG              0xEB // Speed Over Ground, KT (via PILOT/NMEA/VTG/#5)
                                          // Is also observed with command 0xD5 (with a 3 byte payload) after setting FST/MED/SLW (Manual Speed selection on PILOT)
                                          // It is send when you page though the selection option (from FST>MED>SLW>FST), but not the 1st time you press the <SPEED>
                                          // button. The first 2 bytes stays the same (0xEB 0x0F), but the 3rd payload byte varies between 0x00-0xFF (and sometimes

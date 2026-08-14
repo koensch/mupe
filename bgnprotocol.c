@@ -772,10 +772,10 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH = (union CH*)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uC[0] = '\0'; 
-    puCH->s.cv.uC[1] = ' '; 
-    puCH->s.cv.uC[2] = 'A'; // A meas 'perfect signal'
-    puCH->s.cv.uC[3] = ' ';
+    puCH->s.cv.uC[0] = BGNET_ASC_NULL; 
+    puCH->s.cv.uC[1] = BGNET_ASC_SPACE; 
+    puCH->s.cv.uC[2] = BGNET_ASC_A; // A meas 'perfect signal'
+    puCH->s.cv.uC[3] = BGNET_ASC_SPACE;
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
     
     // the next 3 values are 'rotated' by the QUAD: FE every other time, FC/FD every 4'th time
@@ -786,10 +786,10 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.CH = c;
     if (pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte == 0) {
         puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-        puCH->s.cv.uC[0] = '\0'; 
-        puCH->s.cv.uC[1] = 'O'; 
-        puCH->s.cv.uC[2] = 'F'; 
-        puCH->s.cv.uC[3] = 'F';
+        puCH->s.cv.uC[0] = BGNET_ASC_NULL; 
+        puCH->s.cv.uC[1] = BGNET_ASC_O; 
+        puCH->s.cv.uC[2] = BGNET_ASC_F; 
+        puCH->s.cv.uC[3] = BGNET_ASC_F;
     } else {
         encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue, 0);
     }
@@ -800,10 +800,10 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     puCH->s.CH = c;
     if (pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte == 0) {
         puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-        puCH->s.cv.uC[0] = '\0'; 
-        puCH->s.cv.uC[1] = 'O'; 
-        puCH->s.cv.uC[2] = 'F'; 
-        puCH->s.cv.uC[3] = 'F';
+        puCH->s.cv.uC[0] = BGNET_ASC_NULL; 
+        puCH->s.cv.uC[1] = BGNET_ASC_O; 
+        puCH->s.cv.uC[2] = BGNET_ASC_F; 
+        puCH->s.cv.uC[3] = BGNET_ASC_F;
     } else {
         encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.DA_M.value.dValue, 0);
     }
@@ -852,7 +852,7 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     //r = r + bgnet_sizeof_channel(pCtrl, puCH);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue, 0);
 
-    c = BGNET_CHN_C1_DEPTH_RAW;
+    c = BGNET_CHN_C1_DEPTHRAW;
     puCH = (union CH*)&(payload[r]);
     //puCH->s.CH = c;
     //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -1299,7 +1299,7 @@ size_t bgnet_sizeof_channel(BGNET_CTRL* pCtrl, union CH* pCH) {
             // variable length, look for the null byte
             n = -1;
             for (i=0;i<12;i++) { 
-                if (pCH->s.cv.uC[i] == '\0') {
+                if (pCH->s.cv.uC[i] == BGNET_ASC_NULL) {
                     n = i;
                     break;
                 }
@@ -1406,7 +1406,7 @@ char* decode_channel_string(char* pStr, union CH* puCH) {
             pStr[0] = puCH->s.cv.uB[1];
             pStr[1] = puCH->s.cv.uB[2];
             pStr[2] = puCH->s.cv.uB[3];
-            pStr[3] = '\0';
+            pStr[3] = BGNET_ASC_NULL;
             iValid = 2;
             break;
         case BGN_FMT_07: // variable length ASCII string (null-terminated)
@@ -1435,14 +1435,14 @@ char* decode_channel_string(char* pStr, union CH* puCH) {
             pStr[0] = puCH->s.cv.uB[0];
             pStr[1] = puCH->s.cv.uB[1];
             pStr[2] = puCH->s.cv.uB[2];
-            pStr[3] = '\0';
+            pStr[3] = BGNET_ASC_NULL;
             iValid = 2;
             break;
         default:
-            pStr[0] = '?';
-            pStr[1] = '?';
-            pStr[2] = '?';
-            pStr[3] = '\0';
+            pStr[0] = BGNET_ASC_QUEST;
+            pStr[1] = BGNET_ASC_QUEST;
+            pStr[2] = BGNET_ASC_QUEST;
+            pStr[3] = BGNET_ASC_NULL;
             iValid = 0;
     }
     if (iValid == 1) {
@@ -1539,7 +1539,7 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, FRAME_H* pF) {
                     pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
                     break;
-                case BGNET_CHN_C1_DEPTH_RAW:
+                case BGNET_CHN_C1_DEPTHRAW:
 //                    pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue = decode_channel_double(pCH, 0);
 //                    pCtrl->BGNET.DEPTH.Depth_RAW.source = BGN_SOURCE_BGNET;
 //                    CounterUp(&pCtrl->BGNET.DEPTH.Depth_RAW.Counter, t);
@@ -1661,7 +1661,7 @@ void decode_command_LABEL(BGNET_CTRL* pCtrl, FRAME_H* pF) {
         // copy the label
         len = (pF->PL - 4); // number of ascii characters in the payload
         strncpy(pCtrl->CHN[ucCHN].x02.cValue, (char*)&pF->payload[4], len);
-        pCtrl->CHN[ucCHN].x02.cValue[len] = '\0';
+        pCtrl->CHN[ucCHN].x02.cValue[len] = BGNET_ASC_NULL;
     } else {
         strcpy(pCtrl->CHN[ucCHN].x02.cValue, "???");
     }
@@ -1983,7 +1983,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                     // STATUS On/OFF
                                                                     case BGN_FMT_0F:
                                                                         // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
-                                                                        if (pCHRx->s.FMT == 0x1F) {
+                                                                        if (pCHRx->s.FMT == BGNET_FMT_ON) {
                                                                             pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte = 1;
                                                                         } else {
                                                                             pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte = 0;
@@ -2010,7 +2010,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                     // STATUS On/OFF
                                                                     case BGN_FMT_0F:
                                                                         // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
-                                                                        if (pCHRx->s.FMT == 0x1F) {
+                                                                        if (pCHRx->s.FMT == BGNET_FMT_ON) {
                                                                             pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
                                                                         } else {
                                                                             pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 0;
@@ -2208,9 +2208,9 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx = (union CH*)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
                                                                 if (pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte == 0) {
-                                                                    pCHTx->s.FMT = 0x0F;
+                                                                    pCHTx->s.FMT = BGNET_FMT_OFF;
                                                                 } else {
-                                                                    pCHTx->s.FMT = 0x1F;
+                                                                    pCHTx->s.FMT = BGNET_FMT_ON;
                                                                 }
                                                                 len_pl = 3;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
@@ -2252,9 +2252,9 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx = (union CH*)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
                                                                 if (pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte == 0) {
-                                                                    pCHTx->s.FMT = 0x0F;
+                                                                    pCHTx->s.FMT = BGNET_FMT_OFF;
                                                                 } else {
-                                                                    pCHTx->s.FMT = 0x1F;
+                                                                    pCHTx->s.FMT = BGNET_FMT_ON;
                                                                 }
                                                                 len_pl = 3;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
@@ -2296,9 +2296,9 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCHTx = (union CH*)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
                                                                 if (pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte == 0) {
-                                                                    pCHTx->s.FMT = 0x0F;
+                                                                    pCHTx->s.FMT = BGNET_FMT_OFF;
                                                                 } else {
-                                                                    pCHTx->s.FMT = 0x1F;
+                                                                    pCHTx->s.FMT = BGNET_FMT_ON;
                                                                 }
                                                                 len_pl = 3;
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
@@ -2789,18 +2789,16 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);                                                                
                                                                 break;
-                                                            // broadcast by PILOT to FF, 3 bytes payload, unknown 
-                                                            // FF 50 03 D5 D9 B5 EB 0F FB
-                                                            // 0xB5 could be a channel ID or a ACKSEQ
-                                                            // 0xEB could be a channel ID
-                                                            // 0x0F means "OFF" (0x1F means ON)
-                                                            // FB   seems CS
-                                                            //      could be a format specifier to switch on or off something (we have seen a similar
-                                                            //      behaviour with the WA and OC alarms ON/OFF), but we have  never encountered a FMT_07 before
-                                                            // Because it's a broadcast, it should be relevant for all NETWORK attached units.
-                                                            // For the time being, i just log it.  
-                                                            case BGNET_CHN_EB_SOGKT:
-                                                                // update the channel value
+                                                            case BGNET_CHN_EB_SOG:
+                                                                // broadcast by PILOT to FF, 3 bytes payload, unknown purpose. Is send when a MANual speed is selected
+                                                                // FF 50 03 D5 D9 B5 EB 0F FB
+                                                                // 0xB5 is most likely a ACKSEQ (this number changes in other instances)
+                                                                // 0xEB seems a channel ID (SOG)
+                                                                // 0x0F means "OFF" (0x1F means ON)
+                                                                // FB   is a valid CS
+                                                                // Because it's a broadcast, it should be relevant for all NETWORK attached units to switch something
+                                                                // OFF that has to do with the SOG
+                                                                // For the time being, i just log it.  
                                                                 pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                                 pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
                                                                 pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
@@ -2809,6 +2807,12 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
                                                                 decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
                                                                 CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+
+                                                                if (pCHRx->s.FMT == BGNET_FMT_ON) {
+                                                                    // unknown action ON                                                                          pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
+                                                                } else {
+                                                                    // unknown action OFF
+                                                                }
                                                                 //log_debug_frame(pFRx);
                                                                 break;
                                                         }
