@@ -2966,6 +2966,24 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 // but i do not know what command to use to send it
                                                                 // now i rely on the 'regular' broadcast of channel data. You will observe that
                                                                 // there is some delay in the update. It works, but i find it annoying
+
+                                                                // i have solved this by injecting a DATA/0x01 command (broadcast), so any other node
+                                                                // also receives the new value.
+                                                                pCHTx = (union CH*)&payload[0];
+                                                                pCHTx->s.CH = BGNET_CHN_A6_AP_CTS;
+                                                                pCHTx->s.FMT = BGN_FMT_08;
+                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
+                                                                len_pl = 4;
+                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                                        
+                                                                memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                                TxSize = TxSize + len_msg;
+
+
                                                                 break;
                                                         }
                                                         break;
