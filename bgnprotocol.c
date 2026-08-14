@@ -355,15 +355,15 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);
 
-        pCtrl->BGNET.PILOT.SPEED.FST.value.nLong = 310;      // value is displayed as xx.x, but the decimal is always 0 and only whole number can be set
+        pCtrl->BGNET.PILOT.SPEED.FST.value.nLong = 81;      // value is displayed as xx.x, but the decimal is always 0 and only whole number can be set
         pCtrl->BGNET.PILOT.SPEED.FST.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SPEED.FST.Counter, t);
 
-        pCtrl->BGNET.PILOT.SPEED.MED.value.nLong = 230;      // value is displayed as xx.x, but the decimal is always 0 and only whole number can be set
+        pCtrl->BGNET.PILOT.SPEED.MED.value.nLong = 62;      // value is displayed as xx.x, but the decimal is always 0 and only whole number can be set
         pCtrl->BGNET.PILOT.SPEED.MED.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SPEED.MED.Counter, t);
 
-        pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong = 120;      // value is displayed as xx.x, but the decimal is always 0 and only whole number can be set
+        pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong = 43;      // value is displayed as xx.x, but the decimal is always 0 and only whole number can be set
         pCtrl->BGNET.PILOT.SPEED.SLW.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SPEED.SLW.Counter, t);
 
