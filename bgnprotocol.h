@@ -135,11 +135,18 @@
 
 // use this macro to convert a floating point value (double) to integer with round-off
 // sometimes it's trivial, but using defines makes it easier to locate where what conversions are done
-#define DTOIROUND(d)                    ((int)(d >= 0.0 ? (d + 0.5) : (d - 0.5)))
-#define ITOD(i)                         (double)i
+//#define DTOIROUND(d)                    ((int)(d >= 0.0 ? (d + 0.5) : (d - 0.5)))
+#define DTOIROUND(d)                    ((int)(d))
+#define ITOD(i)                         ((double)i)
 #define BGNET_PI                        3.14159
 #define BGNET_MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define BGNET_TIME_FMT                 "%Y-%m-%d %H:%M:%S" 
+
+#define BGNET_ASC_NULL                  0x00
+#define BGNET_ASC_SPACE                 0x20
+#define BGNET_ASC_F                     0x46
+#define BGNET_ASC_N                     0x4E
+#define BGNET_ASC_O                     0x4F
 
 // FRAME definitions
 
@@ -399,7 +406,7 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_BA_UNKNOWN          0xBA
 #define BGNET_CHN_BB_LATITUDE         0xBB
 #define BGNET_CHN_BC_LONGITUDE        0xBC
-#define BGNET_CHN_C1_DEPTHM           0xC1
+#define BGNET_CHN_C1_DEPTH_RAW        0xC1 // i assume that this is the RAW depth value, but i am not sure
 #define BGNET_CHN_C2_DEPTHFT          0xC2
 #define BGNET_CHN_C3_DEPTHFM          0xC3
 #define BGNET_CHN_C4_DEPTH            0xC4 // displayed by QUAD and DATA, or "---" incase no measurement
@@ -515,6 +522,8 @@ union CH {
 #define BGN_FMT_18      0x18        // used by WA and OC
 #define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
 #define BGN_FMT_0F      0x0F        // Boolean/switch value: 0x0F= Off, 0x1F= On
+    #define BGNET_FMT_ON    0x1F
+    #define BGNET_FMT_OFF   0x0F
 #define BGN_FMT_9D      0x9D        // send by QUAD/DEPTH/SETUP anchor alarm (7 bytes payload)
 #define BGN_FMT_0D      0x0D        // used for dual values (Anchor Alarm Shallow & Deep, relative)
 
@@ -572,7 +581,7 @@ typedef struct {
 
 // register device statistics
 typedef struct {
-    int iPowerUp; // POWERUP command seen
+    BGNET_COUNT PowerUp; // POWERUP command seen
     int iNewDevice; // New DEVICE data might have been received
     BGNET_COUNT CounterRx;
     int iCSError_Header;
@@ -738,9 +747,11 @@ typedef struct {
     } SPEED;
     // DEPTH parameters
     struct {
-        NMEA2K_VALUE Depth;        // Measured DEPTH (current value)
-        NMEA2K_VALUE ACH_ALARM;
+        NMEA2K_VALUE Depth_RAW;    // Measured DEPTH (current value, uncalibrated)
+        NMEA2K_VALUE Depth_CAL;    // Measured DEPTH (current value, calibrated)
+        NMEA2K_VALUE ANC_ALARM;
         struct {
+            NMEA2K_VALUE CAL;      // CALibration: 0= No Calibration, <0= offset to keel (>depth under keel), >0= offset to watersurface (>waterdepth)
             NMEA2K_VALUE SA_M;     // Shallow Alarm limit (meter, absolute)
             NMEA2K_VALUE SA_STAT;  // Shallow Alarm ON/OFF
             NMEA2K_VALUE DA_M;     // Deep Alarm limit (meter, absolute)

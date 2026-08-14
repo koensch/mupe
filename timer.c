@@ -107,14 +107,14 @@ void *timer_thread(void *arg)
               pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_ACP;
               CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t);
               // reset the watchdog
-              pCtrl->BGNET.SERVICE.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
-              pCtrl->BGNET.SERVICE.PILOTWD.source = BGN_SOURCE_ACP;
-              CounterInit(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
+              //pCtrl->BGNET.SERVICE.PILOTWD.value.nLong = BGNET_PILOTWD_SET;
+              //pCtrl->BGNET.SERVICE.PILOTWD.source = BGN_SOURCE_ACP;
+              //CounterInit(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
             }
           }
 
           //device processing start
-          log_info("Device Processing %d", pCtrl->iDeviceRun);
+          //log_info("Device Processing %d", pCtrl->iDeviceRun);
           TxBufLen = bgnet_process(pCtrl, TxBuf, sizeof(TxBuf));
           // reset device processing counter (we do not want to run every MSEC1)
           pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;

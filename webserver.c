@@ -532,15 +532,15 @@ static char* html_interface_top(char *Buffer) {
         "<h2>B&G Network Statistics</h2>"
         "<h3>Serial Interface</h3>"
         "<table>"
-        "<tr><th rowspan='2'>Interface</th><th rowspan='2'>Communication Parameters</th><th colspan='2'>Service</th><th colspan='2'>Device</th></tr>"
-        "<tr><th>Mode</th><th>State</th><th>Node</th><th>Type</th></tr>";
+        "<tr><th colspan='3'>Communication Device</th><th colspan='2'>Service</th><th colspan='2'>Emulator</th></tr>"
+        "<tr><th>Port</th><th>Interface</th><th>Communication Parameters</th><th>Mode</th><th>Watchdog</th><th>Node</th><th>Type</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
     const char *cInfRow =
-        "<tr><td>%s</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
+        "<tr><td>%s</td><td>RS232 (inverted Rx/Tx)</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
     snprintf(cLine, sizeof(cLine), cInfRow,
                                             pCtrl->pCfg->serial_port,
                                             pCtrl->pCfg->baudrate,
@@ -548,7 +548,7 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->databits,
                                             pCtrl->pCfg->stopbits,
                                             pCtrl->pCfg->mode,
-                                            (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong<BGNET_PILOTWD_SET?"active":"inactive"),
+                                            (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong>0?"<text style='color:green;'>OK</text>":"<text style='color:red;'>FLUNK</text>"),
                                             BGNET_TYPE_NETACP,
                                             pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_TYPE_NETACP)].sProdName
                                         );
@@ -566,7 +566,7 @@ static char* html_device_top(char *Buffer) {
     const char *cDevTop =
         "<h3>NETWORK nodes</h3>"
         "<table>"
-        "<tr><th colspan='4'>Device</th><th colspan='5'>Rx (ACP input FROM node)</th><th colspan='3'>Tx (ACP output TO node)</th></tr>"
+        "<tr><th colspan='4'>Device</th><th colspan='5'>Rx (input FROM node)</th><th colspan='3'>Tx (output TO node)</th></tr>"
         "<tr><th>Node</th><th>Type</th><th>PowerUp Command</th><th>Enabled</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>CS Err/Head</th><th>CS Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
@@ -591,7 +591,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
                         ((pCtrl->DEV[i].source == BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
                         i,
                         pCtrl->pDEVDT[x].sProdName,
-                        pCtrl->DEV[i].iPowerUp,
+                        pCtrl->DEV[i].PowerUp.iCounter,
                         pCtrl->pDEVDT[x].iEnable,
                         pCtrl->DEV[i].CounterRx.iCounter,
                         (t - pCtrl->DEV[i].CounterRx.tTimestamp),
@@ -699,23 +699,30 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Rudder", "Current rudder position (-45-+45 Degrees)", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: STORLOG", "Stored log (QUAD or SPEED), stored in EEPROM, no reset) [NM]", pCtrl->BGNET.SPEED.StoredLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.StoredLogNM.source), (ITOD(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: STORLOG", "Stored log (QUAD or SPEED), stored in EEPROM, no reset) [NM]", pCtrl->BGNET.SPEED.StoredLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.StoredLogNM.source), (ITOD(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), (ITOD(pCtrl->BGNET.SPEED.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), (ITOD(pCtrl->BGNET.SPEED.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), ITOD(pCtrl->BGNET.SPEED.DRD.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), ITOD(pCtrl->BGNET.SPEED.DRD.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: DRC", "Dead Reconing Course (displayed on DATA or SPEED, resettable via QUAD) [0-359]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), ITOD(pCtrl->BGNET.SPEED.DRC.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRC", "Dead Reconing Course (displayed on DATA or SPEED, resettable via QUAD) [0-359]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), ITOD(pCtrl->BGNET.SPEED.DRC.value.nLong));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Temperature", "Seawater temperature", pCtrl->BGNET.SPEED.Temperature.Counter.iCounter, t-pCtrl->BGNET.SPEED.Temperature.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.Temperature.source), pCtrl->BGNET.SPEED.Temperature.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Temperature", "Seawater temperature", pCtrl->BGNET.SPEED.Temperature.Counter.iCounter, t-pCtrl->BGNET.SPEED.Temperature.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.Temperature.source), pCtrl->BGNET.SPEED.Temperature.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), pCtrl->BGNET.SPEED.STW.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), pCtrl->BGNET.SPEED.STW.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedMAX.source), pCtrl->BGNET.SPEED.SpeedMAX.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedMAX.source), pCtrl->BGNET.SPEED.SpeedMAX.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "QUAD/SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedAVG.source), pCtrl->BGNET.SPEED.SpeedAVG.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedAVG.source), pCtrl->BGNET.SPEED.SpeedAVG.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "QUAD/SPEED: TIMER", "Timer value (since reset) [HH:MM:SS]", pCtrl->BGNET.SPEED.TIMER.Counter.iCounter, t-pCtrl->BGNET.SPEED.TIMER.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TIMER.source), strTimerCalc(pCtrl, asciibuffer));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "SPEED: TIMER", "Timer value (since reset) [HH:MM:SS]", pCtrl->BGNET.SPEED.TIMER.Counter.iCounter, t-pCtrl->BGNET.SPEED.TIMER.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TIMER.source), strTimerCalc(pCtrl, asciibuffer));
+    strcat(Buffer, cLine);
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/DMP: Speed Damping", "Response time of speed value [s]", pCtrl->BGNET.SPEED.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.DMP.source), pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/CAL: Speed Calibration", "Adjustment of boatspeed against a know speed (manual)", pCtrl->BGNET.SPEED.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.CAL.source), pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/AUTOCAL: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.AUTOCAL.source), pCtrl->BGNET.SPEED.SETUP.AUTOCAL.value.nLong);
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->BGNET.ACP.COG.Counter.iCounter, t-pCtrl->BGNET.ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COG.source), pCtrl->BGNET.ACP.COG.value.nLong);
@@ -727,30 +734,27 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Source selection (0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW)", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/DMP: Speed Damping", "Response time of speed value [s]", pCtrl->BGNET.SPEED.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.DMP.source), pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth, uncalibrated [M]", pCtrl->BGNET.DEPTH.Depth_RAW.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_RAW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_RAW.source), pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/CAL: Speed Calibration", "Adjustment of boatspeed against a know speed (manual)", pCtrl->BGNET.SPEED.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.CAL.source), pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Calibrated Depth", "Depth [M]", pCtrl->BGNET.DEPTH.Depth_CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_CAL.source), pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "QUAD/SPEED/SETUP/AUTOCAL: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.AUTOCAL.source), pCtrl->BGNET.SPEED.SETUP.AUTOCAL.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/CAL", "Depth calibration (0= Depth from sensor, >0= depth from waterline, <0= depth from keel) [M]", pCtrl->BGNET.DEPTH.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.CAL.source), pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue);
     strcat(Buffer, cLine);
-
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SHALLOW ALARM: Alarm level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.SA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.SA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/SHALLOW ALARM: Alarm level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.SA_M.source), pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/SHALLOW ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.SA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.SA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.SA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/SETUP/SHALLOW ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.SA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.SA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.SA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/DEEP ALARM: Alarm level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.DA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.DA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.DA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.DA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/DEEP ALARM: Alarm level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.DA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.DA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.DA_M.source), pCtrl->BGNET.DEPTH.SETUP.DA_M.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/DEEP ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.DA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.DA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.DA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/SETUP/DEEP ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.DA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.DA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.DA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Alarm Shallow level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.ASA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.ASA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.ASA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/ANCHOR ALARM: Alarm Shallow level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.ASA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.ASA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.ASA_M.source), pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Alarm Deep level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.ADA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.ADA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.ADA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/ANCHOR ALARM: Alarm Deep level", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.ADA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.ADA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.ADA_M.source), pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/ANCHOR ALARM: Measured Depth at alarm activation", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AMA_M.source), ITOD(pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/ANCHOR ALARM: Alarm Reference", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AMA_M.source), pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/ANCHOR ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth [M]", pCtrl->BGNET.DEPTH.Depth.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth.source), pCtrl->BGNET.DEPTH.Depth.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/SETUP/ANCHOR ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte);
     strcat(Buffer, cLine);
 
     return(Buffer);

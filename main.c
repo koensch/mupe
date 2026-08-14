@@ -262,7 +262,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
     {0,                          "UNKNOWN BE",      0x00,       BGNET_TYPE_MASK,    0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN BF",      0x00,       BGNET_TYPE_MASK,    0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN C0",      0x00,       BGNET_TYPE_MASK,    0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_C1_DEPTHM,        "DEPTH M",         BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 128267,  ""},\
+    {BGNET_CHN_C1_DEPTH_RAW,     "DEPTH M (RAW)",   BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 128267,  ""},\
     {BGNET_CHN_C2_DEPTHFT,       "DEPTH FT",        BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_C3_DEPTHFM,       "DEPTH FM",        BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_C4_DEPTH,         "DEPTH",           BGN_FMT_01, BGNET_TYPE_NETQUAD, 0,     0,  "DEPTH M",     BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -330,7 +330,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
 // COMMAND Definition Table
 // If it exist (non-zero), it is a command known to us (and its meaning) and we have a label for it
 BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
-    {0,                          "UNKNOWN 00"},\
+    {0,                          "UNKNOWN 00"},
     {BGNET_CMD_01_DATA,          "BROADCAST DATA"},\
     {BGNET_CMD_02_LABEL,         "BROADCAST LABEL"},\
     {0,                          "UNKNOWN 03"},\
@@ -604,7 +604,7 @@ BGNET_FMTDT FMTDT[16] = {       {0x00, 2, "0 bytes, odd one (found on PILOT/NMEA
                                 {0x0A,-1, ""}, \
                                 {0x0B,-1, ""}, \
                                 {0x0C, 5, "3 bytes text (like 'INV')"}, \
-                                {0x0D,-1, ""}, \
+                                {0x0D, 6, "used to store anchor alarm level with 2 values"}, \
                                 {0x0E,-1, ""}, \
                                 {0x0F,-1, ""}
                             };
