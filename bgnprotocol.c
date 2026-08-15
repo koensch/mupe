@@ -54,7 +54,11 @@ unsigned char bgnet_command_type(FRAME_H* pF) {
 }
 
 #define BGNET_FRAME_ACKSEQ  0
-// when the ACKSEQ is a multple of 13 (0x0D) we see weird things:
+// There is some handshaking done between ACP and NETWORK nodes. These handshare commands have a 'Acknowledge Sequence Number' in their payload (byte 0).
+// When a 'Request Command' is send, the addressed node replies with a 'Data Command' and a 'Acknowledge Command'. If the 'Data Command' and 'Ack Command'
+// returns the correct sequence number, the requesting node knows that these reply belong to what request.
+// Usually the sequence number is incremented after use. Numbers should be in sequence.
+// But....... when the ACKSEQ is a multple of 13 (0x0D) we see weird things:
 // the 0A phenomenon: the next CMD-REQ/CMD-DAT/CMD-ACK handshake after 0x0C, we expect the ACKSEQ to be 0x0D, but we get 0x0A, causing a CS error. But if we
 //                    correct the CS-SEED, the PILOT does not accept our CMD-DAT reply. If we replace/patch the 0x0A with 0x0D in the received CMD-REQ, the
 //                    receiving frame's CS is OK and when we send a CMD-DAT with the ACKSEQ with the 0x0D, every thing seems fine.
@@ -62,17 +66,17 @@ unsigned char bgnet_command_type(FRAME_H* pF) {
 //                    0xEE (12x13=238=0xEE).
 //                    My guess is that the "0A phenomenon" is an instance of the "13 phenomenon" in disquise
 // If this behavour is intended (to confuse reverse-engineering), a bug or a work-around for some other phenomenon, i don't know.
-// I have deliberated to skip the CS checking entirely for every CMD-REQ/CMD-DAT/CMD-ACK sequence that follows a multiple of 12, but decided not to do so. This
+// I have considered to skip the CS checking all together for every CMD-REQ/CMD-DAT/CMD-ACK sequence that follows a multiple of 12, but decided not to do so. This
 // allows me to investigate CS errors and come up with a 100% solution
 //
 // what this routine does, is under certain conditions, replace a ACKSEQ (that is 0x0A) with a value of 0x0D. This seems to correct the phenomenon. Don't ask
-// me why.
+// me why this 'feature' exists........ It is what it is.
 unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H* pF) {
     // this phenomenon is observed with PILOT and QUAD modules
     switch (pF->FROM & BGNET_TYPE_MASK) {
         case BGNET_TYPE_NETPILOT:
         case BGNET_TYPE_NETQUAD:
-            switch (bgnet_command_type(pF)) {
+            switch (bgnet_command_type(pF)) { // put this in a seperate routine to avoid too much distraction here
                 // we observe this behaviour only with CMD-REQ and CMD-DTA commands
                 case BGNET_COMMANDTYPE_REQ:
                 case BGNET_COMMANDTYPE_DTA:
@@ -99,7 +103,8 @@ unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H* pF) {
                             pCtrl->BGNET.weird.ACKSEQ = pF->payload[BGNET_FRAME_ACKSEQ];
                         }
                     }
-                    // check the CS byte
+                    // check the CS byte. it seems that when 0x0D is the calculated CS, it's replaced it with 0x0A, causing again a CS error at our receiving end
+                    // so, when we receive a 0x0A checksum, we put back the 0x0D.
                     switch(pF->payload[pF->PL]) {
                         case 0x0A:
                             pF->payload[pF->PL] = 0x0D;
@@ -113,6 +118,16 @@ unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H* pF) {
 }
 
 // select the effective speed based on the speedselector and manual FST/MED/SLW selection
+// this is my own invention......
+// the reason is that i expect that this behaviour is taken care of by the SPEED or QUAD node
+// when in 'normal service' (ie in TRAnsmitter mode). But are we do (most likely) do not deal with
+// a SPEEDt/QUADt (who would still have a 40 years old transmitter in it's hull????). Most likely
+// we are dealing with a SPEEDr/QUADr so we need to come up with some logic to distribute the
+// signals we have to the repeater displays.
+// That is why i invented this logic.
+// - when we receive the SPEED/0x41 channel (from the NETWORK), we'll happy using it
+// - when we do not receive a SPEED/0x41 channel (and we have to send it to the NETWORK), we use the
+//   EBS for distribution.
 uint16_t EffectiveBoatSpeed(BGNET_CTRL* pCtrl, NMEA2K_VALUE *pV) {
     switch(pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte) {
         default:
@@ -423,13 +438,17 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_ACP;    // converted to HH, MM and SS
         CounterInit(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
 
-        pCtrl->BGNET.ACP.COG.value.nLong = 33;
+        pCtrl->BGNET.ACP.COG.value.nLong = 321;
         pCtrl->BGNET.ACP.COG.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.COG.Counter, t);
 
         pCtrl->BGNET.ACP.SOG.value.nLong = 22;
         pCtrl->BGNET.ACP.SOG.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.SOG.Counter, t);
+
+        pCtrl->BGNET.ACP.SOG_SEL.value.nByte = 0;
+        pCtrl->BGNET.ACP.SOG_SEL.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.SOG_SEL.Counter, t);
 
         // evaluate effective speed (do this AFTER SPD/TRA, MAN/SEL/FST/MED/SLW and SOG are initialized)
         pCtrl->BGNET.ACP.EBS_SEL.value.nByte = EffectiveBoatSpeed(pCtrl, &pCtrl->BGNET.ACP.EBS);
@@ -1061,7 +1080,7 @@ union CH* encode_value_ascii(union CH* pCH, unsigned char ucCH, unsigned char uc
     pCH->s.FMT = ucFMT;
     switch(ucFMT) {
         case BGN_FMT_04:
-            pCH->s.cv.uB[0] = 0;
+            pCH->s.cv.uB[0] = BGNET_ASC_NULL;
             pCH->s.cv.uB[1] = pcText[0];
             pCH->s.cv.uB[2] = pcText[1];
             pCH->s.cv.uB[3] = pcText[2];
@@ -1569,6 +1588,23 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, FRAME_H* pF) {
                     pCtrl->BGNET.SPEED.TripLogNM.value.nLong = ntohs(pCH->s.cv.uW[0]);
                     pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
+                    break;
+                case BGNET_CHN_EA_COGMAG :
+                    pCtrl->BGNET.ACP.COG.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.ACP.COG.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.ACP.COG.Counter, t);
+                    break;
+                case BGNET_CHN_EB_SOG:
+                    pCtrl->BGNET.ACP.SOG.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.ACP.SOG.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.ACP.SOG.Counter, t);
+                    if (pCtrl->BGNET.ACP.SOG_SEL.value.nByte == 0) {
+                        pCtrl->BGNET.ACP.SOG_SEL.value.nByte = 1;
+                        pCtrl->BGNET.ACP.SOG_SEL.source = BGN_SOURCE_BGNET;
+                        CounterUp(&pCtrl->BGNET.ACP.SOG_SEL.Counter, t);                                                                
+                    } else {
+                        // is already ON
+                    }
                     break;
             }
 
@@ -2798,7 +2834,10 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 // FB   is a valid CS
                                                                 // Because it's a broadcast, it should be relevant for all NETWORK attached units to switch something
                                                                 // OFF that has to do with the SOG
-                                                                // For the time being, i just log it.  
+                                                                // I think that it when a MANual speed is selected (FST/MED/SLW) the system should stop using the SOG
+                                                                // (that might be received via NMEA 0183 interface on the PILOT). For the very good reason, if the skipper
+                                                                // wanted to use the SOG, the MAN speed would never be selected (but the SOG instead). So i think that
+                                                                // this command is used to tell other nodes to stop using SOG (that might continue to be received)  
                                                                 pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                                 pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
                                                                 pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
@@ -2808,12 +2847,17 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
                                                                 CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
 
-                                                                if (pCHRx->s.FMT == BGNET_FMT_ON) {
-                                                                    // unknown action ON                                                                          pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
+                                                                if (pCHRx->s.FMT == BGNET_FMT_OFF) {
+                                                                    if (pCtrl->BGNET.ACP.SOG_SEL.value.nByte == 0) {
+                                                                        // is already OFF
+                                                                    } else {
+                                                                        pCtrl->BGNET.ACP.SOG_SEL.value.nByte = 0;
+                                                                        pCtrl->BGNET.ACP.SOG_SEL.source = BGN_SOURCE_BGNET;
+                                                                        CounterUp(&pCtrl->BGNET.ACP.SOG_SEL.Counter, t);                                                                
+                                                                    }
                                                                 } else {
-                                                                    // unknown action OFF
+                                                                    // Action to switch ON is when we receive the SOG channel                                                                          pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
                                                                 }
-                                                                //log_debug_frame(pFRx);
                                                                 break;
                                                         }
                                                         break;

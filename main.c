@@ -340,11 +340,11 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN 07"},\
     {0,                          "UNKNOWN 08"},\
     {0,                          "UNKNOWN 09"},\
-    {BGNET_CMD_0A_POWERUP,        "POWERUP"},\
+    {BGNET_CMD_0A_POWERUP,       "POWERUP"},\
     {0,                          "UNKNOWN 0B"},\
     {0,                          "UNKNOWN 0C"},\
     {0,                          "UNKNOWN 0D"},\
-    {BGNET_CMD_0E_PILOT_HELLO,    "PILOT HELLO"},\
+    {BGNET_CMD_0E_PILOT_HELLO,   "PILOT HELLO"},\
     {0,                          "UNKNOWN 0F"},\
     {0,                          "UNKNOWN 10"},\
     {0,                          "UNKNOWN 11"},\
@@ -362,9 +362,9 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN 1D"},\
     {0,                          "UNKNOWN 1E"},\
     {0,                          "UNKNOWN 1F"},\
-    {BGNET_CMD_20_PILOT_OCDAT,    "PILOT SETUP/OC/DAT"},\
-    {BGNET_CMD_21_PILOT_WADAT,    "PILOT SETUP/WA/DAT"},\
-    {0,                          "UNKNOWN 22"},\
+    {BGNET_CMD_20_PILOT_OCDAT,   "PILOT SETUP/OC/DAT"},\
+    {BGNET_CMD_21_PILOT_WADAT,   "PILOT SETUP/WA/DAT"},\
+    {BGNET_CMD_22_DEPTH_DADAT,   "DEPTH SETUP/DA/ONOFF"},\
     {0,                          "UNKNOWN 23"},\
     {0,                          "UNKNOWN 24"},\
     {0,                          "UNKNOWN 25"},\
@@ -507,7 +507,7 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN AE"},\
     {0,                          "UNKNOWN AF"},\
     {0,                          "UNKNOWN B0"},\
-    {BGNET_CMD_B1_PILOT_DELTADAT, "PILOT STEP/DELTA/DAT"},\
+    {BGNET_CMD_B1_PILOT_DELTADAT,"PILOT STEP/DELTA/DAT"},\
     {0,                          "UNKNOWN B2"},\
     {0,                          "UNKNOWN B3"},\
     {0,                          "UNKNOWN B4"},\
@@ -531,29 +531,29 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN C6"},\
     {0,                          "UNKNOWN C7"},\
     {0,                          "UNKNOWN C8"},\
-    {BGNET_CMD_C9_BACKLIGHT,      "LIGHTS"},\
-    {BGNET_CMD_CA_QUAD_TIMER,     "QUAD TIMER SET"},\
-    {BGNET_CMD_CB_QUAD_RESET,     "QUAD RESET REQ"}, \
+    {BGNET_CMD_C9_BACKLIGHT,     "LIGHTS"},\
+    {BGNET_CMD_CA_QUAD_TIMER,    "QUAD TIMER SET"},\
+    {BGNET_CMD_CB_QUAD_RESET,    "QUAD RESET REQ"}, \
     {0,                          "UNKNOWN CC"},\
-    {BGNET_CMD_CD_PILOT_DMPREQ,   "PILOT SETUP/DMP/REQ"},\
-    {BGNET_CMD_CE_PILOT_DMPDAT,   "PILOT SETUP/DMP/DAT"},\
-    {BGNET_CMD_CF_PILOT_MANREQ,   "PILOT SPEED/SETUP/REQ"},\
-    {BGNET_CMD_D0_PILOT_SPDREQ,   "PILOT SETUP/SPD/REQ"},\
-    {BGNET_CMD_D1_PILOT_RESPREQ,  "PILOT SETUP/RESP/REQ"},\
-    {BGNET_CMD_D2_PILOT_MANREQ,   "PILOT MAN SPEED/SETUP"},\
-    {BGNET_CMD_D3_PILOT_AM,       "PILOT AUTO/OFF KEY"},\
-    {BGNET_CMD_D4_PILOT_MODE,     "PILOT MODE KEY"},\
-    {BGNET_CMD_D5_PILOT_RESPDAT,  "PILOT SETUP/RESP/DAT"},\
-    {BGNET_CMD_D6_PILOT_SLWDAT,   "PILOT MAN SPEED/SETUP"},\
+    {BGNET_CMD_CD_PILOT_DMPREQ,  "PILOT SETUP/DMP/REQ"},\
+    {BGNET_CMD_CE_PILOT_DMPDAT,  "PILOT SETUP/DMP/DAT"},\
+    {BGNET_CMD_CF_PILOT_MANREQ,  "PILOT SPEED/SETUP/REQ"},\
+    {BGNET_CMD_D0_PILOT_SPDREQ,  "PILOT SETUP/SPD/REQ"},\
+    {BGNET_CMD_D1_PILOT_RESPREQ, "PILOT SETUP/RESP/REQ"},\
+    {BGNET_CMD_D2_PILOT_MANREQ,  "PILOT MAN SPEED/SETUP"},\
+    {BGNET_CMD_D3_PILOT_AM,      "PILOT AUTO/OFF KEY"},\
+    {BGNET_CMD_D4_PILOT_MODE,    "PILOT MODE KEY"},\
+    {BGNET_CMD_D5_PILOT_RESPDAT, "PILOT SETUP/RESP/DAT"},\
+    {BGNET_CMD_D6_PILOT_SLWDAT,  "PILOT MAN SPEED/SETUP"},\
     {0,                          "UNKNOWN D7"},\
     {0,                          "UNKNOWN D8"},\
     {0,                          "UNKNOWN D9"},\
     {0,                          "UNKNOWN DA"},\
     {0,                          "UNKNOWN DB"},\
-    {BGNET_CMD_DC_PILOT_STEPREQ,  "PILOT STEP/START/REQ"},\
-    {0,                          "UNKNOWN DD"},\
-    {BGNET_CMD_DE_PILOT_WAREQ,    "PILOT SETUP/WA/REQ"},\
-    {BGNET_CMD_DF_PILOT_OCREQ,    "PILOT SETUP/OC/REQ"},\
+    {BGNET_CMD_DC_PILOT_STEPREQ, "PILOT STEP/START/REQ"},\
+    {BGNET_CMD_DD_QUAD_SHAREQ,   "DEPTH SETUP/DA/REQ"},\
+    {BGNET_CMD_DE_PILOT_WAREQ,   "PILOT SETUP/WA/REQ"},\
+    {BGNET_CMD_DF_PILOT_OCREQ,   "PILOT SETUP/OC/REQ"},\
     {0,                          "UNKNOWN E0"},\
     {0,                          "UNKNOWN E1"},\
     {0,                          "UNKNOWN E2"},\
@@ -561,10 +561,10 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN E4"},\
     {0,                          "UNKNOWN E5"},\
     {0,                          "UNKNOWN E6"},\
-    {0,                                 "ALARM OFF"},\
-    {0,                                 "ALARM TOGGLE"},\
+    {0,                          "ALARM OFF"},\
+    {0,                          "ALARM TOGGLE"},\
     {0,                          "UNKNOWN E9"},\
-    {BGNET_CMD_EA_QUAD_AUTOCAL,   "SPEED AUTO CAL"},\
+    {BGNET_CMD_EA_QUAD_AUTOCAL,  "SPEED AUTO CAL"},\
     {0,                          "UNKNOWN EB"},\
     {0,                          "UNKNOWN EC"},\
     {0,                          "UNKNOWN ED"},\
@@ -583,7 +583,7 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN FA"},\
     {0,                          "UNKNOWN FB"},\
     {0,                          "UNKNOWN FC"},\
-    {BGNET_CMD_ACK,               "COMMAND ACK"},\
+    {BGNET_CMD_ACK,              "COMMAND ACK"},\
     {0,                          "UNKNOWN FE"},\
     {0,                          "UNKNOWN FF"}
 };
@@ -604,7 +604,7 @@ BGNET_FMTDT FMTDT[16] = {       {0x00, 2, "0 bytes, odd one (found on PILOT/NMEA
                                 {0x0A,-1, ""}, \
                                 {0x0B,-1, ""}, \
                                 {0x0C, 5, "3 bytes text (like 'INV')"}, \
-                                {0x0D, 6, "used to store anchor alarm level with 2 values"}, \
+                                {0x0D, 6, "used to store ANC alarm level with 2 values"}, \
                                 {0x0E,-1, ""}, \
                                 {0x0F,-1, ""}
                             };
@@ -636,6 +636,7 @@ int main(void)
 
     gethostname(cHostName, sizeof(cHostName));
     log_info("Starting %s on %s (%d bits)", ApplicationName, cHostName, (sizeof(char*)*__CHAR_BIT__));
+    // we were trying to get the GIT reference info into our executable, but that does not work as intended (yet)
     //log_info("version %s", GITREF);
 
     //allocate space for shared data
@@ -658,6 +659,7 @@ int main(void)
     app_state_init();
 
     // activate all out threads
+    // we allow the threads to be excluded for diagnostic purposes
     pthread_t th_serial, th_ethernet, th_timer, th_web, th_nmea2k;
     if (
            (
@@ -689,9 +691,7 @@ int main(void)
     // Run forever. If needed, we can do some bookkeeping now and then. Loop exit via signal handler
     while(g_running) {
         sleep(1);
-        //pthread_mutex_lock(&g_data_mutex);
-        //bgnet_initialize(pBGNET_ctrl);
-        //pthread_mutex_unlock(&g_data_mutex);
+        // at this moment we have no need for doing someting here
     }
 
     // deactivate threads
@@ -711,7 +711,7 @@ int main(void)
     pthread_join(th_nmea2k, NULL);
 #endif
 
-    // print report
+    // print close-out report. I used this before i got the webserver running, but i have no longer a need for this. Leave it in for the time being
     log_info("Statistics report");
     log_info("   FROM       CounterRx    CounterTx  DeviceType");
     for (i=0; i<BGNET_DEVICE_MAX; i++) {
@@ -738,6 +738,10 @@ int main(void)
         }
     }
     log_info("End of report");
+
+    // here i want to implement a feature that stores the non-transient data into a file "eeprom.json", that we can read at startup.
+    // we could preserve user settings over restarts, reboots and shutdowns.
+    // At this point i expect more settings going forward, so i pospone this implementation when all work is done
 
     // free allocated memory
     free(pBGNET_ctrl);

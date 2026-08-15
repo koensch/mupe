@@ -695,6 +695,7 @@ typedef struct {
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
         NMEA2K_VALUE COG;
         NMEA2K_VALUE SOG;
+        NMEA2K_VALUE SOG_SEL;
         NMEA2K_VALUE SHA_ALARM;
         NMEA2K_VALUE DEEP_ALARM;     // WIND Selection Type (0=T, 1 =A)
     } ACP;

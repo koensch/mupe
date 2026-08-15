@@ -41,33 +41,29 @@ void app_state_init(void)
     // erase datablock
     memset(&g_n2kdata, 0, sizeof(g_n2kdata));
 
-        NMEAinit(&g_n2kdata.pos.lat, t);
-        NMEAinit(&g_n2kdata.pos.lon, t);
-        NMEAinit(&g_n2kdata.pos.alt, t);
-        NMEAinit(&g_n2kdata.pos.cog, t);
-        NMEAinit(&g_n2kdata.pos.sog, t);
+    NMEAinit(&g_n2kdata.pos.lat, t);
+    NMEAinit(&g_n2kdata.pos.lon, t);
+    NMEAinit(&g_n2kdata.pos.alt, t);
+    NMEAinit(&g_n2kdata.pos.cog, t);
+    NMEAinit(&g_n2kdata.pos.sog, t);
 
-        NMEAinit(&g_n2kdata.boat.stw, t);
-        NMEAinit(&g_n2kdata.boat.depth, t);
-        NMEAinit(&g_n2kdata.boat.seatemp, t);
-        NMEAinit(&g_n2kdata.boat.rudder, t);
-        NMEAinit(&g_n2kdata.boat.headingM, t);
-        NMEAinit(&g_n2kdata.boat.headingT, t);
+    NMEAinit(&g_n2kdata.boat.stw, t);
+    NMEAinit(&g_n2kdata.boat.depth, t);
+    NMEAinit(&g_n2kdata.boat.seatemp, t);
+    NMEAinit(&g_n2kdata.boat.rudder, t);
+    NMEAinit(&g_n2kdata.boat.headingM, t);
+    NMEAinit(&g_n2kdata.boat.headingT, t);
 
-        NMEAinit(&g_n2kdata.wind.twa, t);
-        NMEAinit(&g_n2kdata.wind.tws, t);
-        NMEAinit(&g_n2kdata.wind.awa, t);
-        NMEAinit(&g_n2kdata.wind.aws, t);
-        NMEAinit(&g_n2kdata.wind.airtemp, t);
-        NMEAinit(&g_n2kdata.wind.baro, t);
+    NMEAinit(&g_n2kdata.wind.twa, t);
+    NMEAinit(&g_n2kdata.wind.tws, t);
+    NMEAinit(&g_n2kdata.wind.awa, t);
+    NMEAinit(&g_n2kdata.wind.aws, t);
+    NMEAinit(&g_n2kdata.wind.airtemp, t);
+    NMEAinit(&g_n2kdata.wind.baro, t);
 
-        NMEAinit(&g_n2kdata.pilot.cts, t);
-        NMEAinit(&g_n2kdata.pilot.triplog, t);
-        NMEAinit(&g_n2kdata.pilot.vmg, t);
-
-
-
-
+    NMEAinit(&g_n2kdata.pilot.cts, t);
+    NMEAinit(&g_n2kdata.pilot.triplog, t);
+    NMEAinit(&g_n2kdata.pilot.vmg, t);
 }
 
 void app_state_shutdown(void)
