@@ -17,7 +17,7 @@
 #define BGNET_COMMANDTYPE_DTA   2
 #define BGNET_COMMANDTYPE_ACK   3
 #define BGNET_COMMANDTYPE_NORM  0
-unsigned char bgnet_command_type(FRAME_H* pF) {
+unsigned char bgnet_command_type(FRAME_H *pF) {
     unsigned char r;
     switch(pF->CMD) {
         case BGNET_CMD_CA_QUAD_TIMER:
@@ -71,7 +71,7 @@ unsigned char bgnet_command_type(FRAME_H* pF) {
 //
 // what this routine does, is under certain conditions, replace a ACKSEQ (that is 0x0A) with a value of 0x0D. This seems to correct the phenomenon. Don't ask
 // me why this 'feature' exists........ It is what it is.
-unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H* pF) {
+unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     // this phenomenon is observed with PILOT and QUAD modules
     switch (pF->FROM & BGNET_TYPE_MASK) {
         case BGNET_TYPE_NETPILOT:
@@ -119,16 +119,16 @@ unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H* pF) {
 
 // select the effective speed based on the speedselector and manual FST/MED/SLW selection
 // this is my own invention......
-// the reason is that i expect that this behaviour is taken care of by the SPEED or QUAD node
-// when in 'normal service' (ie in TRAnsmitter mode). But are we do (most likely) do not deal with
+// The reason is that i expect that this behaviour is taken care of by the SPEED or QUAD node
+// when in 'normal service' (ie in TRAnsmitter mode). But we do (most likely) not deal with
 // a SPEEDt/QUADt (who would still have a 40 years old transmitter in it's hull????). Most likely
 // we are dealing with a SPEEDr/QUADr so we need to come up with some logic to distribute the
-// signals we have to the repeater displays.
+// signals we have to the repeater displays (to mimic the SPEEDt/QUADt behaviour)
 // That is why i invented this logic.
 // - when we receive the SPEED/0x41 channel (from the NETWORK), we'll happy using it
 // - when we do not receive a SPEED/0x41 channel (and we have to send it to the NETWORK), we use the
 //   EBS for distribution.
-uint16_t EffectiveBoatSpeed(BGNET_CTRL* pCtrl, NMEA2K_VALUE *pV) {
+uint16_t EffectiveBoatSpeed(BGNET_CTRL *pCtrl, NMEA2K_VALUE *pV) {
     switch(pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte) {
         default:
         case BGNET_SPD_TRA:
@@ -162,14 +162,14 @@ unsigned char bgnet_checksum(unsigned char *pBuf, unsigned char init, int start,
     }
     return (c);
 }
-unsigned char bgnet_checksum_head_calc(FRAME_H* pF) {
-    return(bgnet_checksum((unsigned char*)pF, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1));
+unsigned char bgnet_checksum_head_calc(FRAME_H *pF) {
+    return(bgnet_checksum((unsigned char *)pF, BGNET_FRAME_CR_HEAD, 0, BGNET_FRAME_HEAD-1));
 }
-unsigned char bgnet_checksum_frame_calc(FRAME_H* pF) {
+unsigned char bgnet_checksum_frame_calc(FRAME_H *pF) {
     return(bgnet_checksum(pF->payload, BGNET_FRAME_CR_FRAME, 0, pF->PL));
 }
 #define BGNET_CHECKSUM_OK   0x01
-unsigned char bgnet_checksum_head_check(FRAME_H* pF) {
+unsigned char bgnet_checksum_head_check(FRAME_H *pF) {
     unsigned char r, cs;
     cs = bgnet_checksum_head_calc(pF);
     if (pF->CSH == cs) {
@@ -180,7 +180,7 @@ unsigned char bgnet_checksum_head_check(FRAME_H* pF) {
     }
     return(r);
 }
-unsigned char bgnet_checksum_frame_check(BGNET_CTRL* pCtrl, FRAME_H* pF) {
+unsigned char bgnet_checksum_frame_check(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     unsigned char r, cs;
     r = ~BGNET_CHECKSUM_OK;
     bgnet_weird_seed(pCtrl, pF); // we are doing something weird
@@ -194,7 +194,7 @@ unsigned char bgnet_checksum_frame_check(BGNET_CTRL* pCtrl, FRAME_H* pF) {
 }
 
 // get the index for the devicetype we are looking for
-int bgnet_deviceindex(BGNET_CTRL* pCtrl, unsigned char ucDevAddr) {
+int bgnet_deviceindex(BGNET_CTRL *pCtrl, unsigned char ucDevAddr) {
     int i,r;
     r=0; // no match is not found (return index 0, first device. Lookup is done from index 1)
     for (i=1; i<BGNET_TYPE_MAX; i++) {
@@ -224,7 +224,7 @@ void CounterUp(BGNET_COUNT *Counter, time_t t) {
     Counter->tTimestamp = t;
 }
 // initialize a NMEA value
-void NMEAinit(NMEA2K_VALUE* pNMEA, time_t t) {
+void NMEAinit(NMEA2K_VALUE *pNMEA, time_t t) {
     pNMEA->source = BGN_SOURCE_NONE;
     pNMEA->value.nLong = 0;
     pNMEA->value.dValue = 0.0;
@@ -238,9 +238,9 @@ void log_debug_buffer(unsigned char *pBuf, size_t y) {
     log_debug("log_debug_buffer: %d bytes -> %s", y, asciibuf);
 }
 // used by log (dump a frame)
-void log_debug_frame(FRAME_H* pF) {
+void log_debug_frame(FRAME_H *pF) {
     char asciibuf[BGN_FRAME_SIZE];
-    byte2ascii(asciibuf, sizeof(asciibuf), (unsigned char*)pF, bgnet_sizeof_frame(pF), BYTE2ASCII_SPACED);
+    byte2ascii(asciibuf, sizeof(asciibuf), (unsigned char *)pF, bgnet_sizeof_frame(pF), BYTE2ASCII_SPACED);
     log_debug("log_debug_frame: Command 0x%02X -> %s", pF->CMD, asciibuf);
 }
 
@@ -252,15 +252,15 @@ void bgnet_initialize_reset(BGNET_CTRL *pCtrl) {
 }
 
 // worker routine to convert the timer into HH:MM:SS
-// timer runs to 99:59:59 maximum (= 100x3600-1 = 360000-1). Observe that TIMER channel 0x75 carries the timer value as 3
+// timer runs to 99:59:59 maximum (= 100x3600-1 or 360000-1). Observe that TIMER channel 0x75 carries the timer value as 3
 // seperate bytes and does not hit the limit of a 16bits unsigned integer (65.535)
 time_t tTimerCalc(BGNET_CTRL *pCtrl, unsigned char *pHH, unsigned char *pMM, unsigned char *pSS) {
     time_t r;
     r = BGNET_MIN(pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pCtrl->BGNET.SPEED.TIMER.value.tTime, 360000-1);
     // do not write if there is a NULL pointer
-    if (pHH!=NULL) *pHH = labs(r/3600) % 24;
-    if (pMM!=NULL) *pMM = labs(r/60) % 60;
-    if (pSS!=NULL) *pSS = labs(r) % 60;
+    if (pHH != NULL) *pHH = labs(r/3600) % 24;
+    if (pMM != NULL) *pMM = labs(r/60) % 60;
+    if (pSS != NULL) *pSS = labs(r) % 60;
     return(r);
 }
 // return the TIMER value as a formatted string
@@ -332,7 +332,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.SETUP.RESP.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SETUP.RESP.Counter, t);
 
-        // only visible when bit 4 in MODE byte is set
+        // only visible when bit 4 in MODE byte is set (undocumented feature)
         pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte = 0;
         pCtrl->BGNET.PILOT.SETUP.WIND_SEL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter, t);
@@ -410,7 +410,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
 
-        pCtrl->BGNET.SPEED.DRD.value.nLong = 123; // resetable with DND-RESET)
+        pCtrl->BGNET.SPEED.DRD.value.nLong = 113; // resetable with DND-RESET
         pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.DRD.Counter, t);
 
@@ -576,7 +576,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
 };
 
 // get the command label from the Command Definition Table
-char* strCommandLabel(BGNET_CTRL *pCtrl, char *pBuf, unsigned char ucCMD) {
+char *strCommandLabel(BGNET_CTRL *pCtrl, char *pBuf, unsigned char ucCMD) {
     if (pCtrl->pCMDDT[ucCMD].ucCommandIndex == ucCMD) {
         strcpy(pBuf, pCtrl->pCMDDT[ucCMD].cLabel);
     } else {
@@ -586,7 +586,7 @@ char* strCommandLabel(BGNET_CTRL *pCtrl, char *pBuf, unsigned char ucCMD) {
 };
 
 // get the channel label from the Channel Definition Table
-char* strChannelLabel(BGNET_CTRL *pCtrl, char *pBuf, unsigned char ucCHN) {
+char *strChannelLabel(BGNET_CTRL *pCtrl, char *pBuf, unsigned char ucCHN) {
     if (pCtrl->pCHNDT[ucCHN].ucChannelIndex == ucCHN) {
         strcpy(pBuf, pCtrl->pCHNDT[ucCHN].cName);
     } else {
@@ -596,7 +596,7 @@ char* strChannelLabel(BGNET_CTRL *pCtrl, char *pBuf, unsigned char ucCHN) {
 };
 
 // encode a frame (with or without payload)
-size_t bgnet_encode_frame(FRAME_H* pFH, int iTo, int iFrom, int iCmd, unsigned char *payload, int payloadlength) {
+size_t bgnet_encode_frame(FRAME_H *pFH, int iTo, int iFrom, int iCmd, unsigned char *payload, int payloadlength) {
     pFH->TO = iTo;
     pFH->FROM = iFrom;
     pFH->PL = payloadlength;
@@ -613,7 +613,7 @@ size_t bgnet_encode_frame(FRAME_H* pFH, int iTo, int iFrom, int iCmd, unsigned c
 
 // decode a double value from a numerical type (FMT_01, FMT_08, FMT_0D) channel. Note that
 // FMT_0D has 2x 16 bits registers (used for ANC alarm setting)
-double decode_channel_double(union CH* pCH, int iX) {
+double decode_channel_double(union CH *pCH, int iX) {
     double dR=-9999.99, dD;
     int iD;
     double dDivisor[4] = {1.0, 10.0, 100.0, 1000.0};
@@ -644,7 +644,7 @@ double decode_channel_double(union CH* pCH, int iX) {
 }
 
 // encode a double value into a numerical type (FMT 01, 08) channel
-size_t encode_channel_double(BGNET_CTRL* pCtrl, union CH* pCH, unsigned char ucCH, unsigned char ucFMT, double dV, int iX) {
+size_t encode_channel_double(BGNET_CTRL *pCtrl, union CH *pCH, unsigned char ucCH, unsigned char ucFMT, double dV, int iX) {
     uint8_t uD, uP;  // DIVisor and PADding
     uint16_t uW; // unsigned 16-bit register
     size_t sChannelSize;
@@ -707,16 +707,16 @@ size_t encode_channel_double(BGNET_CTRL* pCtrl, union CH* pCH, unsigned char ucC
 }
 
 // this one usually sends 8 channels
-int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
-    int r=0, c;
-    union CH* puCH;
+int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    int r = 0, c;
+    union CH *puCH;
 
     c = BGNET_CHN_41_STW;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.STW.value.dValue, 0);
 
     c = BGNET_CHN_42_STWRAW;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, 22.5, 0);
 
     //puCH->s.CH = c;
@@ -728,45 +728,45 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
     // but that is too complex at this moment. Later i will build a rotating scheme.
 
     c = BGNET_CHN_CD_STORLOG;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uL[0] = htonl(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_64_SPEEDAVG;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.SpeedAVG.value.dValue, 0);
 
     c = BGNET_CHN_65_SPEEDMAX;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.SpeedMAX.value.dValue, 0);
 
     // the next values are always present 
 
     c = BGNET_CHN_81_DRD;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.DRD.value.nLong); 
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
  
     c = BGNET_CHN_CF_TRIPLOG;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.TripLogNM.value.nLong); 
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_D3_DRC;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.DRC.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_20_SEATEMPQ;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     //puCH->s.CH = c;
     //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     //puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.Temperature.value.nLong); 
@@ -774,7 +774,7 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.Temperature.value.dValue, 0);
 
     c = BGNET_CHN_75_TIMER;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     tTimerCalc(pCtrl, &puCH->s.cv.uB[0], &puCH->s.cv.uB[1], &puCH->s.cv.uB[2]); // HH:MM:SS
@@ -783,12 +783,12 @@ int makeSPEEDresponse(BGNET_CTRL* pCtrl, unsigned char* payload) {
     return(r);
 }
 // this one usually sends 4 channels
-int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0, c;
-    union CH* puCH;
+    union CH *puCH;
 
     c = BGNET_CHN_31_ECHO_SNR;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uC[0] = BGNET_ASC_NULL; 
@@ -801,7 +801,7 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     // but that is too complex at this moment. Later i will build a rotating scheme.
 
     c = BGNET_CHN_FC_SHALLOWALARM;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     if (pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte == 0) {
         puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -815,7 +815,7 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_FD_DEEPALARM;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     if (pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte == 0) {
         puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -831,7 +831,7 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     // with the ANCHOR alarm we have to rotate the 2 values, too complex at this stage; we just show ON
     // also: remember that AA is RELATIVE to the depth at the moment of setting; show the effective depths
     c = BGNET_CHN_FE_ANCHORALARM;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     if (pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte == 0) {
         puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -857,14 +857,14 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     // the next values are always present 
 
     c = BGNET_CHN_FF_DEPTH_CAL;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(4); 
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_C4_DEPTH;  // displayed on QUAD
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     //puCH->s.CH = c;
     //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     //puCH->s.cv.sW[0] = htons(pCtrl->BGNET.DEPTH.Depth.value.nLong); 
@@ -872,7 +872,7 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue, 0);
 
     c = BGNET_CHN_C1_DEPTHRAW;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     //puCH->s.CH = c;
     //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     //puCH->s.cv.sW[0] = htons(22); 
@@ -882,12 +882,12 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     return(r);
 }
 
-int makeACPresponseCTARGET(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeACPresponseCTARGET(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
-    union CH* puCH;
+    union CH *puCH;
 
     c = BGNET_CHN_A6_AP_CTS;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
@@ -895,12 +895,12 @@ int makeACPresponseCTARGET(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
     return(r);
 }
-int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
-    union CH* puCH;
+    union CH *puCH;
 
     c = BGNET_CHN_B5_AP_STATUS;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uB[0] = pCtrl->BGNET.ACP.STATE.value.nByte; // AUTO/STBY
@@ -916,7 +916,7 @@ int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char* payload) {
     // To prevent this nuiseance we include the CTARGET when we are in AUTO
     if (puCH->s.cv.uB[0] == BGN_AP_MODE1_AUTO) {
         c = BGNET_CHN_A6_AP_CTS;
-        puCH = (union CH*)&(payload[r]);
+        puCH = (union CH *)&(payload[r]);
         puCH->s.CH = c;
         puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
         puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
@@ -925,12 +925,12 @@ int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
     return(r);
 }
-int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
-    union CH* puCH;
+    union CH *puCH;
 
     c = BGNET_CHN_B5_AP_STATUS;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uB[0] = pCtrl->BGNET.ACP.STATE.value.nByte; // AUTO/STBY
@@ -942,7 +942,7 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char* payload) {
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_0B_RUDDER;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
@@ -950,7 +950,7 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
     // when in STBY, the display shows the HEADING (compass reading)
     c = BGNET_CHN_49_HEADING;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.Heading.value.nLong);
@@ -958,7 +958,7 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
     // when in AUTO, the display shows the COURSE TARGET (setpoint for the autopilot)
     c = BGNET_CHN_A6_AP_CTS;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
@@ -972,12 +972,12 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char* payload) {
 // At minimum, it should receive the AP_STATUS reply (via a DATA command) and
 // PILOT come alive. It needs more data to be functional (but that is
 // another ballgame)
-int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
-    union CH* puCH;
+    union CH *puCH;
 
     c = BGNET_CHN_B5_AP_STATUS;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uB[0] = pCtrl->BGNET.ACP.STATE.value.nByte; // AUTO/STBY
@@ -985,7 +985,7 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_0B_RUDDER;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
@@ -993,7 +993,7 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
     // when in STBY, the display shows the HEADING (compass reading)
     c = BGNET_CHN_49_HEADING;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.Heading.value.nLong);
@@ -1001,28 +1001,28 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
     // when in AUTO, the diplay shows the COURSE TARGET (set of the autopilot)
     c = BGNET_CHN_A6_AP_CTS;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
  
     c = BGNET_CHN_51_AWA;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(100);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_59_TWA;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(102);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_EE_XTE;
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(-57);
@@ -1040,14 +1040,14 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
             break;
         case (BGN_AP_MODE2_NAV & BGN_AP_MODE2_MASK_MODE):
             c = BGNET_CHN_A7_AP_WPB;
-            puCH = (union CH*)&(payload[r]);
+            puCH = (union CH *)&(payload[r]);
             puCH->s.CH = c;
             puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
             puCH->s.cv.sW[0] = htons(123);
             r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
             c = BGNET_CHN_E8_WPD;
-            puCH = (union CH*)&(payload[r]);
+            puCH = (union CH *)&(payload[r]);
             puCH->s.CH = c;
             puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
             puCH->s.cv.sW[0] = htons(333);
@@ -1062,7 +1062,7 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char* payload) {
 }
 
 // timer channel (FMT_03, channel 0x75 only)
-union CH* encode_value_timer(union CH* pCH, unsigned char ucCH, unsigned char ucFMT, uint8_t HH, uint8_t MM, uint8_t SS) {
+union CH *encode_value_timer(union CH *pCH, unsigned char ucCH, unsigned char ucFMT, uint8_t HH, uint8_t MM, uint8_t SS) {
     pCH->s.CH = ucCH;
     pCH->s.FMT = ucFMT;
     switch(ucFMT) {
@@ -1075,7 +1075,7 @@ union CH* encode_value_timer(union CH* pCH, unsigned char ucCH, unsigned char uc
     return(pCH);
 }
 // ascii channel (FMT_04, various channels) please be so kind to specify atleast 3 characters
-union CH* encode_value_ascii(union CH* pCH, unsigned char ucCH, unsigned char ucFMT, char* pcText) {
+union CH *encode_value_ascii(union CH *pCH, unsigned char ucCH, unsigned char ucFMT, char *pcText) {
     pCH->s.CH = ucCH;
     pCH->s.FMT = ucFMT;
     switch(ucFMT) {
@@ -1089,12 +1089,12 @@ union CH* encode_value_ascii(union CH* pCH, unsigned char ucCH, unsigned char uc
     return(pCH);
 }
 
-int makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
-    union CH* puCH;
+    union CH *puCH;
 
     c = BGNET_CHN_A6_AP_CTS; // RESP selector
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uB[0] = 0;
@@ -1103,11 +1103,11 @@ int makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
 
     return (r);
 }
-int makeWAresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeWAresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
-    union CH* puCH;
+    union CH *puCH;
     c = BGNET_CHN_76_AP_WA_ALARM; // WA limit (minutes) and ON/OFF status
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     if (pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong == 0) {
         puCH->s.FMT = BGN_FMT_08 ;
@@ -1118,11 +1118,11 @@ int makeWAresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
     return (r);
 }
-int makeOCresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
+int makeOCresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
-    union CH* puCH;
+    union CH *puCH;
     c = BGNET_CHN_AF_AP_OC_ALARM; // OC limit (degress) amd ON/OFF status
-    puCH = (union CH*)&(payload[r]);
+    puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     if (pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong == 0) {
         puCH->s.FMT = BGN_FMT_08 ;
@@ -1133,19 +1133,19 @@ int makeOCresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
     return (r);
 }
-//int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
+//int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
 //    int r = 0,c;
-//    union CH* puCH;
+//    union CH *puCH;
 
 //    c = BGNET_CHN_41_BOATSPEEDKT;
-//    puCH = (union CH*)&(payload[r]);
+//    puCH = (union CH *)&(payload[r]);
 //    puCH->s.CH = c;
 //    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
 //    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.Speed.value.nLong);
 //    r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
 //    c = BGNET_CHN_EB_SOGKT;
-//    puCH = (union CH*)&(payload[r]);
+//    puCH = (union CH *)&(payload[r]);
 //    puCH->s.CH = c;
 //    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
 //    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.SOG.value.nLong);
@@ -1158,7 +1158,7 @@ int makeOCresponse(BGNET_CTRL *pCtrl, unsigned char* payload) {
 // We scan through the data stored by the frame decoder.
 // If we want to generate some output for transmission, put the frame in the transmission buffer
 // (at this moment we see no need to do such thing)
-size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
+size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
     int i;
     size_t r;
     uint8_t ebs_sel;
@@ -1292,7 +1292,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char* buffer, size_t size) {
 };
 
 // returns the length of a frame/subframe
-size_t bgnet_sizeof_frame(FRAME_H* pF) {
+size_t bgnet_sizeof_frame(FRAME_H *pF) {
     size_t r;
     if (pF->PL == 0) {
         r = BGNET_FRAME_HEAD;
@@ -1303,7 +1303,7 @@ size_t bgnet_sizeof_frame(FRAME_H* pF) {
 }
 
 // returns the length of a channel block; it all depends on the FMT specifier (in the FMT Definition Table).
-size_t bgnet_sizeof_channel(BGNET_CTRL* pCtrl, union CH* pCH) {
+size_t bgnet_sizeof_channel(BGNET_CTRL *pCtrl, union CH *pCH) {
     int r,i,n;
     unsigned char ucFMT;
     char asciibuf[32];
@@ -1334,7 +1334,7 @@ size_t bgnet_sizeof_channel(BGNET_CTRL* pCtrl, union CH* pCH) {
         } else {
             // the value is unknown, i just make a guess. 4 is better than zero or -1
             r = 4; // just a guess
-            byte2ascii(asciibuf, sizeof(asciibuf), (unsigned char*)pCH, r, BYTE2ASCII_SPACED);
+            byte2ascii(asciibuf, sizeof(asciibuf), (unsigned char *)pCH, r, BYTE2ASCII_SPACED);
             log_error("Channel %s, invalid FMT specifier", asciibuf);
         }
     }
@@ -1347,7 +1347,7 @@ size_t bgnet_sizeof_channel(BGNET_CTRL* pCtrl, union CH* pCH) {
 // but also to paint frames into the webpages
 // it converts to a string like "0F00AC", "0F 00 AC" or "0x0F 0x00 0x0AC". Realise that the produced
 // string my be much longer that the original byte sequence.
-char* CommandToAscii(char* asciibuf, size_t size, FRAME_H* pF) {
+char *CommandToAscii(char *asciibuf, size_t size, FRAME_H *pF) {
     int n;
     size_t y;
     char cTail[BGN_CMD_ASCII];
@@ -1358,15 +1358,15 @@ char* CommandToAscii(char* asciibuf, size_t size, FRAME_H* pF) {
         y = bgnet_sizeof_frame(pF);
         if (y*BYTE2ASCII_SPACED < size) {
             // it fits, just copy it all
-            byte2ascii(asciibuf, size, (unsigned char*)pF, y, BYTE2ASCII_SPACED);
+            byte2ascii(asciibuf, size, (unsigned char *)pF, y, BYTE2ASCII_SPACED);
         } else {
             // we use a 7-character separation string: " /.../ " to avoid excessive long output
             // we also copy the first 10 (5 header with CS + 5 first data) and the tail (5 last data + CS = 6 bytes)
             // 6 bytes tail = 18 ascii characters
             n = (sizeof(cTail) - strlen(BGN_CMD_ASCII_SEP))/BYTE2ASCII_SPACED; // we have ascii space for 'n' databytes
-            byte2ascii(asciibuf, size, (unsigned char*)pF, n-BGN_CMD_DATA_TAIL, BYTE2ASCII_SPACED);
+            byte2ascii(asciibuf, size, (unsigned char *)pF, n-BGN_CMD_DATA_TAIL, BYTE2ASCII_SPACED);
             strcat(asciibuf, BGN_CMD_ASCII_SEP); // append separator
-            byte2ascii(cTail, sizeof(cTail), ((unsigned char*)(pF))+y-BGN_CMD_DATA_TAIL, BGN_CMD_DATA_TAIL, BYTE2ASCII_SPACED);
+            byte2ascii(cTail, sizeof(cTail), ((unsigned char *)(pF))+y-BGN_CMD_DATA_TAIL, BGN_CMD_DATA_TAIL, BYTE2ASCII_SPACED);
             strcat(asciibuf, cTail);
         }
     }
@@ -1376,7 +1376,7 @@ char* CommandToAscii(char* asciibuf, size_t size, FRAME_H* pF) {
 // returns a string representation of a channel value
 // numeric: do not call this against non-numeric FMT's. Returns a numeric you can use in calculations
 // string: use this to display values (ascii, numeric, time, whatever)
-int decode_channel_numeric(union CH* puCH) {
+int decode_channel_numeric(union CH *puCH) {
     int iRawValue;
     switch(puCH->s.FMT & BGNET_FMT_DT) {
         case BGN_FMT_01: // signed 16bit register (-999 to +999)
@@ -1394,7 +1394,7 @@ int decode_channel_numeric(union CH* puCH) {
     }
     return(iRawValue);
 }
-char* decode_channel_string(char* pStr, union CH* puCH) {
+char *decode_channel_string(char *pStr, union CH *puCH) {
     int iRawValue;
     int iValid; // 0= invalid DataType, set to "???"
                 // 1= Numerical, convert RawValue byte sequence (with optional scaling)
@@ -1484,9 +1484,9 @@ char* decode_channel_string(char* pStr, union CH* puCH) {
 
 // sometimes we send a DATA frame, but that is not registered (because we not process our own commands)
 // using this function we can make them into our status page. we only expect single-frame data
-size_t register_DATA_frame(BGNET_CTRL *pCtrl, FRAME_H* pF) {
-    unsigned char* pucP; // character pointer inside the payload
-    union CH* pCH;
+size_t register_DATA_frame(BGNET_CTRL *pCtrl, FRAME_H *pF) {
+    unsigned char *pucP; // character pointer inside the payload
+    union CH *pCH;
     size_t y, z;
     time_t t;
 
@@ -1496,7 +1496,7 @@ size_t register_DATA_frame(BGNET_CTRL *pCtrl, FRAME_H* pF) {
     if (pF->CMD == BGNET_CMD_01_DATA ) {
         pucP = pF->payload;
         while (pucP < (pF->payload + pF->PL)) {
-            pCH = (union CH*)pucP;
+            pCH = (union CH *)pucP;
             y = bgnet_sizeof_channel(pCtrl, pCH);
             pCtrl->CHN[pCH->s.CH].iNewChannel = BGN_NEW_SET;
             pCtrl->CHN[pCH->s.CH].x01.ucFROM = pF->FROM;
@@ -1511,10 +1511,10 @@ size_t register_DATA_frame(BGNET_CTRL *pCtrl, FRAME_H* pF) {
 }
 
 // routine to process values in the body. A body might contain multiple values
-int decode_command_DATA(BGNET_CTRL* pCtrl, FRAME_H* pF) {
+int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     int y,z;
     unsigned char *pBuf;
-    union CH* pCH;
+    union CH *pCH;
     time_t t;  // used to timestamp incoming channel
 
     pBuf = pF->payload;
@@ -1522,14 +1522,14 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, FRAME_H* pF) {
     time(&t);
     // scan through frame/subframe
     while (pBuf < pF->payload + pF->PL) {
-        pCH = (union CH*)(pBuf + BGNET_CHN_CID);
+        pCH = (union CH *)(pBuf + BGNET_CHN_CID);
         pCtrl->CHN[pCH->s.CH].x01.ucFROM = pF->FROM; // originator of the frame (that included this channel)
 
         // we need the channel length to advance to the next in this frame
         y = bgnet_sizeof_channel(pCtrl, pCH);
 
         // check if existing channel (stored previous time) and the new channel (in the received frame) are equal
-        if (memcpy(((union CH*)pCtrl->CHN[pCH->s.CH].x01.ucRAW), pCH, y) == 0) {
+        if (memcpy(((union CH *)pCtrl->CHN[pCH->s.CH].x01.ucRAW), pCH, y) == 0) {
             // no chnage, do no process this channel
         } else {
 
@@ -1660,7 +1660,7 @@ int decode_command_DATA(BGNET_CTRL* pCtrl, FRAME_H* pF) {
     return(z); // return number of channels
 }
 // routine to register a channel for subscription
-void decode_command_SUBSCRIBE(BGNET_CTRL* pCtrl, FRAME_H* pF) {
+void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     unsigned char ucCHN;
     time_t t;
 
@@ -1679,7 +1679,7 @@ void decode_command_SUBSCRIBE(BGNET_CTRL* pCtrl, FRAME_H* pF) {
     return;
 }
 // routine to advertise values that can be subscribed
-void decode_command_LABEL(BGNET_CTRL* pCtrl, FRAME_H* pF) {
+void decode_command_LABEL(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     unsigned char ucCHN;
     size_t len;
     time_t t;
@@ -1696,7 +1696,7 @@ void decode_command_LABEL(BGNET_CTRL* pCtrl, FRAME_H* pF) {
         memcpy(pCtrl->CHN[ucCHN].x02.ucRAW, pF, len);
         // copy the label
         len = (pF->PL - 4); // number of ascii characters in the payload
-        strncpy(pCtrl->CHN[ucCHN].x02.cValue, (char*)&pF->payload[4], len);
+        strncpy(pCtrl->CHN[ucCHN].x02.cValue, (char *)&pF->payload[4], len);
         pCtrl->CHN[ucCHN].x02.cValue[len] = BGNET_ASC_NULL;
     } else {
         strcpy(pCtrl->CHN[ucCHN].x02.cValue, "???");
@@ -1706,11 +1706,11 @@ void decode_command_LABEL(BGNET_CTRL* pCtrl, FRAME_H* pF) {
 
 // decode the received buffer, possibly multiple subframes, return number of sub-frames
 // NOTE: realise this routine is executed by the timer-thread. We do no see a particular reason the run it 'locked'
-size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) {
-    FRAME_H* pFRx;   // pointer to the RECEIVE frame
-    FRAME_H* pFTx;   // pointer to the WRITE frame
-    union CH* pCHRx; // pointer to the channel structure we RECEIVE (eighter a CMD-REQ or a CMD-DAT command)
-    union CH* pCHTx; // pointer to the channel structure we WRITE
+size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) {
+    FRAME_H *pFRx;   // pointer to the RECEIVE frame
+    FRAME_H *pFTx;   // pointer to the WRITE frame
+    union CH *pCHRx; // pointer to the channel structure we RECEIVE (eighter a CMD-REQ or a CMD-DAT command)
+    union CH *pCHTx; // pointer to the channel structure we WRITE
 
     //unsigned char cs; // checksum calculated
     unsigned char *pBuf; // pointer to start and end of buffer
@@ -1728,7 +1728,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
     // process (possible multiple) subframes in buffer
     while (pBuf < (buffer+len)) {
         // setup pointer to our RECEIVING frame
-        pFRx = (FRAME_H*)pBuf;
+        pFRx = (FRAME_H *)pBuf;
         
         // initialize some variables
         time(&t);
@@ -1819,7 +1819,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                 // nothing to do
                             } else {
                                 // this reply gets the PILOT out of the "No PILOT" state
-                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                 len_pl = makeACPresponseMINI(pCtrl, payload);
                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
                                 register_DATA_frame(pCtrl, pFTx);
@@ -1919,7 +1919,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                     ucTO = BGNET_TYPE_NETQUAD;
                                     ucFROM = BGNET_TYPE_NETACP;
 
-                                    pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                    pFTx = (FRAME_H *)&TxBuf[TxSize];
                                     len_msg = bgnet_encode_frame(pFTx, ucTO, ucFROM, ucCMD, payload, len_pl);
                                                         
                                     memcpy(pCtrl->CMD[BGNET_CMD_CD_PILOT_DMPREQ].Tx.ucFrame, pFTx, len_msg);
@@ -2116,12 +2116,12 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                             case BGNET_CHN_41_STW:
                                                                 // create command with current SPEED/SETUP/DMP value
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_41_STW;
                                                                 pCHTx->s.FMT = BGN_FMT_08;
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_CE_PILOT_DMPDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].Tx.ucFrame, pFTx, len_msg);
@@ -2158,12 +2158,12 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                             case BGNET_CHN_41_STW:
                                                                 // create command with current SPEED/SETUP/#3, with CAL value
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_41_STW;
                                                                 pCHTx->s.FMT = BGN_FMT_08;
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D3_PILOT_AM, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
@@ -2178,14 +2178,14 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 // <0= offset to keel
                                                                 // >0= offset to watersurface
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 //pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
                                                                 //pCHTx->s.FMT = BGN_FMT_08;
                                                                 //pCHTx->s.cv.uW[0] = htons(11);
                                                                 c = BGNET_CHN_C4_DEPTH;
                                                                 encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue, 0);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D3_PILOT_AM, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
@@ -2241,7 +2241,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 // 0= Off (0x0F)
                                                                 // #0 = On (0x1F)
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
                                                                 if (pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte == 0) {
                                                                     pCHTx->s.FMT = BGNET_FMT_OFF;
@@ -2249,7 +2249,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                     pCHTx->s.FMT = BGNET_FMT_ON;
                                                                 }
                                                                 len_pl = 3;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_22_DEPTH_DADAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].Tx.ucFrame, pFTx, len_msg);
@@ -2260,11 +2260,11 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 // send alarm level
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 c = BGNET_CHN_C4_DEPTH;
                                                                 encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.DA_M.value.dValue, 0);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_22_DEPTH_DADAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].Tx.ucFrame, pFTx, len_msg);
@@ -2285,7 +2285,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 // #0 = On (0x1F)
                                                                 // create command with current SPEED/SETUP/DMP value
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
                                                                 if (pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte == 0) {
                                                                     pCHTx->s.FMT = BGNET_FMT_OFF;
@@ -2293,7 +2293,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                     pCHTx->s.FMT = BGNET_FMT_ON;
                                                                 }
                                                                 len_pl = 3;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_21_PILOT_WADAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
@@ -2304,11 +2304,11 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 // send alarm level
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 c = BGNET_CHN_C4_DEPTH;
                                                                 encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue, 0);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_21_PILOT_WADAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
@@ -2329,7 +2329,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 // #0 = On (0x1F)
                                                                 // create command with current SPEED/SETUP/DMP value
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
                                                                 if (pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte == 0) {
                                                                     pCHTx->s.FMT = BGNET_FMT_OFF;
@@ -2337,7 +2337,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                     pCHTx->s.FMT = BGNET_FMT_ON;
                                                                 }
                                                                 len_pl = 3;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_20_PILOT_OCDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
@@ -2348,12 +2348,12 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 // send alarm level (7 bytes payload)
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 c = BGNET_CHN_C4_DEPTH;
                                                                 encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_0D, pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue, 0);
                                                                 encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_0D, pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.dValue, 1);
                                                                 len_pl = 7;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_20_PILOT_OCDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
@@ -2366,12 +2366,8 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         }
                                                         break;
                                                     case BGNET_CMD_EA_QUAD_AUTOCAL:
-                                                        switch(pCHRx->s.CH) {
-                                                            // SPEED/SETUP/#5 = AUTOCAL
-                                                            case BGNET_CHN_01_UNKNOWN:
-                                                                // there is no CHID associated with the CMD-REQ, just an number passed
-                                                                break;                                                    
-                                                        }
+                                                        // SPEED/SETUP/#5 = AUTOCAL
+                                                        // there is no CHID associated with the CMD-REQ, just an number passed
                                                         pCtrl->BGNET.SPEED.SETUP.AUTOCAL.value.nByte = pCHRx->s.cv.uB[1];
                                                         pCtrl->BGNET.SPEED.SETUP.AUTOCAL.source = BGN_SOURCE_BGNET;
                                                         CounterUp(&pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter, t);
@@ -2482,7 +2478,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 // make DATA command (to ALL, so also other PILOT units, if present, receive it)
                                                                 len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
                                                                 register_DATA_frame(pCtrl, pFTx);
                                                         
@@ -2592,7 +2588,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 // make DATA command (to ALL, so also other PILOT units, if present, receive it)
                                                                 len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
                                                                 register_DATA_frame(pCtrl, pFTx);
 
@@ -2647,13 +2643,13 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                             case BGNET_CHN_46_AP_SPEED:
                                                                 // create command with current SETUP/SPD setting (0=TRA, 1=MAN, 2=SOG)
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
                                                                 pCHTx->s.FMT = BGN_FMT_01;
                                                                 pCHTx->s.cv.uB[0] = 0;
                                                                 pCHTx->s.cv.uB[1] = pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte;
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D4_PILOT_MODE, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
@@ -2688,12 +2684,12 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                             case BGNET_CHN_46_AP_SPEED:
                                                                 // SEND SPD MAN/FST
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
                                                                 pCHTx->s.FMT = BGN_FMT_01;
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SPEED.FST.value.nLong);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D3_PILOT_AM, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
@@ -2716,7 +2712,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 payload[3] = 0;
                                                                 payload[4] = pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte;
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D5_PILOT_RESPDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
@@ -2728,12 +2724,12 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                             case BGNET_CHN_46_AP_SPEED:
                                                                 // SEND SPD MAN/MED
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
                                                                 pCHTx->s.FMT = BGN_FMT_01;
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SPEED.MED.value.nLong);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D5_PILOT_RESPDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
@@ -2751,12 +2747,12 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                             case BGNET_CHN_46_AP_SPEED:
                                                                 // SEND SPD MAN/SLW
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
                                                                 pCHTx->s.FMT = BGN_FMT_01;
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D6_PILOT_SLWDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].Tx.ucFrame, pFTx, len_msg);
@@ -2768,13 +2764,13 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                             case BGNET_CHN_AF_AP_OC_ALARM:
                                                                 // SEND WIND_SEL
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_AF_AP_OC_ALARM;
                                                                 pCHTx->s.FMT = BGN_FMT_01;
                                                                 pCHTx->s.cv.uB[0] = 0;
                                                                 pCHTx->s.cv.uB[1] = pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte;
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D6_PILOT_SLWDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].Tx.ucFrame, pFTx, len_msg);
@@ -2868,7 +2864,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                             case BGNET_CHN_76_AP_WA_ALARM:
                                                                 // create command with current WA SELECT
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_76_AP_WA_ALARM;
                                                                 if (pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong == 0) {
                                                                     pCHTx->s.FMT = BGN_FMT_08;
@@ -2877,7 +2873,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 }
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_21_PILOT_WADAT, payload, len_pl);
                                                         
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
@@ -2894,7 +2890,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         switch(pCHRx->s.CH) {
                                                             case BGNET_CHN_76_AP_WA_ALARM:
                                                                 // update the channel value last, so we can compare if anything changed
-                                                                pCHTx = (union CH*)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
+                                                                pCHTx = (union CH *)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
                                                                 if (pCHTx->s.FMT == pCHRx->s.FMT) {
                                                                     // no change
                                                                 } else {
@@ -2936,7 +2932,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                             case BGNET_CHN_AF_AP_OC_ALARM:
                                                                 // create command with current OC SELECT
                                                                 payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH*)&payload[1];
+                                                                pCHTx = (union CH *)&payload[1];
                                                                 pCHTx->s.CH = BGNET_CHN_AF_AP_OC_ALARM;
                                                                 if (pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong == 0) {
                                                                     pCHTx->s.FMT = BGN_FMT_08;
@@ -2945,7 +2941,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 }
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_20_PILOT_OCDAT, payload, len_pl);
                                                         
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
@@ -2962,7 +2958,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                         switch(pCHRx->s.CH) {
                                                             case BGNET_CHN_AF_AP_OC_ALARM:
                                                                 // update the channel value last, so we can compare if anything changed
-                                                                pCHTx = (union CH*)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
+                                                                pCHTx = (union CH *)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
                                                                 if (pCHTx->s.FMT == pCHRx->s.FMT) {
                                                                     // no change
                                                                 } else {
@@ -3013,12 +3009,12 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 // i have solved this by injecting a DATA/0x01 command (broadcast), so any other node
                                                                 // also receives the new value.
-                                                                pCHTx = (union CH*)&payload[0];
+                                                                pCHTx = (union CH *)&payload[0];
                                                                 pCHTx->s.CH = BGNET_CHN_A6_AP_CTS;
                                                                 pCHTx->s.FMT = BGN_FMT_08;
                                                                 pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
                                                                 len_pl = 4;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
                                                         
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
@@ -3043,7 +3039,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 payload[3] = 0;
                                                                 payload[4] = pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte; // (0-99)                                                        len_pl = 5;
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_CE_PILOT_DMPDAT, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].Tx.ucFrame, pFTx, len_msg);
@@ -3092,7 +3088,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                     // make the CMD-ACK for the CMD-REQ/CMD-DAT we received (only for non-default passes)
                                     payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
                                     len_pl = 1;
-                                    pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                    pFTx = (FRAME_H *)&TxBuf[TxSize];
                                     len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_ACK, payload, len_pl);
 
                                     memcpy(pCtrl->CMD[BGNET_CMD_ACK].Tx.ucFrame, pFTx, len_msg);

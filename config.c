@@ -1,4 +1,5 @@
 #include "config.h"
+#include "app_state.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -22,7 +23,7 @@ int load_config(const char *filename, Config *cfg)
         return -1;
     }
     fread(data, 1, len, f);
-    data[len] = '\0';
+    data[len] = BGNET_ASC_NULL;
     fclose(f);
 
     cJSON *root = cJSON_Parse(data);

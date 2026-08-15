@@ -199,7 +199,7 @@ void *ethernet_thread(void *arg)
                 n = recvfrom(sockfd, buf, sizeof(buf) - 1, 0, NULL, NULL);
             }
             if (n > 0) {
-                buf[n] = '\0';
+                buf[n] = BGNET_ASC_NULL;
 
                 pthread_mutex_lock(&g_data_mutex);
                 snprintf(g_last_ethernet_data, sizeof(g_last_ethernet_data),"%s", buf);

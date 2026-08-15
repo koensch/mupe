@@ -131,25 +131,6 @@
 // All pypilot features are also utilised in the opencpn plugin. This is implemented in C++ and might be easier to connect
 // to this B&G gateway: https://github.com/pypilot/pypilot_pi
 
-// GENERIC defines
-
-// use this macro to convert a floating point value (double) to integer with round-off
-// sometimes it's trivial, but using defines makes it easier to locate where what conversions are done
-//#define DTOIROUND(d)                    ((int)(d >= 0.0 ? (d + 0.5) : (d - 0.5)))
-#define DTOIROUND(d)                    ((int)(d))
-#define ITOD(i)                         ((double)i)
-#define BGNET_PI                        3.14159
-#define BGNET_MIN(a, b) (((a) < (b)) ? (a) : (b))
-#define BGNET_TIME_FMT                 "%Y-%m-%d %H:%M:%S" 
-
-#define BGNET_ASC_NULL                  0x00
-#define BGNET_ASC_SPACE                 0x20
-#define BGNET_ASC_QUEST                 0x3F
-#define BGNET_ASC_A                     0x41
-#define BGNET_ASC_F                     0x46
-#define BGNET_ASC_N                     0x4E
-#define BGNET_ASC_O                     0x4F
-
 // FRAME definitions
 
 // realize that the CS uses a different seed for HEADER or BODY

@@ -133,7 +133,7 @@ static int handle_ws_handshake(int client_fd, const char *req)
     while (*p && *p != '\r' && *p != '\n' && i < (int)sizeof(key)-1) {
         key[i++] = *p++;
     }
-    key[i] = '\0';
+    key[i] = BGNET_ASC_NULL;
 
     const char *guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     char concat[256];
@@ -1133,7 +1133,7 @@ void *webserver_thread(void *arg)
             close(client_fd);
             continue;
         }
-        req[n] = '\0';
+        req[n] = BGNET_ASC_NULL;
 
         if (strstr(req, "Upgrade: websocket")) {
             if (handle_ws_handshake(client_fd, req) != 0) {
@@ -1172,9 +1172,6 @@ void *webserver_thread(void *arg)
                 send(client_fd, err, strlen(err), 0);
             }
         } else {
-            //log_info("webserver: req=%s", req);
-            //log_info("webserver: method=%s", method);
-            //log_info("webserver: path=%s", path);
             if (strcmp(path,"/bgnet/") == 0) {
                 handle_bgnet_html(client_fd, pCtrl);
             } else {
