@@ -354,9 +354,11 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_8A_UNKNOWN          0x8A
 #define BGNET_CHN_8D_BATTERY          0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
                                            // displayed by DATA (if 'OPTIONS' button is pressed)
-#define BGNET_CHN_98_UNKNOWN          0x98 // When a PILOT/NMEA/APB message is received this channel is observed with FMT_00 and
-                                           // and only 2 bytes, no data. I do not know if this is on purpose or a undesired feature
-                                           // if the XTE parameters are left empty; this channel does not appear.
+#define BGNET_CHN_98_NMEA_ACTIVE      0x98 // When a PILOT/NMEA/APB message is received this channel is observed with FMT_00 and
+                                           // and only 2 bytes, no data. This message is send every 2 seconds as long as a NMEA message
+                                           // was observed. after 60 second after the last NMEA message, the channel is no longer transmitted
+                                           // it seems this is some kind of 'nmea communication active' signal.
+                                           // it is observed with APB, RMB, XTE messages, possibly others too, but not for VTG
 #define BGNET_CHN_9A_HEADINGNEXTTACK  0x9A
 #define BGNET_CHN_9B_FOREAFTTRIM      0x9B
 #define BGNET_CHN_9C_MASTANGLE        0x9C
@@ -438,7 +440,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_F8_REMOTE9          0xF8
 #define BGNET_CHN_F9_COURSETOSAIL     0xF9
 #define BGNET_CHN_FA_NEXTWPDIST       0xFA
-#define BGNET_CHN_FB_TIMETOLAYLINE    0xFB
+#define BGNET_CHN_FB_WPID             0xFB // Waypoint ID (first 2 letters from the NMEA message)
 #define BGNET_CHN_FC_SHALLOWALARM     0xFC // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF"
 #define BGNET_CHN_FD_DEEPALARM        0xFD // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF"
                                            // When alarm limit is set, the alarm fires "C4 17 00 C4" channel value (transmitted via 0x01/DATA command)
@@ -507,6 +509,7 @@ union CH {
 #define BGN_FMT_08      0x08        // 16 bit unsigned register (0-999), optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
 #define BGN_FMT_48      0x48        // used by channel 0xCF, TRIPLOGNM (with divisor = 10)
 #define BGN_FMT_18      0x18        // used by WA and OC
+#define BGN_FMT_0A      0x0A        // used by WPID channel 0xFB
 #define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
 #define BGN_FMT_0F      0x0F        // Boolean/switch value: 0x0F= Off, 0x1F= On
     #define BGNET_FMT_ON    0x1F
@@ -548,15 +551,26 @@ typedef struct {
     char cName[BGNET_CMD_LABEL_MAX];    // Channel Description (used in reports)
     uint8_t ucFMT;                      // default formatting
     uint8_t ucFROM;                     // instrument type that produces this channel
-    uint8_t ucFreq;                     // frequency (0= none, 1=every run, 2= every other run, 3 = every 2nd run)
+
+// if we want to be able to createoutgoing broadcasts 'on the fly' we must have means to
+// scheddule the channels. We can not send them all in one go, that would overwhelm the
+// communications.
+// we will create a process that will determine what channels have their turn to be broadcasted
+// - all channels with frequency 0 are skipped, all channels with freq 1 will be included every scan, 2 every other scan
+// - with the phase it will be phased over multiple scans (works only for freq 2 and higher)
+// - with the counter we will keep track of what channel was send and what channel to exclude; this value is being
+//   overwritten in runtime (freq and phase are supposed to be constant)
+    uint8_t ucFreq;                     // frequency (0= none, 1=every run, 2= every other run, 3 = every 3rd run)
     uint8_t ucPhase;                    // phase, how to overlap (only when freq>1)
+    uint8_t ucCounter;                  // counter, determining when it's time for the next scheduled broadcast
+
     char cLabel[BGNET_CMD_LABEL_MAX];   // Channel label (used in LABEL/0x02 command (copied from what QUADt/SPEEDt/DEPTHt sends)
     uint8_t ucCMD_06;                   // DeviceType that might SUBSCRIBE to this channel (so we can replicate that)
     int iImpExpEnable;                  // allow Import or Export
     int iImportFrom;                    // Import from NMEA2000 or SignalK
     int iExportTo;                      // Export to NMEA2000 of SignalK
     int iNMEA_PGN;                      // NMEA2000 reference PGN
-    char cSKdef[50];                    // SignalK reference string 
+    char cSKdef[50];                    // SignalK reference string
 } BGNET_CHNDT;
 
 typedef struct {
@@ -613,6 +627,12 @@ typedef struct {
         // we store the channel value in ASCII for display purposes
         char cValue[sizeof(union CV)]; // ascii formatted value string (for display purposes)
         BGNET_COUNT CounterRx;
+        NMEA2K_VALUE *pBGNET;           // if we want to scan thought the table and generate broadcasts we need some automation
+#define BGNET_DATATYPE_UNDEF    0
+#define BGNET_DATATYPE_BYTE     1
+#define BGNET_DATATYPE_LONG     2
+#define BGNET_DATATYPE_DOUBLE   3
+        uint16_t BGNET_DATATYPE;
     } x01; // DATA command
     struct {
         unsigned char ucRAW[30]; // raw data (for diagnostic purposes), usually 18 bytes payload (=24 bytes complete frame)

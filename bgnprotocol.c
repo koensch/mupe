@@ -188,7 +188,11 @@ unsigned char bgnet_checksum_frame_check(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     if (pF->payload[pF->PL] == cs) {
         r = BGNET_CHECKSUM_OK;
     } else {
-        log_error("    Frame Checksum ERR, framesize: %d (received: 0x%02X, calculated: 0x%02X, previous=0x%02X)", bgnet_sizeof_frame(pF), pF->payload[pF->PL], cs, pCtrl->BGNET.weird.ACKSEQprev);
+        if ((pF->payload[pF->PL]+3) == cs) {
+            r = BGNET_CHECKSUM_OK;
+        } else {
+            log_error("    Frame Checksum ERR, framesize: %d (received: 0x%02X, calculated: 0x%02X, previous=0x%02X)", bgnet_sizeof_frame(pF), pF->payload[pF->PL], cs, pCtrl->BGNET.weird.ACKSEQprev);
+        }
     }
     return(r);
 }
@@ -557,10 +561,12 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         for (i=0; i<BGNET_CHANNEL_MAX; i++) {
             pCtrl->CHN[i].iNewChannel = BGN_NEW_RESET;
 
-            pCtrl->CHN[i].x01.ucFROM = 0;
+            pCtrl->CHN[i].x01.ucFROM = 0x00;
             memset(pCtrl->CHN[i].x01.ucRAW, 0, sizeof(pCtrl->CHN[i].x01.ucRAW));
             strcpy(pCtrl->CHN[i].x01.cValue, "");
             CounterInit(&pCtrl->CHN[i].x01.CounterRx, t);
+            pCtrl->CHN[i].x01.pBGNET = NULL;
+            pCtrl->CHN[i].x01.BGNET_DATATYPE = BGNET_DATATYPE_UNDEF;
 
             memset(pCtrl->CHN[i].x02.ucRAW, 0, sizeof(pCtrl->CHN[i].x02.ucRAW));
             strcpy(pCtrl->CHN[i].x02.cValue, "");
@@ -578,6 +584,12 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
             strcpy(pCtrl->CHN[i].x00.cValue, "");
             CounterInit(&pCtrl->CHN[i].x00.CounterRx, t);
         }
+        // Here we will setup some pointers for generating broadcasts
+        pCtrl->CHN[BGNET_CHN_0B_RUDDER].x01.pBGNET = &pCtrl->BGNET.ACP.Rudder;
+        pCtrl->CHN[BGNET_CHN_0B_RUDDER].x01.BGNET_DATATYPE = BGNET_DATATYPE_LONG;
+
+        pCtrl->CHN[BGNET_CHN_20_SEATEMPQ].x01.pBGNET = &pCtrl->BGNET.SPEED.Temperature;
+        pCtrl->CHN[BGNET_CHN_20_SEATEMPQ].x01.BGNET_DATATYPE = BGNET_DATATYPE_DOUBLE;
 
         log_debug("bgnet_initialize: Done");
     }
@@ -1313,41 +1325,49 @@ size_t bgnet_sizeof_frame(FRAME_H *pF) {
     return(r);
 }
 
-// returns the length of a channel block; it all depends on the FMT specifier (in the FMT Definition Table).
+// returns the length of a channel block; it all depends on the FMT specifier (in the received channel)
 size_t bgnet_sizeof_channel(BGNET_CTRL *pCtrl, union CH *pCH) {
     int r,i,n;
     unsigned char ucFMT;
     char asciibuf[32];
-    // get FMT byte from target
-    ucFMT = pCH->s.FMT;
-    // make FMT into DataType, get length from Definition Table
-    r = pCtrl->pFMTDT[(ucFMT & BGNET_FMT_DT)].iLen;
-    if (r > 0) {
-        // fixed length, use it as-is 
-    } else {
-        if (r == 0) {
-            // variable length, look for the null byte
-            n = -1;
-            for (i=0;i<12;i++) { 
-                if (pCH->s.cv.uC[i] == BGNET_ASC_NULL) {
-                    n = i;
-                    break;
+    // we have some odd channels that do not follow the FMT-sizing rule
+    switch (pCH->s.CH) {
+        case BGNET_CHN_98_NMEA_ACTIVE:
+            r = 2;
+            break;
+        default:
+            // get FMT byte from target
+            ucFMT = pCH->s.FMT;
+            // make FMT into DataType, get length from Definition Table
+            r = pCtrl->pFMTDT[(ucFMT & BGNET_FMT_DT)].iLen;
+            if (r > 0) {
+                // fixed length, use it as-is 
+            } else {
+                if (r == 0) {
+                    // variable length, look for the null byte
+                    n = -1;
+                    for (i=0;i<12;i++) { 
+                        if (pCH->s.cv.uC[i] == BGNET_ASC_NULL) {
+                            n = i;
+                            break;
+                        }
+                    }
+                    // n can be anything between 0-11 when a null-terminator was found
+                    if (n < 0) {
+                        // null-terminator was not found
+                        r = 4; // just a guess
+                        log_error("FMT specifier 0x%02X, invalid length %d, no terminator found", ucFMT & BGNET_FMT_DT, r);
+                    } else {
+                        r = 2 + n + 1; // 2 bytes header, n characters, 1 null-terminator
+                    }
+                } else {
+                    // the value is unknown, i just make a guess. 4 is better than zero or -1
+                    r = 4; // just a guess
+                    byte2ascii(asciibuf, sizeof(asciibuf), (unsigned char *)pCH, r, BYTE2ASCII_SPACED);
+                    log_error("Channel %s, invalid FMT specifier", asciibuf);
                 }
             }
-            // n can be anything between 0-11 when a null-terminator was found
-            if (n < 0) {
-                // null-terminator was not found
-                r = 4; // just a guess
-                log_error("FMT specifier 0x%02X, invalid length %d, no terminator found", ucFMT & BGNET_FMT_DT, r);
-            } else {
-                r = 2 + n + 1; // 2 bytes header, n characters, 1 null-terminator
-            }
-        } else {
-            // the value is unknown, i just make a guess. 4 is better than zero or -1
-            r = 4; // just a guess
-            byte2ascii(asciibuf, sizeof(asciibuf), (unsigned char *)pCH, r, BYTE2ASCII_SPACED);
-            log_error("Channel %s, invalid FMT specifier", asciibuf);
-        }
+            break;
     }
     // note: this return is used to advance though a frame/subframe. if this value is not positive,
     // we will never complete the parsing (and create chaos).
@@ -1461,6 +1481,12 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
                     break;
             }
             break;
+        case BGN_FMT_0A: // 2 bytes ASCII
+            pStr[0] = puCH->s.cv.uB[0];
+            pStr[1] = puCH->s.cv.uB[1];
+            pStr[2] = BGNET_ASC_NULL;
+            iValid = 2;
+            break;
         case BGN_FMT_0C: // 3 bytes ASCII, byte 0 is unused
             pStr[0] = puCH->s.cv.uB[0];
             pStr[1] = puCH->s.cv.uB[1];
@@ -1531,17 +1557,21 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     pBuf = pF->payload;
     z = 0; // number of channels in this command
     time(&t);
+
+    // for the record, log frame
+    log_debug_frame(pF);
+
     // scan through frame/subframe
-    while (pBuf < pF->payload + pF->PL) {
+    while (pBuf < (pF->payload + pF->PL)) {
         pCH = (union CH *)(pBuf + BGNET_CHN_CID);
         pCtrl->CHN[pCH->s.CH].x01.ucFROM = pF->FROM; // originator of the frame (that included this channel)
 
         // we need the channel length to advance to the next in this frame
         y = bgnet_sizeof_channel(pCtrl, pCH);
 
-        // check if existing channel (stored previous time) and the new channel (in the received frame) are equal
+        // check if most recent channel (stored previous time) and the new channel (in the received frame) are equal
         if (memcpy(((union CH *)pCtrl->CHN[pCH->s.CH].x01.ucRAW), pCH, y) == 0) {
-            // no chnage, do no process this channel
+            // no change, do no process this channel
         } else {
 
             // decode channel, get displayed value (this is what we use in the webserver)

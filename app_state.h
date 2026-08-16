@@ -82,10 +82,8 @@ typedef struct {
     time_t tCounterReset;
 } BGNET_COUNT;
 
-// most values we store are 'real' (floating point) values, but sometimes 
-// we need other datatype.
+// some values are stored as bytes, double, long, string of time, please be consistent
 typedef struct {
-    uint8_t datatype;
     BGNET_COUNT Counter;
     size_t source;
     union VALUE value;
