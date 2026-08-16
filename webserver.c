@@ -837,7 +837,7 @@ static char* html_command_top(char *Buffer) {
 static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     time_t t;
-    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII], asciibufCMD[BGNET_CMD_LABEL_MAX];
+    char cLine[512], asciibufRx[BGN_CMD_ASCII*2], asciibufTx[BGN_CMD_ASCII*2], asciibufCMD[BGNET_CMD_LABEL_MAX];
     const char *cDevRow =
         "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 

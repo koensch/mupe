@@ -139,13 +139,14 @@
 
 #define BGNET_FRAME_HEAD                5   //size of HEADER (fixed)
 #define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (payload checksum)
+#define BGNET_FRAME_PAYLOAD_MAX         1024
 typedef struct {        // for the FRAME header we use a pointer
     uint8_t TO;
     uint8_t FROM;
     uint8_t PL;         // payload length
     uint8_t CMD;        // Command
     uint8_t CSH;        // Checksum HEAD
-    uint8_t payload[];  // payload (variable size)
+    uint8_t payload[BGNET_FRAME_PAYLOAD_MAX];  // payload (variable size)
     // uint8_t CSP;     // Checksum payload is placed after the last payload byte
 } FRAME_H;
 
@@ -540,19 +541,19 @@ typedef struct {
 
 // Channel Definition Table
 typedef struct {
-    uint8_t ucChannelIndex;         // Channel index
-    char cName[BGNET_CMD_LABEL_MAX];   // the label, variable name
-    uint8_t ucFMT;                  // default formatting
-    uint8_t ucFROM;                 // instrument type that produces this channel
-    uint8_t ucFreq;                 // frequency (0= none, 1=every run, 2= every other run, 3 = every 2nd run)
-    uint8_t ucPhase;                // phase, how to overlap (only when freq>1)
-    char cLabel[BGNET_CMD_LABEL_MAX];   // the label, variable name
-    uint8_t ucCMD_06;               // DeviceType that might SUBSCRIBE to this channel (so we can replicate that)
-    int iImpExpEnable;              // allow Import or Export
-    int iImportFrom;                // Import from NMEA2000 or SignalK
-    int iExportTo;                  // Export to NMEA2000 of SignalK
-    int iNMEA_PGN;                  // NMEA2000 reference PGN
-    char cSKdef[50];                // SignalK reference string 
+    uint8_t ucChannelIndex;             // Channel index
+    char cName[BGNET_CMD_LABEL_MAX];    // Channel Description (used in reports)
+    uint8_t ucFMT;                      // default formatting
+    uint8_t ucFROM;                     // instrument type that produces this channel
+    uint8_t ucFreq;                     // frequency (0= none, 1=every run, 2= every other run, 3 = every 2nd run)
+    uint8_t ucPhase;                    // phase, how to overlap (only when freq>1)
+    char cLabel[BGNET_CMD_LABEL_MAX];   // Channel label (used in LABEL/0x02 command (copied from what QUADt/SPEEDt/DEPTHt sends)
+    uint8_t ucCMD_06;                   // DeviceType that might SUBSCRIBE to this channel (so we can replicate that)
+    int iImpExpEnable;                  // allow Import or Export
+    int iImportFrom;                    // Import from NMEA2000 or SignalK
+    int iExportTo;                      // Export to NMEA2000 of SignalK
+    int iNMEA_PGN;                      // NMEA2000 reference PGN
+    char cSKdef[50];                    // SignalK reference string 
 } BGNET_CHNDT;
 
 typedef struct {

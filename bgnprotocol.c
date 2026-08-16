@@ -1251,7 +1251,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
 
         size_t len_msg;
         int len_pl;
-        unsigned char payload[1024], ucTO;
+        unsigned char payload[BGNET_FRAME_PAYLOAD_MAX], ucTO;
         FRAME_H FTx, *pFTx;
         pFTx = &FTx;
 
@@ -1667,25 +1667,6 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     }
     return(z); // return number of channels
 }
-// routine to register a channel for subscription
-void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pF) {
-    unsigned char ucCHN;
-    time_t t;
-
-    time(&t);
-    // we check the size because we have limited space in the CHN table to store the raw frame
-    // if (for whatever reason) a some point we receive a longer frame than expected, i do not
-    // what the risk overwriting other parts of our CHN table 
-    if (pF->PL == 1) { // expect only 1 byte payload
-        ucCHN = pF->payload[0]; // first payoad byte is the ChannelID
-        pCtrl->CHN[ucCHN].x06.ucTO = pF->TO;
-        pCtrl->CHN[ucCHN].x06.ucFROM = pF->FROM;
-        CounterUp(&pCtrl->CHN[ucCHN].x06.CounterRx, t);
-        memcpy(pCtrl->CHN[ucCHN].x06.ucRAW, pF, bgnet_sizeof_frame(pF));
-        log_debug("    Ch=%02X, Subscribed by %02X on %02X", ucCHN, pF->FROM, pF->TO);
-    }
-    return;
-}
 // routine to advertise values that can be subscribed
 void decode_command_LABEL(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     unsigned char ucCHN;
@@ -1711,6 +1692,76 @@ void decode_command_LABEL(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     }
     return;
 }
+// routine to register a channel for subscription
+void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
+    unsigned char ucCHN;
+    time_t t;
+    int iIsDefault = 0, len_msg = 0, len_pl = 0;
+    FRAME_H FTx, *pFTx = &FTx;
+    unsigned char payload[BGNET_FRAME_PAYLOAD_MAX];
+
+    time(&t);
+    // we check the size because we have limited space in the CHN table to store the raw frame
+    // if (for whatever reason) at some point we receive a longer frame than expected, i do not
+    // what the risk overwriting other parts of our CHN table 
+    if (pFRx->PL == 1) { // expect only 1 byte payload
+        ucCHN = pFRx->payload[0]; // first payoad byte is the ChannelID
+        pCtrl->CHN[ucCHN].x06.ucTO = pFRx->TO;
+        pCtrl->CHN[ucCHN].x06.ucFROM = pFRx->FROM;
+        CounterUp(&pCtrl->CHN[ucCHN].x06.CounterRx, t);
+        memcpy(pCtrl->CHN[ucCHN].x06.ucRAW, pFRx, bgnet_sizeof_frame(pFRx));
+        log_debug("    Ch=%02X, Subscribed by %02X on %02X", ucCHN, pFRx->FROM, pFRx->TO);
+        // we will do only something if we are if RW mode
+        if (g_serial_mode == BGN_SERIAL_MODE_RW) {
+            // we only handle a subscription request from a NETDATA type node
+            iIsDefault = 0;
+            switch(pFRx->FROM & BGNET_TYPE_MASK) {
+                case (BGNET_TYPE_NETDATA & BGNET_TYPE_MASK):
+                    // byte 0 of the payload it the ChannelID the NETDATA node want
+                    payload[0] = pFRx->payload[0];
+                    switch(payload[0]) {
+                        case BGNET_CHN_20_SEATEMPQ:
+                            payload[1] = 0x40;
+                            payload[2] = 0x01;
+                            payload[3] = 0x00;
+                            strcpy((char *)&(payload[4]), pCtrl->pCHNDT[payload[0]].cLabel);
+                            len_pl = 4+8;
+                            break;
+                        case BGNET_CHN_41_STW:
+                            payload[1] = 0x80;
+                            payload[2] = 0x01;
+                            payload[3] = 0x00;
+                            strcpy((char *)&(payload[4]), pCtrl->pCHNDT[payload[0]].cLabel);
+                            len_pl = 4+8;
+                            break;
+                        default:
+                            iIsDefault = 1;
+                            break;
+                    }
+                    if (iIsDefault == 0) {
+                        // assemble the frame
+                        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_02_LABEL, payload, len_pl);
+                        // determine the size of the Tx frame
+                        len_msg = bgnet_sizeof_frame(pFTx);
+                        // we do the same with our FTx as what we would do when we would have receved it
+                        decode_command_LABEL(pCtrl, pFTx);
+                        // register command send
+                        memcpy(pCtrl->CMD[BGNET_CMD_02_LABEL].Tx.ucFrame, pFTx, len_msg);
+                        CounterUp(&pCtrl->CMD[BGNET_CMD_02_LABEL].CounterTx, t);
+                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                        // put it for transmission
+                        pthread_mutex_lock(&g_data_mutex);
+                        memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], pFTx, len_msg); // put output message in write buffer
+                        g_serial_data_lenTx = g_serial_data_lenTx + len_msg; // increment byte counter in TX buffer
+                        pthread_mutex_unlock(&g_data_mutex);
+                    }
+                    break;
+            }
+        }
+    }
+    return;
+}
 
 // decode the received buffer, possibly multiple subframes, return number of sub-frames
 // NOTE: realise this routine is executed by the timer-thread. We do no see a particular reason the run it 'locked'
@@ -1727,7 +1778,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
     time_t t;
     size_t y;
     // inside this routine we work with our local buffers to store generated frames as much as possible.
-    unsigned char payload[1024], TxBuf[1024];
+    unsigned char payload[BGNET_FRAME_PAYLOAD_MAX], TxBuf[1024];
     int len_pl, len_msg, TxSize;
 
     pBuf = buffer; // gets incremented as we go
