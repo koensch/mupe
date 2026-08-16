@@ -139,14 +139,17 @@
 
 #define BGNET_FRAME_HEAD                5   //size of HEADER (fixed)
 #define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (payload checksum)
-#define BGNET_FRAME_PAYLOAD_MAX         1024
-typedef struct {        // for the FRAME header we use a pointer
+// the 'payload length is a unsigned byte that has a maximum of 0xFF (=255). Consequently the payload's maximum is 255 bytes.
+// This results in a maximum frame length of header + payload + CR equals 261 bytes.
+// Realise that a Rx/Tx buffer can hold multiple frames
+#define BGNET_FRAME_PAYLOAD_MAX         255
+typedef struct {        // for the FRAME header we use a pointer and respect the maximum size to hold the biggest possible frame
     uint8_t TO;
     uint8_t FROM;
     uint8_t PL;         // payload length
     uint8_t CMD;        // Command
     uint8_t CSH;        // Checksum HEAD
-    uint8_t payload[BGNET_FRAME_PAYLOAD_MAX];  // payload (variable size)
+    uint8_t payload[BGNET_FRAME_PAYLOAD_MAX + BGNET_FRAME_TAIL_CS];  // payload (variable size) + CR byte
     // uint8_t CSP;     // Checksum payload is placed after the last payload byte
 } FRAME_H;
 

@@ -401,16 +401,16 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
 
         // we do NOT use a floating point value; otherwise we get all kind or rounding errors. Just keep it as handled within the
         // B&G system: as an integer*10 (so we get 1 decimal)
-        pCtrl->BGNET.SPEED.StoredLogNM.value.nLong = 12345*BGNET_DIVISOR_STORLOG+6; // channel CD/STORELOGNM (on the real system this is stored in non-volitile memory by QUAD/SPEED, no reset)
+        pCtrl->BGNET.SPEED.StoredLogNM.value.nLong = 12345*BGNET_DIVISOR_STORLOG; // channel CD/STORELOGNM (on the real system this is stored in non-volitile memory by QUAD/SPEED, no reset)
         pCtrl->BGNET.SPEED.StoredLogNM.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.StoredLogNM.Counter, t);
 
         // it appears as if the triplog has a multiplier of 64 (and not 10)
-        pCtrl->BGNET.SPEED.TripLogNM.value.nLong = 1234*BGNET_DIVISOR_TRIPLOG+5; // channel CF/TRIPLOGNM (on the real system this is stored in non-volitile memory by QUAD/SPEED, resetable)
+        pCtrl->BGNET.SPEED.TripLogNM.value.dValue = 0.287*BGNET_DIVISOR_TRIPLOG; // channel CF/TRIPLOGNM (on the real system this is stored in non-volitile memory by QUAD/SPEED, resetable)
         pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
 
-        pCtrl->BGNET.SPEED.DRD.value.nLong = 113; // resetable with DND-RESET
+        pCtrl->BGNET.SPEED.DRD.value.dValue = 1.13; // resetable with DND-RESET
         pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.DRD.Counter, t);
 
@@ -479,11 +479,11 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
 
         //====== DEPTH
 
-        pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue = -0.55; // sensor depth below the waterline
+        pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue = +0.252; // sensor depth below the waterline, depth shown is depth from the waterline
         pCtrl->BGNET.DEPTH.SETUP.CAL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.DEPTH.SETUP.CAL.Counter, t);
 
-        pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue = 0.598;
+        pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue = 2.598;
         pCtrl->BGNET.DEPTH.Depth_RAW.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.DEPTH.Depth_RAW.Counter, t);
 
@@ -754,17 +754,20 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
     c = BGNET_CHN_81_DRD;
     puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.DRD.value.nLong); 
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.DRD.value.dValue, 0);
+    //puCH->s.CH = c;
+    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    //puCH->s.FMT = BGN_FMT_48;
+    //puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.DRD.value.nLong); 
+    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
  
     c = BGNET_CHN_CF_TRIPLOG;
     puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.TripLogNM.value.nLong); 
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.TripLogNM.value.dValue, 0);
+    //puCH->s.CH = c;
+    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    //puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.TripLogNM.value.nLong); 
+    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_D3_DRC;
     puCH = (union CH *)&(payload[r]);
@@ -1593,7 +1596,8 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     CounterUp(&pCtrl->BGNET.SPEED.StoredLogNM.Counter, t);
                     break;
                 case BGNET_CHN_CF_TRIPLOG:
-                    pCtrl->BGNET.SPEED.TripLogNM.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.SPEED.TripLogNM.value.dValue = decode_channel_double(pCH, 0) * BGNET_DIVISOR_TRIPLOG;
+                    //pCtrl->BGNET.SPEED.TripLogNM.value.nLong = ntohs(pCH->s.cv.uW[0]);
                     pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
                     break;
@@ -1718,21 +1722,51 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
             switch(pFRx->FROM & BGNET_TYPE_MASK) {
                 case (BGNET_TYPE_NETDATA & BGNET_TYPE_MASK):
                     // byte 0 of the payload it the ChannelID the NETDATA node want
+                    // we have grouped them together by the same FMT byte (at least what i think is a FMT byte)
                     payload[0] = pFRx->payload[0];
                     switch(payload[0]) {
+                        // this seems channels that have 'text' related data
+                        case BGNET_CHN_31_ECHO_SNR:
+                        case BGNET_CHN_51_AWA:
+                        case BGNET_CHN_59_TWA:
+                            payload[1] = 0x00;
+                            payload[2] = 0x00;
+                            payload[3] = 0x00;
+                            strcpy((char *)&(payload[4]), pCtrl->pCHNDT[payload[0]].cLabel);
+                            len_pl = 4 + strlen(pCtrl->pCHNDT[payload[0]].cLabel);
+                            break;
+                        // this seems channels that have "text" 'distance' related data
                         case BGNET_CHN_20_SEATEMPQ:
+                        case BGNET_CHN_42_STWRAW:
+                        case BGNET_CHN_4A_DEPTHM:
+                        case BGNET_CHN_50_AWS:
+                        case BGNET_CHN_57_TWS:
+                        case BGNET_CHN_7F_VMG:
+                        case BGNET_CHN_8D_BATTERY:
+                        case BGNET_CHN_C4_DEPTH:
+                        case BGNET_CHN_CD_STORLOG:
+                        case BGNET_CHN_CF_TRIPLOG:
+                        case BGNET_CHN_FC_SHALLOWALARM:
+                        case BGNET_CHN_FD_DEEPALARM:
+                        case BGNET_CHN_FE_ANCHORALARM:
                             payload[1] = 0x40;
                             payload[2] = 0x01;
                             payload[3] = 0x00;
                             strcpy((char *)&(payload[4]), pCtrl->pCHNDT[payload[0]].cLabel);
-                            len_pl = 4+8;
+                            len_pl = 4 + strlen(pCtrl->pCHNDT[payload[0]].cLabel);
                             break;
+                        // this seems channels that have "text" 'speed' related data
                         case BGNET_CHN_41_STW:
+                        case BGNET_CHN_64_SPEEDAVG:
+                        case BGNET_CHN_65_SPEEDMAX:
+                        case BGNET_CHN_75_TIMER:
+                        case BGNET_CHN_81_DRD:
+                        case BGNET_CHN_D3_DRC:
                             payload[1] = 0x80;
                             payload[2] = 0x01;
                             payload[3] = 0x00;
                             strcpy((char *)&(payload[4]), pCtrl->pCHNDT[payload[0]].cLabel);
-                            len_pl = 4+8;
+                            len_pl = 4 + strlen(pCtrl->pCHNDT[payload[0]].cLabel);
                             break;
                         default:
                             iIsDefault = 1;
@@ -1758,6 +1792,9 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
                     }
                     break;
             }
+        } else {
+            // if we are RO or passive we will leave it to the QUADt/SPEEDt/DEPTHt/WINDt
+            // nodes to respond to the SUBSCRIPTION requests from the NETDATA
         }
     }
     return;
@@ -2149,7 +2186,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 // SPEED/RESET LOG, 2 bytes payload
                                                                 // a QUAD/r only sends a CMD_CB/CNH_41 (to the QUAD/t)
                                                                 // a QUAD/t or QUAD/d sends nothing.
-                                                                pCtrl->BGNET.SPEED.TripLogNM.value.nLong = 0;
+                                                                pCtrl->BGNET.SPEED.TripLogNM.value.dValue = 0.0;
                                                                 pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
                                                                 break;
@@ -2157,7 +2194,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 // SPEED/DRD RESET, 2 bytes payload
                                                                 // a QUAD/r only sends a CMD_CB/CNH_81 (to the QUAD/t)
                                                                 // a QUAD/t or QUAD/d sends nothing.
-                                                                pCtrl->BGNET.SPEED.DRD.value.nLong = 0;
+                                                                pCtrl->BGNET.SPEED.DRD.value.dValue = 0.0;
                                                                 pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.SPEED.DRD.Counter, t);
                                                                 pCtrl->BGNET.SPEED.SpeedMAX.value.dValue = pCtrl->BGNET.SPEED.STW.value.dValue;
@@ -2725,7 +2762,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 payload[3] = 0;
                                                                 payload[4] = pCtrl->BGNET.PILOT.SETUP.FR.value.nByte;
                                                                 len_pl = 5;
-                                                                pFTx = (FRAME_H*)&TxBuf[TxSize];
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D4_PILOT_MODE, payload, len_pl);
 
                                                                 memcpy(pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);

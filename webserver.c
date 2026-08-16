@@ -180,8 +180,8 @@ static void handle_api_state(int client_fd)
     pthread_mutex_unlock(&g_data_mutex);
 
     // convert Rx/Tx data to human readable format (haven't checked if the bytes are really a BGNET frame)
-    CommandToAscii(asciibufRx, sizeof(asciibufRx), (FRAME_H*)serial_dataRx);
-    CommandToAscii(asciibufTx, sizeof(asciibufTx), (FRAME_H*)serial_dataTx);
+    CommandToAscii(asciibufRx, sizeof(asciibufRx), (FRAME_H *)serial_dataRx);
+    CommandToAscii(asciibufTx, sizeof(asciibufTx), (FRAME_H *)serial_dataTx);
 
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "SerialDataRx", asciibufRx);
@@ -396,7 +396,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.pilot.triplog.value.dValue = triplog->valuedouble;
         g_n2kdata.pilot.triplog.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pilot.triplog.Counter, t);
-        pCtrl->BGNET.SPEED.TripLogNM.value.nLong = DTOIROUND(triplog->valuedouble * BGNET_DIVISOR_TRIPLOG);
+        pCtrl->BGNET.SPEED.TripLogNM.value.dValue = triplog->valuedouble * BGNET_DIVISOR_TRIPLOG;
         pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
     }
@@ -701,11 +701,11 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: STORLOG", "Stored log (QUAD or SPEED), stored in EEPROM, no reset) [NM]", pCtrl->BGNET.SPEED.StoredLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.StoredLogNM.source), (ITOD(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), (ITOD(pCtrl->BGNET.SPEED.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), pCtrl->BGNET.SPEED.TripLogNM.value.dValue/BGNET_DIVISOR_TRIPLOG);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), ITOD(pCtrl->BGNET.SPEED.DRD.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), pCtrl->BGNET.SPEED.DRD.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRC", "Dead Reconing Course (displayed on DATA or SPEED, resettable via QUAD) [0-359]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), ITOD(pCtrl->BGNET.SPEED.DRC.value.nLong));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED: DRC", "Dead Reconing Course (displayed on DATA or SPEED, resettable via QUAD) [0-359]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), pCtrl->BGNET.SPEED.DRC.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Temperature", "Seawater temperature", pCtrl->BGNET.SPEED.Temperature.Counter.iCounter, t-pCtrl->BGNET.SPEED.Temperature.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.Temperature.source), pCtrl->BGNET.SPEED.Temperature.value.dValue);
     strcat(Buffer, cLine);
@@ -952,7 +952,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
         } else {
             InUse++;
             //y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload
-            y = bgnet_sizeof_frame((FRAME_H*)(pCtrl->CHN[i].x06.ucRAW));
+            y = bgnet_sizeof_frame((FRAME_H *)(pCtrl->CHN[i].x06.ucRAW));
             byte2ascii(asciibuf06, sizeof(asciibuf06), pCtrl->CHN[i].x06.ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine06, sizeof(cLine06), cDevRow06,
                                                     pCtrl->CHN[i].x06.CounterRx.iCounter,
