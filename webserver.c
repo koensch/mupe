@@ -725,11 +725,15 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/AUTOCAL: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.AUTOCAL.source), pCtrl->BGNET.SPEED.SETUP.AUTOCAL.value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->BGNET.ACP.COG.Counter.iCounter, t-pCtrl->BGNET.ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COG.source), pCtrl->BGNET.ACP.COG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.COG.source), pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.ACP.SOG.Counter.iCounter, t-pCtrl->BGNET.ACP.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SOG.source), pCtrl->BGNET.ACP.SOG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA: SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: SOG SELECT", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.ACP.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SOG_SEL.source), pCtrl->BGNET.ACP.SOG_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: SOG SELECT", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.ACP.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SOG_SEL.source), pCtrl->BGNET.ACP.SOG_SEL.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: VMG", "Velocity Made Good [KT]", pCtrl->BGNET.PILOT.NMEA.RMB.VMG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.VMG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.VMG.source), pCtrl->BGNET.PILOT.NMEA.RMB.VMG.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: XTE", "Cross Track Error [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Boatspeed, by source selection and default [KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.nLong);
     strcat(Buffer, cLine);

@@ -138,7 +138,7 @@ uint16_t EffectiveBoatSpeed(BGNET_CTRL *pCtrl, NMEA2K_VALUE *pV) {
             pV->value.nLong = pCtrl->BGNET.PILOT.SPEED.FST.value.nLong;
             break;
         case BGNET_SPD_SOG:
-            pV->value.nLong = pCtrl->BGNET.ACP.SOG.value.nLong;
+            pV->value.nLong = pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong;
             break;
         case BGNET_SPD_MAN_MED:
             pV->value.nLong = pCtrl->BGNET.PILOT.SPEED.MED.value.nLong;
@@ -438,17 +438,25 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_ACP;    // converted to HH, MM and SS
         CounterInit(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
 
-        pCtrl->BGNET.ACP.COG.value.nLong = 321;
-        pCtrl->BGNET.ACP.COG.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.ACP.COG.Counter, t);
+        pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong = 321;
+        pCtrl->BGNET.PILOT.NMEA.VTG.COG.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter, t);
 
-        pCtrl->BGNET.ACP.SOG.value.nLong = 22;
-        pCtrl->BGNET.ACP.SOG.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.ACP.SOG.Counter, t);
+        pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong = 22;
+        pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, t);
 
         pCtrl->BGNET.ACP.SOG_SEL.value.nByte = 0;
         pCtrl->BGNET.ACP.SOG_SEL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.SOG_SEL.Counter, t);
+
+        pCtrl->BGNET.PILOT.NMEA.RMB.VMG.value.nLong = 41;
+        pCtrl->BGNET.PILOT.NMEA.RMB.VMG.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.VMG.Counter, t);
+
+        pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.nLong = 51;
+        pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
 
         // evaluate effective speed (do this AFTER SPD/TRA, MAN/SEL/FST/MED/SLW and SOG are initialized)
         pCtrl->BGNET.ACP.EBS_SEL.value.nByte = EffectiveBoatSpeed(pCtrl, &pCtrl->BGNET.ACP.EBS);
@@ -1590,14 +1598,14 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
                     break;
                 case BGNET_CHN_EA_COGMAG :
-                    pCtrl->BGNET.ACP.COG.value.nLong = ntohs(pCH->s.cv.uW[0]);
-                    pCtrl->BGNET.ACP.COG.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->BGNET.ACP.COG.Counter, t);
+                    pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.PILOT.NMEA.VTG.COG.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter, t);
                     break;
                 case BGNET_CHN_EB_SOG:
-                    pCtrl->BGNET.ACP.SOG.value.nLong = ntohs(pCH->s.cv.uW[0]);
-                    pCtrl->BGNET.ACP.SOG.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->BGNET.ACP.SOG.Counter, t);
+                    pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, t);
                     if (pCtrl->BGNET.ACP.SOG_SEL.value.nByte == 0) {
                         pCtrl->BGNET.ACP.SOG_SEL.value.nByte = 1;
                         pCtrl->BGNET.ACP.SOG_SEL.source = BGN_SOURCE_BGNET;

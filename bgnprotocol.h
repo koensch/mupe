@@ -349,10 +349,10 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_87_BARORAW          0x87 // signal from the barometric sensor, prior calibration
 #define BGNET_CHN_8A_UNKNOWN          0x8A
 #define BGNET_CHN_8D_BATTERY          0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
-                                         // displayed by DATA (if 'OPTIONS' button is pressed)
+                                           // displayed by DATA (if 'OPTIONS' button is pressed)
 #define BGNET_CHN_98_UNKNOWN          0x98 // When a PILOT/NMEA/APB message is received this channel is observed with FMT_00 and
-                                         // and only 2 bytes, no data. I do not know if this is on purpose or a undesired feature
-                                         // if the XTE parameters are left empty; this channel does not appear.
+                                           // and only 2 bytes, no data. I do not know if this is on purpose or a undesired feature
+                                           // if the XTE parameters are left empty; this channel does not appear.
 #define BGNET_CHN_9A_HEADINGNEXTTACK  0x9A
 #define BGNET_CHN_9B_FOREAFTTRIM      0x9B
 #define BGNET_CHN_9C_MASTANGLE        0x9C
@@ -413,13 +413,13 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_E9_COGTRUE          0xE9 // Course Over Ground, True
 #define BGNET_CHN_EA_COGMAG           0xEA // Course Over Ground, Magnetic
 #define BGNET_CHN_EB_SOG              0xEB // Speed Over Ground, KT (via PILOT/NMEA/VTG/#5)
-                                         // Is also observed with command 0xD5 (with a 3 byte payload) after setting FST/MED/SLW (Manual Speed selection on PILOT)
-                                         // It is send when you page though the selection option (from FST>MED>SLW>FST), but not the 1st time you press the <SPEED>
-                                         // button. The first 2 bytes stays the same (0xEB 0x0F), but the 3rd payload byte varies between 0x00-0xFF (and sometimes
-                                         // it does not change). The meaning of this command is unclear. The 3rd byte also does not seem te be a ASCII character.
-                                         // The occurance of this channel causes this application to log a message, because the 2nd bye is not a recognised FMT byte.
-                                         // Also, the frame with this perculiar command has a broadcast TO address 0xFF, so it is not meant for the whole network.
-                                         // example: FF 50 03 D5 D9 0C EB 0F A4, note: "0F" might mean "OFF" ; we suspect that something is switch OFF                                        
+                                           // Is also observed with command 0xD5 (with a 3 byte payload) after setting FST/MED/SLW (Manual Speed selection on PILOT)
+                                           // It is send when you page though the selection option (from FST>MED>SLW>FST), but not the 1st time you press the <SPEED>
+                                           // button. The first 2 bytes stays the same (0xEB 0x0F), but the 3rd payload byte varies between 0x00-0xFF (and sometimes
+                                           // it does not change). The meaning of this command is unclear. The 3rd byte also does not seem te be a ASCII character.
+                                           // The occurance of this channel causes this application to log a message, because the 2nd bye is not a recognised FMT byte.
+                                           // Also, the frame with this perculiar command has a broadcast TO address 0xFF, so it is not meant for the whole network.
+                                           // example: FF 50 03 D5 D9 0C EB 0F A4, note: "0F" might mean "OFF" ; we suspect that something is switch OFF                                        
 #define BGNET_CHN_ED_TIMETOWP         0xED
 #define BGNET_CHN_EE_XTE              0xEE
 #define BGNET_CHN_EF_REMOTE0          0xEF
@@ -437,12 +437,12 @@ typedef struct {        // for the FRAME header we use a pointer
 #define BGNET_CHN_FB_TIMETOLAYLINE    0xFB
 #define BGNET_CHN_FC_SHALLOWALARM     0xFC // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF"
 #define BGNET_CHN_FD_DEEPALARM        0xFD // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF"
-                                         // When alarm limit is set, the alarm fires "C4 17 00 C4" channel value (transmitted via 0x01/DATA command)
+                                           // When alarm limit is set, the alarm fires "C4 17 00 C4" channel value (transmitted via 0x01/DATA command)
 #define BGNET_CHN_FE_ANCHORALARM      0xFE // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF". The ANCHOR alarms levels
-                                         // consists of 2 values (shallow & deep) that are alternating on this channel.
-                                         // At the moment you set the limits, these are relative to the measured depth at that moment.
+                                           // consists of 2 values (shallow & deep) that are alternating on this channel.
+                                           // At the moment you set the limits, these are relative to the measured depth at that moment.
 #define BGNET_CHN_FF_DEPTH_CAL        0xFF // displayed on QUAD, FMT_01= value (0-999)
-                                         // difference between the deepest point of the boat and the depth of the sensor, usually negative
+                                           // difference between the deepest point of the boat and the depth of the sensor, usually negative
 
 
 // Channel data can be of variable length and variable datatype. We create a structure/union to pack/unpack the
@@ -674,8 +674,6 @@ typedef struct {
         NMEA2K_VALUE EBS_SEL;       // Effective Boat Speed, selector
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
-        NMEA2K_VALUE COG;
-        NMEA2K_VALUE SOG;
         NMEA2K_VALUE SOG_SEL;
         NMEA2K_VALUE SHA_ALARM;
         NMEA2K_VALUE DEEP_ALARM;     // WIND Selection Type (0=T, 1 =A)
@@ -707,6 +705,16 @@ typedef struct {
             NMEA2K_VALUE MED;  // speed MED x10
             NMEA2K_VALUE SLW;  // speed SLW x10
         } SPEED;
+        struct {
+            struct {
+                NMEA2K_VALUE COG;
+                NMEA2K_VALUE SOG;
+            } VTG;
+            struct {
+                NMEA2K_VALUE VMG;
+                NMEA2K_VALUE XTE;
+            } RMB;
+        } NMEA;
     } PILOT;
     // SPEED parameters
     struct {

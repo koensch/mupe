@@ -307,13 +307,13 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
         CounterUp(&g_n2kdata.pos.cog.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
-        switch(pCtrl->BGNET.ACP.COG.source) {
+        switch(pCtrl->BGNET.PILOT.NMEA.VTG.COG.source) {
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.ACP.COG.value.nLong = DTOIROUND(cog * 180/BGNET_PI); // convert rad to deg
-                pCtrl->BGNET.ACP.COG.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->BGNET.ACP.COG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong = DTOIROUND(cog * 180/BGNET_PI); // convert rad to deg
+                pCtrl->BGNET.PILOT.NMEA.VTG.COG.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
         //log_debug("N2K 129026: COG=%.4f rad", cog);
     }
@@ -328,26 +328,26 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
         CounterUp(&g_n2kdata.pos.sog.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
-        switch(pCtrl->BGNET.ACP.SOG.source) {
+        switch(pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source) {
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.ACP.SOG.value.nLong = DTOIROUND(sog * 1.94384 *10); // convert m/s to KT
-                pCtrl->BGNET.ACP.SOG.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->BGNET.ACP.SOG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong = DTOIROUND(sog * 1.94384 *10); // convert m/s to KT
+                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
         //log_debug("N2K 129026: SOG=%.2f m/s", sog);
     }
 
 }
 /* 129029 – GNSS position data
- * byte 0   SID (Sequence ID to group 'fast packages')
- * byte 1,2 Position Date   days since 1970-01-01
- * byte 3,6 Position Time   seconds since midnight, 0.0001s/bit
- * byte 7-14    Latitude    double precision float 1x10^-16 deg/bit
- * byte 15-22   Longitude   double precision float 1x10^-16 deg/bit
- * byte 23-26   Altitude    long integer, signed 1x10^-6 m/bit
- * byte 27      Type        0=GPS, 1=GLONASS, 2=GPS+GLONASS, 3=Galileo
+ * byte 0       SID             Sequence ID to group 'fast packages'
+ * byte 1,2     Position Date   days since 1970-01-01
+ * byte 3,6     Position Time   seconds since midnight, 0.0001s/bit
+ * byte 7-14    Latitude        double precision float 1x10^-16 deg/bit
+ * byte 15-22   Longitude       double precision float 1x10^-16 deg/bit
+ * byte 23-26   Altitude        long integer, signed 1x10^-6 m/bit
+ * byte 27      Type            0=GPS, 1=GLONASS, 2=GPS+GLONASS, 3=Galileo
  */
 static void parse_pgn_129029(BGNET_CTRL *pCtrl, const struct can_frame *f)
 {
