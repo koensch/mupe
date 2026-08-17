@@ -302,9 +302,9 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
     {0,                          "UNKNOWN E6",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN E7",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_E8_WPD,           "NMEA/RMB/WPD",    BGN_FMT_08, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_E9_COGTRUE,       "UNKNOWN E9",      BGN_FMT_08, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 129026,  ""},\
+    {0,                          "UNKNOWN E9",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 129026,  ""},\
     {0,                          "UNKNOWN EA",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_EB_SOG,           "NMEA/VTG/SOG",    BGN_FMT_08, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 129026,  ""},\
+    {BGNET_CHN_EB_SOG,           "NMEA/VTG/SOG",    BGN_FMT_08, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 129026,  ""},\
     {0,                          "UNKNOWN EC",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN ED",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_EE_XTE,           "NMEA/RMB/XTE",    BGN_FMT_01, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -601,7 +601,7 @@ BGNET_FMTDT FMTDT[16] = {       {0x00, 2, "0 bytes, odd one (found on PILOT/NMEA
                                 {0x07, 0, "variable, string (ascii + 1 null-byte)"}, \
                                 {0x08, 4, "2 bytes, unsigned 16bit register"}, \
                                 {0x09,-1, ""}, \
-                                {0x0A, 4, "used by WP ID (2 ascii)"}, \
+                                {0x0A, 6, "used by WP ID (4 ascii)"}, \
                                 {0x0B,-1, ""}, \
                                 {0x0C, 5, "3 bytes text (like 'INV')"}, \
                                 {0x0D, 6, "used to store ANC alarm level with 2 values"}, \

@@ -416,8 +416,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_E6_BRG2WGYROMAG     0xE6
 #define BGNET_CHN_E7_WAYPDISTRUMB     0xE7
 #define BGNET_CHN_E8_WPD              0xE8 // WP Distance (via PILOT/NMEA/RMB/#10)
-#define BGNET_CHN_E9_COGTRUE          0xE9 // Course Over Ground, True
-#define BGNET_CHN_EA_COGMAG           0xEA // Course Over Ground, Magnetic
+#define BGNET_CHN_E9_COGTRUE          0xE9 // Course Over Ground, True, realise that no NETWORK node displays COG
+#define BGNET_CHN_EA_COGMAG           0xEA // Course Over Ground, Magnetic, realise that no NETWORK node displays COG
 #define BGNET_CHN_EB_SOG              0xEB // Speed Over Ground, KT (via PILOT/NMEA/VTG/#5)
                                            // Is also observed with command 0xD5 (with a 3 byte payload) after setting FST/MED/SLW (Manual Speed selection on PILOT)
                                            // It is send when you page though the selection option (from FST>MED>SLW>FST), but not the 1st time you press the <SPEED>
@@ -440,7 +440,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_F8_REMOTE9          0xF8
 #define BGNET_CHN_F9_COURSETOSAIL     0xF9
 #define BGNET_CHN_FA_NEXTWPDIST       0xFA
-#define BGNET_CHN_FB_WPID             0xFB // Waypoint ID (first 2 letters from the NMEA message)
+#define BGNET_CHN_FB_WPID             0xFB // Waypoint ID (first 4 letters from the NMEA message field)
 #define BGNET_CHN_FC_SHALLOWALARM     0xFC // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF"
 #define BGNET_CHN_FD_DEEPALARM        0xFD // displayed on QUAD, FMT_01= value (0-999) or FMT_04= "OFF"
                                            // When alarm limit is set, the alarm fires "C4 17 00 C4" channel value (transmitted via 0x01/DATA command)

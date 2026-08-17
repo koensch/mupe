@@ -1481,10 +1481,12 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
                     break;
             }
             break;
-        case BGN_FMT_0A: // 2 bytes ASCII
+        case BGN_FMT_0A: // 4 bytes ASCII (length = 6)
             pStr[0] = puCH->s.cv.uB[0];
             pStr[1] = puCH->s.cv.uB[1];
-            pStr[2] = BGNET_ASC_NULL;
+            pStr[2] = puCH->s.cv.uB[2];
+            pStr[3] = puCH->s.cv.uB[3];
+            pStr[4] = BGNET_ASC_NULL;
             iValid = 2;
             break;
         case BGN_FMT_0C: // 3 bytes ASCII, byte 0 is unused
@@ -1511,7 +1513,7 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
                 // convert to a real value, apply divisor (1.0-1000.0)
                 sprintf(pStr, cPrint[d], ITOD(iRawValue)/fDiv[d]);
                 break;
-            default: // non-scaled value is printed a integer
+            default: // non-scaled value is printed a integer (without a decimalpoint)
                 sprintf(pStr, cPrint[d], iRawValue);
                 break;
         }

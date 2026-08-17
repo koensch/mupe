@@ -883,7 +883,7 @@ static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
             "<th colspan='3'>Command 0x06/%s [Rx]</th>"
             "<th colspan='7'>Various Commands/BUTTONS, ALARMS, RESETS [Tx/Rx]</th>"
             "</tr>"
-        "<tr><th>ID</th><th>Label</th><th>Node</th>"
+        "<tr><th>ID</th><th>Label</th><th>Source</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Label</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th>"
