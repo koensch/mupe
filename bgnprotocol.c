@@ -188,10 +188,14 @@ unsigned char bgnet_checksum_frame_check(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     if (pF->payload[pF->PL] == cs) {
         r = BGNET_CHECKSUM_OK;
     } else {
-        if ((pF->payload[pF->PL]+3) == cs) {
+        if ((pF->payload[pF->PL] + 3) == cs) {
             r = BGNET_CHECKSUM_OK;
         } else {
-            log_error("    Frame Checksum ERR, framesize: %d (received: 0x%02X, calculated: 0x%02X, previous=0x%02X)", bgnet_sizeof_frame(pF), pF->payload[pF->PL], cs, pCtrl->BGNET.weird.ACKSEQprev);
+            if (pF->payload[pF->PL] == (cs + 3)) {
+                r = BGNET_CHECKSUM_OK;
+            } else {
+                log_error("    Frame Checksum ERR, framesize: %d (received: 0x%02X, calculated: 0x%02X, previous=0x%02X)", bgnet_sizeof_frame(pF), pF->payload[pF->PL], cs, pCtrl->BGNET.weird.ACKSEQprev);
+            }
         }
     }
     return(r);
@@ -240,6 +244,12 @@ void log_debug_buffer(unsigned char *pBuf, size_t y) {
     char asciibuf[BGN_FRAME_SIZE];
     byte2ascii(asciibuf, sizeof(asciibuf), pBuf, y, BYTE2ASCII_SPACED);
     log_debug("log_debug_buffer: %d bytes -> %s", y, asciibuf);
+}
+// used by log (dump a channel)
+void log_debug_channel(BGNET_CTRL *pCtrl, union CH *pCH) {
+    char asciibuf[BGN_FRAME_SIZE];
+    byte2ascii(asciibuf, sizeof(asciibuf), (unsigned char *)pCH, bgnet_sizeof_channel(pCtrl, pCH), BYTE2ASCII_SPACED);
+    log_debug("log_debug_channel: Channel 0x%02X -> %s", pCH->s.CH, asciibuf);
 }
 // used by log (dump a frame)
 void log_debug_frame(FRAME_H *pF) {
@@ -1613,6 +1623,7 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue = pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue + pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue;
                     pCtrl->BGNET.DEPTH.Depth_CAL.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.DEPTH.Depth_CAL.Counter, t);
+                    log_debug_channel(pCtrl, pCH);
                     break;
                 case BGNET_CHN_B5_AP_STATUS:
                     pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE) | (pCH->s.cv.uB[0] & BGN_AP_MODE1_MASK_STATE);  // get AUTO/STBY state into ACP
@@ -2063,6 +2074,9 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     bgnet_initialize_reset(pCtrl);
                                 }
 #endif
+                                break;
+                            case BGNET_CMD_E7_ALARM_ACK:
+                                // an alarm ACK was received, just register the received frame
                                 break;
                             default:
                                 // Some commands are part of a CMD-REQ/CDM-DAT/CMD-ACK handshake. All next commands require a CMD-ACK response

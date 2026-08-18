@@ -155,7 +155,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 
 // maximum number of possible devices. B&G advises a maximum of around 20 devices on the same network. Because
 // for us it's much faster to use the address as the index to the device, we use 0xFF as the maximum
-#define BGNET_DEVICE_MAX                0xFF
+#define BGNET_DEVICE_MAX                0x0100 // 0x00-0xFF, both included
 
 // FROM/TO address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA is 0xD6, another time it's 0x60.
 // The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51. As long as you have 1 of each it's simple. I do not have multiple
@@ -170,7 +170,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_TYPE_NETWIND              0x70 // confirmed
 #define BGNET_TYPE_ALL                  0xFF // used for broadcast (to ALL)
 
-#define BGNET_COMMAND_MAX               0xFF
+#define BGNET_COMMAND_MAX               0x0100 // 0x00-0xFF, both included
 #define BGNET_COMMAND_INIT              0x00
 
 #define BGNET_CMD_01_DATA               0x01 //DATA broadcast, variable length, instrument readings.
@@ -232,6 +232,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CMD_DD_QUAD_SHAREQ        0xDD // 2 bytes payload (00 C4), C4=DEPTH
 #define BGNET_CMD_DE_PILOT_WAREQ        0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
 #define BGNET_CMD_DF_PILOT_OCREQ        0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
+#define BGNET_CMD_E7_ALARM_ACK          0xE7 // 2 bytes payload (00 xx), is send by the node where the alarm was acknowdldged. Alarm initiating node
+                                             // responds wit a CMD-ACK
 #define BGNET_CMD_EA_QUAD_AUTOCAL       0xEA // sometimes we get this CMD: 00 30 02 EA E4 03 01 A6 while stepping though SPEED SETUP (4th option)
                                                // and i do not know what it does, so we just send a CMD-ACK
 #define BGNET_CMD_ACK                   0xFD // 1 byte payload
@@ -240,7 +242,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_CID                   0   // position of channel byte
 // FMT byte is encoded as follows
 // MSB bit 7,6    : divisor (00=1, 01=10, 10=100, 11=1000)
-//     bit 5,4    : size/padding (00=4, 01=3, 10=2, 11=1)
+//     bit 5,4    : size/padding (00=4, 01=3, 10=2, 11=1), note that bit 4 might also be used to trigger thet alarm beeper
 // LSB bit 3,2,1,0: datatype (0000-1111, see decoding routine)
     #define BGNET_FMT_DIVPAD      0xF0    // bits 7,6,5,4  - Divisor & Padding
     #define BGNET_FMT_DIVPAD_DIV  0xC0    // bits 7,6      - Divisor
@@ -248,7 +250,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGNET_FMT_DT          0x0F    // bits 3,2,1,0  - DataType
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
-#define BGNET_CHANNEL_MAX           0xFF // for sizing purposes (range 00-FF, both including) add 1 for sizing purpose
+#define BGNET_CHANNEL_MAX           0x0100 // 0x00-0xFF, both included
 
 #define BGNET_CHN_00_NODERESET        0X00
 #define BGNET_CHN_01_UNKNOWN          0X01
