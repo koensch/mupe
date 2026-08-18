@@ -200,7 +200,6 @@ unsigned char bgnet_checksum_frame_check(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     }
     return(r);
 }
-
 // get the index for the devicetype we are looking for
 int bgnet_deviceindex(BGNET_CTRL *pCtrl, unsigned char ucDevAddr) {
     int i,r;
@@ -214,7 +213,12 @@ int bgnet_deviceindex(BGNET_CTRL *pCtrl, unsigned char ucDevAddr) {
     }
     return(r);
 }
-
+// safe copy WayPointID
+void safecopyWPID(NMEA2K_VALUE *pV, char *pString) {
+    strncpy(pV->value.cString, pString, sizeof(pV->value.cString));
+    pV->value.cString[sizeof(pV->value.cString)] = BGNET_ASC_NULL;
+    return;
+}
 // initialize a counter
 void CounterInit(BGNET_COUNT *Counter, time_t t) {
     Counter->iCounter = 0; // 0 means 'never touched'
@@ -468,9 +472,21 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.RMB.VMG.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.VMG.Counter, t);
 
-        pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.nLong = 51;
+        pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue = -0.1234;
         pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
+
+        safecopyWPID(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID, "WP01hobbeldehobbelduif"); // safecopy WPID (12 characters maximum)
+        pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter, t);
+
+        pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue = 9.876;
+        pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter, t);
+
+        pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong = 183;
+        pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter, t);
 
         // evaluate effective speed (do this AFTER SPD/TRA, MAN/SEL/FST/MED/SLW and SOG are initialized)
         pCtrl->BGNET.ACP.EBS_SEL.value.nByte = EffectiveBoatSpeed(pCtrl, &pCtrl->BGNET.ACP.EBS);
@@ -682,7 +698,11 @@ size_t encode_channel_double(BGNET_CTRL *pCtrl, union CH *pCH, unsigned char ucC
     pCH->s.CH = ucCH;
     uP = 0; // we do not use padding (yet)
     // set FMT byte. Skip auto-scaling when passed FMT is already scaled
-    if ((ucFMT & BGNET_FMT_DIVPAD) == 0) {
+    // note: use used to check for a zero "DIVPAD", here, but we later found out that
+    // bit 4 could also be used for ALARM.
+    // hance we have changed it to check for a zero "DIV" only.
+    //if ((ucFMT & BGNET_FMT_DIVPAD) == 0) {
+    if ((ucFMT & BGNET_FMT_DIVPAD_DIV) == 0) {
         // do auto-scale, scale it before rounding/converting to int
         if (dV < 1.0) {
             uW = DTOIROUND(dV * 1000.0);
@@ -710,7 +730,7 @@ size_t encode_channel_double(BGNET_CTRL *pCtrl, union CH *pCH, unsigned char ucC
     }
     sChannelSize = bgnet_sizeof_channel(pCtrl, pCH);
     switch(iX) { // we only accept index 0(5 byte payload, FMT_01, FMT_08, FMT_0D) or 1 (7 byte payload, FMT_0D)
-        case 0:
+        case 0: // normally we only have 1 2-byte value
             switch(ucFMT & BGNET_FMT_DT) {
                 case BGN_FMT_01: // convert unsigned to signed 16bit register
                     pCH->s.cv.sW[iX] = (int16_t)htons(uW);
@@ -723,7 +743,7 @@ size_t encode_channel_double(BGNET_CTRL *pCtrl, union CH *pCH, unsigned char ucC
                     break;
             }
             break;
-        case 1:
+        case 1: // sometimes we have 2 2-byte values
             switch(ucFMT & BGNET_FMT_DT) {
                 case BGN_FMT_0D: // unsigned 16bit register
                     pCH->s.cv.uW[iX] = htons(uW);
@@ -749,11 +769,6 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH = (union CH *)&(payload[r]);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, 22.5, 0);
 
-    //puCH->s.CH = c;
-    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    //puCH->s.cv.uW[0] = htons(225);
-    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
- 
     // the next 3 values are 'rotated' by the QUAD: CD every other time, 64/65 every 4'th time
     // but that is too complex at this moment. Later i will build a rotating scheme.
 
@@ -777,19 +792,10 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     c = BGNET_CHN_81_DRD;
     puCH = (union CH *)&(payload[r]);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.DRD.value.dValue, 0);
-    //puCH->s.CH = c;
-    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    //puCH->s.FMT = BGN_FMT_48;
-    //puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.DRD.value.nLong); 
-    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
  
     c = BGNET_CHN_CF_TRIPLOG;
     puCH = (union CH *)&(payload[r]);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.TripLogNM.value.dValue, 0);
-    //puCH->s.CH = c;
-    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    //puCH->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.TripLogNM.value.nLong); 
-    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_D3_DRC;
     puCH = (union CH *)&(payload[r]);
@@ -800,10 +806,6 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
     c = BGNET_CHN_20_SEATEMPQ;
     puCH = (union CH *)&(payload[r]);
-    //puCH->s.CH = c;
-    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    //puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.Temperature.value.nLong); 
-    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.Temperature.value.dValue, 0);
 
     c = BGNET_CHN_75_TIMER;
@@ -891,43 +893,23 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
     c = BGNET_CHN_FF_DEPTH_CAL;
     puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(4); 
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    //puCH->s.CH = c;
+    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    //puCH->s.cv.sW[0] = htons(4); 
+    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue, 0);
 
     c = BGNET_CHN_C4_DEPTH;  // displayed on QUAD
     puCH = (union CH *)&(payload[r]);
-    //puCH->s.CH = c;
-    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    //puCH->s.cv.sW[0] = htons(pCtrl->BGNET.DEPTH.Depth.value.nLong); 
-    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue, 0);
 
     c = BGNET_CHN_C1_DEPTHRAW;
     puCH = (union CH *)&(payload[r]);
-    //puCH->s.CH = c;
-    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    //puCH->s.cv.sW[0] = htons(22); 
-    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue, 0);
 
     return(r);
 }
 
-int makeACPresponseCTARGET(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0,c;
-    union CH *puCH;
-
-    c = BGNET_CHN_A6_AP_CTS;
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    return(r);
-}
 int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
     union CH *puCH;
@@ -997,49 +979,9 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    return(r);
-}
+#define INCLUDE_WIND
+#ifdef INCLUDE_WIND
 
-// When the PILOT sends a 0E/KEEPALIVE command to the ACP, and the PILOT does not
-// receive a reply, the message "No Pilot" is displayed.
-// At minimum, it should receive the AP_STATUS reply (via a DATA command) and
-// PILOT come alive. It needs more data to be functional (but that is
-// another ballgame)
-int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0,c;
-    union CH *puCH;
-
-    c = BGNET_CHN_B5_AP_STATUS;
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uB[0] = pCtrl->BGNET.ACP.STATE.value.nByte; // AUTO/STBY
-    puCH->s.cv.uB[1] = pCtrl->BGNET.ACP.MODE.value.nByte;  // COMP/NAV/VANE
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    c = BGNET_CHN_0B_RUDDER;
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    // when in STBY, the display shows the HEADING (compass reading)
-    c = BGNET_CHN_49_HEADING;
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.Heading.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    // when in AUTO, the diplay shows the COURSE TARGET (set of the autopilot)
-    c = BGNET_CHN_A6_AP_CTS;
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
- 
     c = BGNET_CHN_51_AWA;
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
@@ -1054,44 +996,53 @@ int makeACPresponseFAST(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.sW[0] = htons(102);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
+#endif
+#define INCLUDE_NAV
+#ifdef INCLUDE_NAV
+
+    //c = BGNET_CHN_98_NMEA_ACTIVE;
+    //puCH = (union CH *)&(payload[r]);
+    //puCH->s.CH = c;
+    //puCH->s.FMT = 0x01;
+    //r = r + 2;    
+
     c = BGNET_CHN_EE_XTE;
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(-57);
+    // always shows 2 digits <1.23 or >1.23. if it's bigger that 9.99 miles you
+    // are soo off that a few digits dont's make a difference
+    // do not use encode_channel_double(() with autoscaling
+    puCH->s.cv.sW[0] = htons(DTOIROUND(pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue * 100.0));
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
- 
-    // optional channels (only check the AUTO ON/OFF bit)
-    switch(pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) {
-        case BGN_AP_MODE1_AUTO:
-            break;
-        case BGN_AP_MODE1_STBY:
-            break;
-    }
-    switch(pCtrl->BGNET.ACP.MODE.value.nByte & BGN_AP_MODE2_MASK_MODE) {
-        case (BGN_AP_MODE2_COMP & BGN_AP_MODE2_MASK_MODE):
-            break;
-        case (BGN_AP_MODE2_NAV & BGN_AP_MODE2_MASK_MODE):
-            c = BGNET_CHN_A7_AP_WPB;
-            puCH = (union CH *)&(payload[r]);
-            puCH->s.CH = c;
-            puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-            puCH->s.cv.sW[0] = htons(123);
-            r = r + bgnet_sizeof_channel(pCtrl, puCH);
+   
+    c = BGNET_CHN_A7_AP_WPB;
+    puCH = (union CH *)&(payload[r]);
+    puCH->s.CH = c;
+    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-            c = BGNET_CHN_E8_WPD;
-            puCH = (union CH *)&(payload[r]);
-            puCH->s.CH = c;
-            puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-            puCH->s.cv.sW[0] = htons(333);
-            r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    c = BGNET_CHN_E8_WPD;
+    puCH = (union CH *)&(payload[r]);
+    puCH->s.CH = c;
+    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    puCH->s.cv.sW[0] = htons(DTOIROUND(pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue * 100.0));
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-            break;
-        case (BGN_AP_MODE2_VANE & BGN_AP_MODE2_MASK_MODE):
-            // AWA signal shall be provided by WIND
-            break;      
-    }
-    return (r);
+    c = BGNET_CHN_FB_WPID;
+    puCH = (union CH *)&(payload[r]);
+    puCH->s.CH = c;
+    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[0];
+    puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[1];
+    puCH->s.cv.uB[2] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[2];
+    puCH->s.cv.uB[3] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[3];
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
+#endif
+
+    return(r);
 }
 
 // timer channel (FMT_03, channel 0x75 only)
@@ -1166,26 +1117,6 @@ int makeOCresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
     return (r);
 }
-//int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
-//    int r = 0,c;
-//    union CH *puCH;
-
-//    c = BGNET_CHN_41_BOATSPEEDKT;
-//    puCH = (union CH *)&(payload[r]);
-//    puCH->s.CH = c;
-//    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-//    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.Speed.value.nLong);
-//    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-//    c = BGNET_CHN_EB_SOGKT;
-//    puCH = (union CH *)&(payload[r]);
-//    puCH->s.CH = c;
-//    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-//    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.SOG.value.nLong);
-//    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-//
-//    return (r);
-//}
 
 // This is the "device processor", called from the timer thread
 // We scan through the data stored by the frame decoder.
@@ -1437,9 +1368,11 @@ int decode_channel_numeric(union CH *puCH) {
 }
 char *decode_channel_string(char *pStr, union CH *puCH) {
     int iRawValue;
+    double dRawValue;
     int iValid; // 0= invalid DataType, set to "???"
                 // 1= Numerical, convert RawValue byte sequence (with optional scaling)
                 // 2= ASCII, already set (text, timer, hex)
+                // 3= double, value in dRawValue, scaled
     unsigned int d;
     const double fDiv[4]    = { 1.0,   10.0,  100.0, 1000.0};
     const char cPrint[4][6] = {"%d", "%.1f", "%.2f", "%.3f"};
@@ -1449,8 +1382,16 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
             iValid = 2;
             break;
         case BGN_FMT_01: // signed 16bit register (-999 to +999)
-            iRawValue = decode_channel_numeric(puCH);
-            iValid = 1;
+            switch (puCH->s.CH) {
+                case BGNET_CHN_EE_XTE:
+                    dRawValue = decode_channel_numeric(puCH)/100.0;
+                    iValid = 3;
+                    break;
+                default:
+                    iRawValue = decode_channel_numeric(puCH);
+                    iValid = 1;
+                    break;
+            }
             break;
         case BGN_FMT_02: // unsigned 32bit register (0xCD, storedlog)
             iRawValue = decode_channel_numeric(puCH);
@@ -1485,6 +1426,10 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
                 //    sprintf(pStr, "%.1f", ITOD(iRawValue)/BGNET_DIVISOR_TRIPLOG);
                 //    iValid = 2;
                 //    break;
+                case BGNET_CHN_E8_WPD:
+                    dRawValue = decode_channel_numeric(puCH)/100.0;
+                    iValid = 3;
+                    break;
                 default:
                     iRawValue = decode_channel_numeric(puCH);
                     iValid = 1;
@@ -1513,20 +1458,29 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
             pStr[3] = BGNET_ASC_NULL;
             iValid = 0;
     }
-    if (iValid == 1) {
-        // get divisor value (0-3) from FMT byte
-        d = (puCH->s.FMT & BGNET_FMT_DIVPAD_DIV)>>6;
-        switch (d) {
-            case 1:  // scaled value is printed with a decimals
-            case 2:
-            case 3:
-                // convert to a real value, apply divisor (1.0-1000.0)
-                sprintf(pStr, cPrint[d], ITOD(iRawValue)/fDiv[d]);
-                break;
-            default: // non-scaled value is printed a integer (without a decimalpoint)
-                sprintf(pStr, cPrint[d], iRawValue);
-                break;
-        }
+    switch(iValid) {
+        case 0: // invalue format, result already there
+            break;
+        case 1: // numerical with auto-scaling
+            // get divisor value (0-3) from FMT byte
+            d = (puCH->s.FMT & BGNET_FMT_DIVPAD_DIV)>>6;
+            switch (d) {
+                case 1:  // scaled value is printed with a decimals
+                case 2:
+                case 3:
+                    // convert to a real value, apply divisor (1.0-1000.0)
+                    sprintf(pStr, cPrint[d], ITOD(iRawValue)/fDiv[d]);
+                    break;
+                default: // non-scaled value is printed a integer (without a decimalpoint)
+                    sprintf(pStr, cPrint[d], iRawValue);
+                    break;
+            }
+            break;
+        case 2: // ASCII output, result already there
+            break;
+        case 3: // fixed scaled integer, use dRawValue
+            sprintf(pStr, "%.2f", dRawValue);
+            break;           
     }
     return(pStr);
 }
@@ -2230,7 +2184,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         switch(pCHRx->s.CH) {
                                                             case BGNET_CHN_CF_TRIPLOG:
                                                                 // SPEED/RESET LOG, 2 bytes payload
-                                                                // a QUAD/r only sends a CMD_CB/CNH_41 (to the QUAD/t)
+                                                                // a QUAD/r only sends a CMD_CB/CHN_41 (to the QUAD/t)
                                                                 // a QUAD/t or QUAD/d sends nothing.
                                                                 pCtrl->BGNET.SPEED.TripLogNM.value.dValue = 0.0;
                                                                 pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_BGNET;
@@ -2238,7 +2192,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 break;
                                                             case BGNET_CHN_81_DRD:
                                                                 // SPEED/DRD RESET, 2 bytes payload
-                                                                // a QUAD/r only sends a CMD_CB/CNH_81 (to the QUAD/t)
+                                                                // a QUAD/r only sends a CMD_CB/CHN_81 (to the QUAD/t)
                                                                 // a QUAD/t or QUAD/d sends nothing.
                                                                 pCtrl->BGNET.SPEED.DRD.value.dValue = 0.0;
                                                                 pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_BGNET;

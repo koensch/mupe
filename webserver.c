@@ -633,7 +633,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     const char *cACPRowSSDSS = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>";
     const char *cACPRowSSDSD = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td></tr>";
     const char *cACPRowSSDSX = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td></tr>";
-    const char *cACPRowSSDSF = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.1f</td></tr>";
+    const char *cACPRowSSDSF = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -733,7 +733,13 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: VMG", "Velocity Made Good [KT]", pCtrl->BGNET.PILOT.NMEA.RMB.VMG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.VMG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.VMG.source), pCtrl->BGNET.PILOT.NMEA.RMB.VMG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: XTE", "Cross Track Error [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "External: XTE", "Cross Track Error [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "External: WP", "WayPoint ID", pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "External: WPD", "WayPoint Distance [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: WPB", "WayPoint Bearing [0-359 Deg]", pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Boatspeed, by source selection and default [KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.nLong);
     strcat(Buffer, cLine);

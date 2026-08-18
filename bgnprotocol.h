@@ -244,10 +244,13 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 // MSB bit 7,6    : divisor (00=1, 01=10, 10=100, 11=1000)
 //     bit 5,4    : size/padding (00=4, 01=3, 10=2, 11=1), note that bit 4 might also be used to trigger thet alarm beeper
 // LSB bit 3,2,1,0: datatype (0000-1111, see decoding routine)
-    #define BGNET_FMT_DIVPAD      0xF0    // bits 7,6,5,4  - Divisor & Padding
-    #define BGNET_FMT_DIVPAD_DIV  0xC0    // bits 7,6      - Divisor
-    #define BGNET_FMT_DIVPAD_PAD  0x30    // bits 5,4      - Padding
-    #define BGNET_FMT_DT          0x0F    // bits 3,2,1,0  - DataType
+    #define BGNET_FMT_DIVPAD        0xF0    // bits 7,6,5,4  - Divisor & Padding
+    #define BGNET_FMT_DIVPAD_DIV    0xC0    // bits 7,6      - Divisor
+    #define BGNET_FMT_DIVPAD_PAD    0x30    // bits 5,4      - Padding
+    #define BGNET_FMT_DT            0x0F    // bits 3,2,1,0  - DataType
+    #define BGNET_FMT_ALARM         0x10    // bit 4         - Alarmbit
+                                            // a 'alarm-capable-originating' node (like QUAD) will beep when it receives the alarmbit,
+                                            // also if that channel does not have alarm capabilities (settable alarm limits)
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
 #define BGNET_CHANNEL_MAX           0x0100 // 0x00-0xFF, both included
@@ -737,8 +740,11 @@ typedef struct {
                 NMEA2K_VALUE SOG;
             } VTG;
             struct {
+                NMEA2K_VALUE XTE;   // Cross Track Error RMB#2
+                NMEA2K_VALUE WPID;  // TO WaypointID RMB#4
+                NMEA2K_VALUE WPD;   // Waypoint Distance RMB#10
+                NMEA2K_VALUE WPB;   // Waypoint Bearing RMB#11
                 NMEA2K_VALUE VMG;
-                NMEA2K_VALUE XTE;
             } RMB;
         } NMEA;
     } PILOT;
