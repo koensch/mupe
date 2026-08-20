@@ -1849,7 +1849,7 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
         CounterUp(&pCtrl->CHN[ucCHN].x06.CounterRx, t);
         memcpy(pCtrl->CHN[ucCHN].x06.ucRAW, pFRx, bgnet_sizeof_frame(pFRx));
         log_debug("    Ch=%02X, Subscribed by %02X on %02X", ucCHN, pFRx->FROM, pFRx->TO);
-        // we will do only something if we are if RW mode
+        // we will do only generate a reply if we are if RW mode
         if (g_serial_mode == BGN_SERIAL_MODE_RW) {
             // we only handle a subscription request from a NETDATA type node
             iIsDefault = 0;
@@ -1857,17 +1857,20 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
                 case (BGNET_TYPE_NETDATA & BGNET_TYPE_MASK):
                     // byte 0 of the payload it the ChannelID the NETDATA node want
                     // we have grouped them together by the same FMT byte (at least what i think is a FMT byte)
-                    payload[0] = pFRx->payload[0];
-                    switch(payload[0]) {
+                    payload[0] = ucCHN;
+                    // bytes 1-3 vary by CHN
+                    switch(ucCHN) {
                         // this seems channels that have 'text' related data
                         case BGNET_CHN_31_ECHO_SNR:
-                        case BGNET_CHN_51_AWA:
-                        case BGNET_CHN_59_TWA:
                             payload[1] = 0x00;
                             payload[2] = 0x00;
                             payload[3] = 0x00;
-                            strcpy((char *)&(payload[4]), pCtrl->pCHNDT[payload[0]].cLabel);
-                            len_pl = 4 + strlen(pCtrl->pCHNDT[payload[0]].cLabel) + 1; // include the null byte
+                            break;
+                        case BGNET_CHN_51_AWA:
+                        case BGNET_CHN_59_TWA:
+                            payload[1] = 0x00;
+                            payload[2] = 0x01;
+                            payload[3] = 0x00;
                             break;
                         // this seems channels that have "text" 'distance' related data
                         case BGNET_CHN_20_SEATEMPQ:
@@ -1886,8 +1889,6 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
                             payload[1] = 0x40;
                             payload[2] = 0x01;
                             payload[3] = 0x00;
-                            strcpy((char *)&(payload[4]), pCtrl->pCHNDT[payload[0]].cLabel);
-                            len_pl = 4 + strlen(pCtrl->pCHNDT[payload[0]].cLabel) + 1; // include the null byte
                             break;
                         // this seems channels that have "text" 'speed' related data
                         case BGNET_CHN_41_STW:
@@ -1899,18 +1900,19 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
                             payload[1] = 0x80;
                             payload[2] = 0x01;
                             payload[3] = 0x00;
-                            strcpy((char *)&(payload[4]), pCtrl->pCHNDT[payload[0]].cLabel);
-                            len_pl = 4 + strlen(pCtrl->pCHNDT[payload[0]].cLabel) + 1; // include the null byte
                             break;
                         default:
                             iIsDefault = 1;
                             break;
                     }
+                    // is we have not prepared our payload, skip it
                     if (iIsDefault == 0) {
+                        // bytes 4-N is the label (ascii characters)
+                        strcpy((char *)&(payload[4]), pCtrl->pCHNDT[ucCHN].cLabel);
+                        // payload length is 4 + text length
+                        len_pl = 4 + strlen(pCtrl->pCHNDT[ucCHN].cLabel);
                         // assemble the frame
                         len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_02_LABEL, payload, len_pl);
-                        // determine the size of the Tx frame
-                        len_msg = bgnet_sizeof_frame(pFTx);
                         // we do the same with our FTx as what we would do when we would have receved it
                         decode_command_LABEL(pCtrl, pFTx);
                         // register command send
@@ -1971,8 +1973,8 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
 
         // log received frame (at least, i hope it's a frame). log everything, except DATA/0x01
         switch (pFRx->CMD) {
-            case BGNET_CMD_01_DATA:
-                break;
+//            case BGNET_CMD_01_DATA:
+//                break;
             default:
                 log_debug_frame(pFRx);
                 break;           

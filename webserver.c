@@ -957,7 +957,8 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             strcpy(cLine02, cDevRow02E);
         } else {
             InUse++;
-            y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload (the label part is displayed )
+            y = bgnet_sizeof_frame((FRAME_H *)(pCtrl->CHN[i].x02.ucRAW));
+            //y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload (the label part is displayed )
             byte2ascii(asciibuf02, sizeof(asciibuf02), pCtrl->CHN[i].x02.ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine02, sizeof(cLine02), cDevRow02,
                                                     pCtrl->CHN[i].x02.CounterRx.iCounter,
@@ -969,7 +970,6 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             strcpy(cLine06, cDevRow06E);
         } else {
             InUse++;
-            //y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload
             y = bgnet_sizeof_frame((FRAME_H *)(pCtrl->CHN[i].x06.ucRAW));
             byte2ascii(asciibuf06, sizeof(asciibuf06), pCtrl->CHN[i].x06.ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine06, sizeof(cLine06), cDevRow06,
