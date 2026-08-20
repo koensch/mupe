@@ -661,13 +661,13 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "[1=COMP, 3=NAV, 4=VANE]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "ACP: Effectieve Boat Speed", "Boatspeed, by source selection [KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "ACP: EBS", "Effective Boat Speed (by source selection, KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Effectieve Boat Speed", "Source selection (0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW)", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: EBS Select", "Speed source selection (0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW)", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Course To Steer", "Autopilot Course active setpoint (0-359 DegM)", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CTS", "Course To Steer, autopilot setpoint (0-359 DegM)", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Course", "Preset Course (0-359 DegM)", pCtrl->BGNET.ACP.CRS.Counter.iCounter, t-pCtrl->BGNET.ACP.CRS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CRS.source), pCtrl->BGNET.ACP.CRS.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CRS", "Course Preset (0-359 DegM)", pCtrl->BGNET.ACP.CRS.Counter.iCounter, t-pCtrl->BGNET.ACP.CRS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CRS.source), pCtrl->BGNET.ACP.CRS.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Speed Select", "[0=TRAnsmitter, 1=MANual/FST, 2=SOG, 3=MANual/MED, 4=MANual/SLW]", pCtrl->BGNET.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.SPD.source), pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte);
     strcat(Buffer, cLine);
