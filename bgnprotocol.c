@@ -341,6 +341,14 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.Joystick.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.Joystick.Counter, t);
 
+        pCtrl->BGNET.ACP.CTS.value.nLong = 0; // Course To Steer
+        pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.CTS.Counter, t);
+
+        pCtrl->BGNET.ACP.CRS.value.nLong = 0; // Preset Course To Steer
+        pCtrl->BGNET.ACP.CRS.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.CRS.Counter, t);
+
         // PILOT SETUP parameters
         pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte = BGNET_SPD_TRA;
         pCtrl->BGNET.PILOT.SETUP.SPD.source = BGN_SOURCE_ACP;
@@ -1863,7 +1871,7 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
                         // this seems channels that have 'text' related data
                         case BGNET_CHN_31_ECHO_SNR:
                             payload[1] = 0x00;
-                            payload[2] = 0x00;
+                            payload[2] = 0x01;
                             payload[3] = 0x00;
                             break;
                         case BGNET_CHN_51_AWA:
@@ -1906,7 +1914,9 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
                             break;
                     }
                     // is we have not prepared our payload, skip it
-                    if (iIsDefault == 0) {
+                    if (iIsDefault == 1) {
+                        // skip it
+                    } else {
                         // bytes 4-N is the label (ascii characters)
                         strcpy((char *)&(payload[4]), pCtrl->pCHNDT[ucCHN].cLabel);
                         // payload length is 4 + text length
@@ -1971,10 +1981,9 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
         len_msg = 0;
         iIsValid = 1; // tricky: if we hit a 'default' in a switch we reset this, so statistics is not updated
 
-        // log received frame (at least, i hope it's a frame). log everything, except DATA/0x01
         switch (pFRx->CMD) {
-//            case BGNET_CMD_01_DATA:
-//                break;
+            case BGNET_CMD_01_DATA:  // do not log DATA/0x01 frames
+                break;
             default:
                 log_debug_frame(pFRx);
                 break;           
@@ -2061,8 +2070,6 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
                                 CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                 TxSize = TxSize + len_msg;
-
-                                log_debug("Data/0x01, TxSize= %d",TxSize);
 
                                 // put it for transmission
                                 pthread_mutex_lock(&g_data_mutex);
@@ -2745,6 +2752,29 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte = BGNET_SPD_MAN_FST;
                                                                 pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);                                                                
+                                                                break;
+                                                            case BGNET_CHN_A6_AP_CTS:
+                                                                // the PILOT was put into AUTO with a pre-stored cource CRS
+                                                                // update CRS variable (no CHN)
+                                                                pCtrl->BGNET.ACP.CRS.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                                pCtrl->BGNET.ACP.CRS.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.ACP.CRS.Counter, t);
+                                                                // update CTS
+                                                                pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.CRS.value.nLong;
+                                                                pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
+
+                                                                // make DATA command (to ALL, so also other PILOT units, if present, receive it)
+                                                                len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
+                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                                len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                                                register_DATA_frame(pCtrl, pFTx);
+
+                                                                memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+                                                                memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
+                                                                CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
+                                                                TxSize = TxSize + len_msg;
                                                                 break;
                                                         }
                                                         break;                                               

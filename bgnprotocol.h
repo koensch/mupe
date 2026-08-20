@@ -722,6 +722,7 @@ typedef struct {
         NMEA2K_VALUE EBS;           // Effective Boat Speed, result of speed selection, used as initializer for SpeedMAX and SpeedAVG
         NMEA2K_VALUE EBS_SEL;       // Effective Boat Speed, selector
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
+        NMEA2K_VALUE CRS;           // Course Preset (Setpoint for AutoPilot)
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
         NMEA2K_VALUE SOG_SEL;
         NMEA2K_VALUE SHA_ALARM;
