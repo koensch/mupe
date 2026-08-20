@@ -661,6 +661,10 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "[1=COMP, 3=NAV, 4=VANE]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "ACP: Effectieve Boat Speed", "Boatspeed, by source selection [KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Effectieve Boat Speed", "Source selection (0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW)", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
+    strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Course To Steer", "Autopilot Course active setpoint (0-359 DegM)", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Course", "Preset Course (0-359 DegM)", pCtrl->BGNET.ACP.CRS.Counter.iCounter, t-pCtrl->BGNET.ACP.CRS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CRS.source), pCtrl->BGNET.ACP.CRS.value.nLong);
@@ -706,13 +710,13 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), pCtrl->BGNET.SPEED.TripLogNM.value.dValue/BGNET_DIVISOR_TRIPLOG);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRD", "Dead Reconing Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), pCtrl->BGNET.SPEED.DRD.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRD", "Dead Reckoning Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), pCtrl->BGNET.SPEED.DRD.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED: DRC", "Dead Reconing Course (displayed on DATA or SPEED, resettable via QUAD) [0-359]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), pCtrl->BGNET.SPEED.DRC.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED: DRC", "Dead Reckoning Course (displayed on DATA or SPEED, resettable via QUAD) [0-359 DegT]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), pCtrl->BGNET.SPEED.DRC.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Temperature", "Seawater temperature", pCtrl->BGNET.SPEED.Temperature.Counter.iCounter, t-pCtrl->BGNET.SPEED.Temperature.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.Temperature.source), pCtrl->BGNET.SPEED.Temperature.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: SWT", "Sea Water Temperature [DegC]", pCtrl->BGNET.SPEED.Temperature.Counter.iCounter, t-pCtrl->BGNET.SPEED.Temperature.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.Temperature.source), pCtrl->BGNET.SPEED.Temperature.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), pCtrl->BGNET.SPEED.STW.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: STW", "Speed Through Water (also used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), pCtrl->BGNET.SPEED.STW.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedMAX.source), pCtrl->BGNET.SPEED.SpeedMAX.value.dValue);
     strcat(Buffer, cLine);
@@ -741,10 +745,6 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "External: WPD", "WayPoint Distance [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: WPB", "WayPoint Bearing [0-359 DegM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Boatspeed, by source selection and default [KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Source selection (0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW)", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
     strcat(Buffer, cLine);
 // ==== DEPTH
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth, uncalibrated [M]", pCtrl->BGNET.DEPTH.Depth_RAW.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_RAW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_RAW.source), pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue);

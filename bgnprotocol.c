@@ -132,19 +132,19 @@ uint16_t EffectiveBoatSpeed(BGNET_CTRL *pCtrl, NMEA2K_VALUE *pV) {
     switch(pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte) {
         default:
         case BGNET_SPD_TRA:
-            pV->value.nLong = pCtrl->BGNET.SPEED.STW.value.dValue;
+            pV->value.dValue = pCtrl->BGNET.SPEED.STW.value.dValue;
             break;
         case BGNET_SPD_MAN_FST:
-            pV->value.nLong = pCtrl->BGNET.PILOT.SPEED.FST.value.nLong;
+            pV->value.dValue = ITOD(pCtrl->BGNET.PILOT.SPEED.FST.value.nLong);
             break;
         case BGNET_SPD_SOG:
-            pV->value.nLong = pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong;
+            pV->value.dValue = ITOD(pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong);
             break;
         case BGNET_SPD_MAN_MED:
-            pV->value.nLong = pCtrl->BGNET.PILOT.SPEED.MED.value.nLong;
+            pV->value.dValue = ITOD(pCtrl->BGNET.PILOT.SPEED.MED.value.nLong);
             break;
         case BGNET_SPD_MAN_SLW:
-            pV->value.nLong = pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong;
+            pV->value.dValue = ITOD(pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong);
             break;
     }
     pV->source = BGN_SOURCE_ACP;
@@ -1312,7 +1312,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
 
     // update effective boatspeed (used for navigation purposes)
     ebs_sel = EffectiveBoatSpeed(pCtrl, &pCtrl->BGNET.ACP.EBS);
-    //log_debug("EBS_SEL= %d (%d), EBS= %d", ebs_sel, pCtrl->BGNET.ACP.EBS_SEL.value.nByte, pCtrl->BGNET.ACP.EBS.value.nLong);
+    //log_debug("EBS_SEL= %d (%d), EBS= %f", ebs_sel, pCtrl->BGNET.ACP.EBS_SEL.value.nByte, pCtrl->BGNET.ACP.EBS.value.dValue);
     if (ebs_sel == pCtrl->BGNET.ACP.EBS_SEL.value.nByte) {
         // no change, no update
     } else {
