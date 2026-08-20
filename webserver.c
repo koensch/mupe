@@ -482,6 +482,7 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
         "Content-Type: text/html\r\n\r\n"
         "<html>\r\n"
         "<head>"
+            "<meta name='format-detection' content='telephone=no'>"
             "<style>body, table, td {font-family: Verdana; font-size: 14px;}\r\nh3 {margin-left: 20px;}\r\ntable {border-collapse: collapse; width: 95%; margin: 5px auto;}\r\nth, td {border:1px solid #ccc; padding: 5px; text-align: left;}</style>"
             "<title>%s</title>"
             "<link rel='shortcut icon' href='#' />"
@@ -731,8 +732,6 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: SOG SELECT", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.ACP.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SOG_SEL.source), pCtrl->BGNET.ACP.SOG_SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: VMG", "Velocity Made Good [KT]", pCtrl->BGNET.PILOT.NMEA.RMB.VMG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.VMG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.VMG.source), pCtrl->BGNET.PILOT.NMEA.RMB.VMG.value.nLong);
-    strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "External: XTE", "Cross Track Error [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "External: WP", "WayPoint ID", pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString);
@@ -745,7 +744,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Source selection (0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW)", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
     strcat(Buffer, cLine);
-
+// ==== DEPTH
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth, uncalibrated [M]", pCtrl->BGNET.DEPTH.Depth_RAW.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_RAW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_RAW.source), pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Calibrated Depth", "Depth [M]", pCtrl->BGNET.DEPTH.Depth_CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_CAL.source), pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue);
@@ -767,6 +766,19 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/ANCHOR ALARM: Alarm Reference", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AMA_M.source), pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/SETUP/ANCHOR ALARM: Alarm Status", "Alarm Status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte);
+    strcat(Buffer, cLine);
+// ==== WIND
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: AWS", "Appearent Wind Speed [0/99.9 KT]", pCtrl->BGNET.WIND.AWS.Counter.iCounter, t-pCtrl->BGNET.WIND.AWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.AWS.source), pCtrl->BGNET.WIND.AWS.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: AWA", "Appearent Wind Angle [-180/+180 Deg]", pCtrl->BGNET.WIND.AWA.Counter.iCounter, t-pCtrl->BGNET.WIND.AWA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.AWA.source), pCtrl->BGNET.WIND.AWA.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: TWS", "True Wind Speed [0/99.9 KT]", pCtrl->BGNET.WIND.TWS.Counter.iCounter, t-pCtrl->BGNET.WIND.TWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.TWS.source), pCtrl->BGNET.WIND.TWS.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: TWA", "True Wind Angle [-180/+180 Deg]", pCtrl->BGNET.WIND.TWA.Counter.iCounter, t-pCtrl->BGNET.WIND.TWA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.TWA.source), pCtrl->BGNET.WIND.TWA.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: VMG", "Velocity Made Good [KT]", pCtrl->BGNET.WIND.VMG.Counter.iCounter, t-pCtrl->BGNET.WIND.VMG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.VMG.source), pCtrl->BGNET.WIND.VMG.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: BATTERY", "Battery Voltage [0/99 V]", pCtrl->BGNET.WIND.BATTERY.Counter.iCounter, t-pCtrl->BGNET.WIND.BATTERY.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.BATTERY.source), pCtrl->BGNET.WIND.BATTERY.value.nLong);
     strcat(Buffer, cLine);
 
     return(Buffer);

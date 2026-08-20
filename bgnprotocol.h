@@ -139,7 +139,8 @@
 
 #define BGNET_FRAME_HEAD                5   //size of HEADER (fixed)
 #define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (payload checksum)
-// the 'payload length is a unsigned byte that has a maximum of 0xFF (=255). Consequently the payload's maximum is 255 bytes.
+// the 'payload length is a unsigned byte that has a maximum of 0xFF (=255). Consequently the payload's maximum is 255 bytes. On average
+// that is about 50 channels maximum.
 // This results in a maximum frame length of header + payload + CR equals 261 bytes.
 // Realise that a Rx/Tx buffer can hold multiple frames
 #define BGNET_FRAME_PAYLOAD_MAX         255
@@ -259,22 +260,22 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_01_UNKNOWN          0X01
 #define BGNET_CHN_03_UNKNOWN          0X03
 #define BGNET_CHN_07_AP_FR            0X07  // FR - Fault Reporting. When PILOT receives this channel, causes PILOT to display an error message and to 'freeze'
-                                          // 0x00 = "UNCOMIS"      This channelID is also used in PILOT/SETUP/FR option SELECT.
-                                          // 0x01 = "INT CMP"      To ' 'un-freeze' you need to cycle power on the PILOT
-                                          // 0x02 = "RUD ERR"
-                                          // 0x03 = "RUD DRV"
-                                          // 0x04 = "NO SPD"
-                                          // 0x05 = "EXT CMP"
-                                          // 0x06 = "NO NMEA"
-                                          // 0x07 = "TYP RES"
-                                          // 0x08 = "BAD XTE"
-                                          // 0x09 = "NO WIND"
-                                          // 0x0A = "NO OPTW"
-                                          // 0x0B = "TRIP"
-                                          // 0x0C = "NET ERR"
-                                          // 0x0D = "ERR ERR"
-                                          // 0x0E = "ERR ERR"
-                                          // 0x0F = "ERR ERR"
+                                            // 0x00 = "UNCOMIS"      This channelID is also used in PILOT/SETUP/FR option SELECT.
+                                            // 0x01 = "INT CMP"      To ' 'un-freeze' you need to cycle power on the PILOT
+                                            // 0x02 = "RUD ERR"
+                                            // 0x03 = "RUD DRV"
+                                            // 0x04 = "NO SPD"
+                                            // 0x05 = "EXT CMP"
+                                            // 0x06 = "NO NMEA"
+                                            // 0x07 = "TYP RES"
+                                            // 0x08 = "BAD XTE"
+                                            // 0x09 = "NO WIND"
+                                            // 0x0A = "NO OPTW"
+                                            // 0x0B = "TRIP"
+                                            // 0x0C = "NET ERR"
+                                            // 0x0D = "ERR ERR"
+                                            // 0x0E = "ERR ERR"
+                                            // 0x0F = "ERR ERR"
 #define BGNET_CHN_0B_RUDDER           0X0B  // range (-,PORT)<99 or >99(+,STARBOARD)
 //#define BGNET_CHN_0C_LINEAR5          0x0C
 //#define BGNET_CHN_0D_LINEAR6          0x0D
@@ -317,17 +318,17 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 //#define BGNET_CHN_48_LONLAT           0x48 //send in ASCII via CMD03
 #define BGNET_CHN_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
 #define BGNET_CHN_4A_DEPTHM           0x4A // referenced by DATA via a LABEL/0x02 command, appears to be "DEPTH M", but seems incorrect
-//#define BGNET_CHN_4D_AWINDSPEEDKT     0x4D
+#define BGNET_CHN_4D_AWINDSPEEDKT     0x4D
 #define BGNET_CHN_4E_AWSRAW           0x4E // signal from the paddlewheel, prior correction or calibration 
 //#define BGNET_CHN_4F_AWINDSPEEDMS     0x4F
 #define BGNET_CHN_50_AWS              0x50 // displayed by WIND (small display, when APP selected)
-                                         // displayed by DATA (when WIND button is pressed)
-#define BGNET_CHN_51_AWA              0x51 // displayed by WIND (dial, when APP selected)
-                                         // displayed by PILOT (when in VANE mode)
+                                           // displayed by DATA (when WIND button is pressed)
+#define BGNET_CHN_51_AWA              0x51 // displayed by WIND (the dial always displays the APP wind angle)
+                                           // displayed by PILOT (when in VANE mode)
 #define BGNET_CHN_52_AWARAW           0x52 // signal from the direction sensor, prior correction, calibration or alignment
 #define BGNET_CHN_53_TARGET_TWA       0x53 // send by PILOT upon change/button pressed, Target True Wind Angle, fmt=0x01
-//#define BGNET_CHN_55_TWS              0x55 // in KT
-//#define BGNET_CHN_56_TWS              0x56 // in M/S
+#define BGNET_CHN_55_TWS              0x55 // in KT
+#define BGNET_CHN_56_TWS              0x56 // in M/S
 #define BGNET_CHN_57_TWS              0x57
 #define BGNET_CHN_59_TWA              0x59
 #define BGNET_CHN_5A_MEASWINDANGLE    0x5A
@@ -347,7 +348,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_77_ROLLTIMER        0x77
 #define BGNET_CHN_7C_POLARPERFORMANCE 0x7C
 #define BGNET_CHN_7D_TARGETBOATSPEED  0x7D
-#define BGNET_CHN_7F_VMG              0x7F // calculted by WIND, displayed on DATA (only when WIND is present) under the WIND button
+#define BGNET_CHN_7F_VMG              0x7F // calculated by WIND, displayed on DATA (only when WIND is present) under the WIND button
 #define BGNET_CHN_80_UNKNOWN          0x80
 #define BGNET_CHN_81_DRD              0x81 // QUAD/SPEED: Dead Recogning Distance travelled, resettable
 #define BGNET_CHN_82_LEEWAY           0x82
@@ -661,6 +662,25 @@ typedef struct {
     } x00; // Other commands, usually PILOT/ACP handshakes
 } BGN_CHANNEL;
 
+// Alarm Definition Table
+typedef struct {
+#define BGNET_ALARMTYPE_NA  -1
+#define BGNET_ALARMTYPE_WA  0
+#define BGNET_ALARMTYPE_OC  1
+#define BGNET_ALARMTYPE_DEP 2
+#define BGNET_ALARMTYPE_SHW 3
+#define BGNET_ALARMTYPE_ANC 4
+    unsigned char ucAT;     // alarm type
+    unsigned char ucCHN;    // channel number (that will carry the alarmbit)
+    NMEA2K_VALUE *pCHN;     // pointer to the value associated with the Channel
+    NMEA2K_VALUE *pALL;     // pointer to the value with the 'Alarm Level LOW'
+    NMEA2K_VALUE *pALH;     // pointer to the value with the 'Alarm Level HIGH'
+    NMEA2K_VALUE *pALR;     // pointer to the value with the 'Alarm Level REFERENCE'
+    BGNET_COUNT Counter;
+    char AlarmText0[12];
+    char AlarmText1[12];
+} BGNET_ALMDT;
+
 typedef struct {
     int iNewACP;
     time_t tTimestamp;          // timestamp of startup
@@ -676,7 +696,6 @@ typedef struct {
         unsigned char ACKSEQ; // last ACKSEQ received from PILOT
         //unsigned char FRAME_SEED; // SEED to use
     } weird;
-    
 
     // parameters, we need to manage our service
     struct {
@@ -710,6 +729,7 @@ typedef struct {
     // parameters, usually hosted by PILOT
     struct {
         NMEA2K_VALUE Heading;       // Compass Heading
+        NMEA2K_VALUE WA;            // Watch Alarm Counter
         struct {
             // PILOT/SETUP parameters
             NMEA2K_VALUE SPD;     // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
@@ -744,7 +764,6 @@ typedef struct {
                 NMEA2K_VALUE WPID;  // TO WaypointID RMB#4
                 NMEA2K_VALUE WPD;   // Waypoint Distance RMB#10
                 NMEA2K_VALUE WPB;   // Waypoint Bearing RMB#11
-                NMEA2K_VALUE VMG;
             } RMB;
         } NMEA;
     } PILOT;
@@ -808,12 +827,12 @@ typedef struct {
     int iDeviceRun; // number of runs (0-1000) with wrap-around
 
     // pointers for control structures. Do not write into
-    BGNET_DEVDT* pDEVDT; // device definitions
-    BGNET_CHNDT* pCHNDT; // channel definitions
-    BGNET_FMTDT* pFMTDT; // format definitions
-    BGNET_CMDDT* pCMDDT; // format definitions
-    Config* pCfg;    // config structure
-
+    BGNET_DEVDT *pDEVDT; // device definitions
+    BGNET_CHNDT *pCHNDT; // channel definitions
+    BGNET_FMTDT *pFMTDT; // format definitions
+    BGNET_CMDDT *pCMDDT; // command definitions
+    BGNET_ALMDT *pALMDT; // alarm definitions
+    Config* pCfg;        // config structure
 
     BGNET BGNET; // ACP status
     BGN_DEVICE DEV[BGNET_DEVICE_MAX]; // device statistics
