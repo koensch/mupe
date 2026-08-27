@@ -724,7 +724,6 @@ typedef struct {
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
         NMEA2K_VALUE CRS;           // Course Preset (Setpoint for AutoPilot)
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
-        NMEA2K_VALUE SOG_SEL;
         NMEA2K_VALUE SHA_ALARM;
         NMEA2K_VALUE DEEP_ALARM;     // WIND Selection Type (0=T, 1 =A)
     } ACP;
@@ -760,6 +759,7 @@ typedef struct {
             struct {
                 NMEA2K_VALUE COG;
                 NMEA2K_VALUE SOG;
+                NMEA2K_VALUE SOG_SEL;   // when VTG messages are being received, SOG is present/available
             } VTG;
             struct {
                 NMEA2K_VALUE XTE;   // Cross Track Error RMB#2

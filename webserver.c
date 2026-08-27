@@ -736,7 +736,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA: SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: SOG SELECT", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.ACP.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SOG_SEL.source), pCtrl->BGNET.ACP.SOG_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: SOG SELECT", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "External: XTE", "Cross Track Error [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
     strcat(Buffer, cLine);
@@ -772,38 +772,25 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "DEPTH/SETUP/ANCHOR ALARM:", "Alarm status (1=On, 0=Off)", pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source), pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: AWS", "Appearent Wind Speed [KT]", pCtrl->BGNET.WIND.AWS.Counter.iCounter, t-pCtrl->BGNET.WIND.AWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.AWS.source), pCtrl->BGNET.WIND.AWS.value.nLong);
+    // ==== WIND
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: AWS", "Appearent Wind Speed [KT]", pCtrl->BGNET.WIND.AWS.Counter.iCounter, t-pCtrl->BGNET.WIND.AWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.AWS.source), pCtrl->BGNET.WIND.AWS.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: AWA", "Appearent Wind Angle [-180/+180 Deg]", pCtrl->BGNET.WIND.AWA.Counter.iCounter, t-pCtrl->BGNET.WIND.AWA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.AWA.source), pCtrl->BGNET.WIND.AWA.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: TWS", "True Wind Speed [KT]", pCtrl->BGNET.WIND.TWS.Counter.iCounter, t-pCtrl->BGNET.WIND.TWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.TWS.source), pCtrl->BGNET.WIND.TWS.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: TWS", "True Wind Speed [KT]", pCtrl->BGNET.WIND.TWS.Counter.iCounter, t-pCtrl->BGNET.WIND.TWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.TWS.source), pCtrl->BGNET.WIND.TWS.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: TWA", "True Wind Angle [-180/+180 Deg]", pCtrl->BGNET.WIND.TWA.Counter.iCounter, t-pCtrl->BGNET.WIND.TWA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.TWA.source), pCtrl->BGNET.WIND.TWA.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: VMG", "Velocity Made Good [KT]", pCtrl->BGNET.WIND.VMG.Counter.iCounter, t-pCtrl->BGNET.WIND.VMG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.VMG.source), pCtrl->BGNET.WIND.VMG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: VMG", "Velocity Made Good [KT]", pCtrl->BGNET.WIND.VMG.Counter.iCounter, t-pCtrl->BGNET.WIND.VMG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.VMG.source), pCtrl->BGNET.WIND.VMG.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: TWA", "Battery Voltage [V]", pCtrl->BGNET.WIND.BATTERY.Counter.iCounter, t-pCtrl->BGNET.WIND.BATTERY.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.BATTERY.source), pCtrl->BGNET.WIND.BATTERY.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND/VOLTS:", "Battery Voltage [V]", pCtrl->BGNET.WIND.BATTERY.Counter.iCounter, t-pCtrl->BGNET.WIND.BATTERY.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.BATTERY.source), pCtrl->BGNET.WIND.BATTERY.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND/SETUP/DS: Damping", "Wind Speed damping [{1|2|4|8} sec]", pCtrl->BGNET.WIND.SETUP.DS.Counter.iCounter, t-pCtrl->BGNET.WIND.SETUP.DS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.SETUP.DS.source), pCtrl->BGNET.WIND.SETUP.DS.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND/SETUP/DA: Damping", "Wind Angle damping [{1|2|4|8} sec]", pCtrl->BGNET.WIND.SETUP.DA.Counter.iCounter, t-pCtrl->BGNET.WIND.SETUP.DA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.SETUP.DA.source), pCtrl->BGNET.WIND.SETUP.DA.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND/SETUP/OF: Offset", "Angle offset [0-359 Deg]", pCtrl->BGNET.WIND.SETUP.OF.Counter.iCounter, t-pCtrl->BGNET.WIND.SETUP.OF.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.SETUP.OF.source), pCtrl->BGNET.WIND.SETUP.OF.value.nLong);
-    strcat(Buffer, cLine);
-
-// ==== WIND
-
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: AWS", "Appearent Wind Speed [0/99.9 KT]", pCtrl->BGNET.WIND.AWS.Counter.iCounter, t-pCtrl->BGNET.WIND.AWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.AWS.source), pCtrl->BGNET.WIND.AWS.value.dValue);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: AWA", "Appearent Wind Angle [-180/+180 Deg]", pCtrl->BGNET.WIND.AWA.Counter.iCounter, t-pCtrl->BGNET.WIND.AWA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.AWA.source), pCtrl->BGNET.WIND.AWA.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: TWS", "True Wind Speed [0/99.9 KT]", pCtrl->BGNET.WIND.TWS.Counter.iCounter, t-pCtrl->BGNET.WIND.TWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.TWS.source), pCtrl->BGNET.WIND.TWS.value.dValue);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: TWA", "True Wind Angle [-180/+180 Deg]", pCtrl->BGNET.WIND.TWA.Counter.iCounter, t-pCtrl->BGNET.WIND.TWA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.TWA.source), pCtrl->BGNET.WIND.TWA.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: VMG", "Velocity Made Good [KT]", pCtrl->BGNET.WIND.VMG.Counter.iCounter, t-pCtrl->BGNET.WIND.VMG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.VMG.source), pCtrl->BGNET.WIND.VMG.value.dValue);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: BATTERY", "Battery Voltage [0/99 V]", pCtrl->BGNET.WIND.BATTERY.Counter.iCounter, t-pCtrl->BGNET.WIND.BATTERY.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.BATTERY.source), pCtrl->BGNET.WIND.BATTERY.value.nLong);
     strcat(Buffer, cLine);
 
     return(Buffer);

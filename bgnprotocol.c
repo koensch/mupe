@@ -472,9 +472,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, t);
 
-        pCtrl->BGNET.ACP.SOG_SEL.value.nByte = 0;
-        pCtrl->BGNET.ACP.SOG_SEL.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.ACP.SOG_SEL.Counter, t);
+        pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte = 0;
+        pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter, t);
 
         pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue = -0.1234;
         pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_ACP;
@@ -582,6 +582,18 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.WIND.BATTERY.value.nLong = DTOIROUND(12.8 * 10); // x10
         pCtrl->BGNET.WIND.BATTERY.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.WIND.BATTERY.Counter, t);
+
+        pCtrl->BGNET.WIND.SETUP.DS.value.nLong = 0;
+        pCtrl->BGNET.WIND.SETUP.DS.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.SETUP.DS.Counter, t);
+
+        pCtrl->BGNET.WIND.SETUP.DA.value.nLong = 0;
+        pCtrl->BGNET.WIND.SETUP.DA.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.SETUP.DA.Counter, t);
+
+        pCtrl->BGNET.WIND.SETUP.OF.value.nLong = 0;
+        pCtrl->BGNET.WIND.SETUP.OF.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.SETUP.OF.Counter, t);
 
         // stage 3 - initialize device structure
 
@@ -1752,10 +1764,10 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong = ntohs(pCH->s.cv.uW[0]);
                     pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, t);
-                    if (pCtrl->BGNET.ACP.SOG_SEL.value.nByte == 0) {
-                        pCtrl->BGNET.ACP.SOG_SEL.value.nByte = 1;
-                        pCtrl->BGNET.ACP.SOG_SEL.source = BGN_SOURCE_BGNET;
-                        CounterUp(&pCtrl->BGNET.ACP.SOG_SEL.Counter, t);                                                                
+                    if (pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte == 0) {
+                        pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte = 1;
+                        pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source = BGN_SOURCE_BGNET;
+                        CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter, t);                                                                
                     } else {
                         // is already ON
                     }
@@ -3149,12 +3161,12 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
 
                                                                 if (pCHRx->s.FMT == BGNET_FMT_OFF) {
-                                                                    if (pCtrl->BGNET.ACP.SOG_SEL.value.nByte == 0) {
+                                                                    if (pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte == 0) {
                                                                         // is already OFF
                                                                     } else {
-                                                                        pCtrl->BGNET.ACP.SOG_SEL.value.nByte = 0;
-                                                                        pCtrl->BGNET.ACP.SOG_SEL.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.ACP.SOG_SEL.Counter, t);                                                                
+                                                                        pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte = 0;
+                                                                        pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source = BGN_SOURCE_BGNET;
+                                                                        CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter, t);                                                                
                                                                     }
                                                                 } else {
                                                                     // Action to switch ON is when we receive the SOG channel                                                                          pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
