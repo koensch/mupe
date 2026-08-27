@@ -716,6 +716,7 @@ typedef struct {
     struct {
         NMEA2K_VALUE STATE;
         NMEA2K_VALUE MODE;
+        NMEA2K_VALUE Heading;       // Compass Heading
 #define BGN_JOYSTICK_ON     1
 #define BGN_JOYSTICK_OFF    0
         NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
@@ -723,13 +724,13 @@ typedef struct {
         NMEA2K_VALUE EBS_SEL;       // Effective Boat Speed, selector
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
         NMEA2K_VALUE CRS;           // Course Preset (Setpoint for AutoPilot)
+        NMEA2K_VALUE MEM;           // Course Memory (previous CTS)
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
         NMEA2K_VALUE SHA_ALARM;
         NMEA2K_VALUE DEEP_ALARM;     // WIND Selection Type (0=T, 1 =A)
     } ACP;
     // parameters, usually hosted by PILOT
     struct {
-        NMEA2K_VALUE Heading;       // Compass Heading
         NMEA2K_VALUE WA;            // Watch Alarm Counter
         struct {
             // PILOT/SETUP parameters

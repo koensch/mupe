@@ -349,6 +349,10 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.CRS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.CRS.Counter, t);
 
+        pCtrl->BGNET.ACP.MEM.value.nLong = 0; // Memorized Course To Steer
+        pCtrl->BGNET.ACP.MEM.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.MEM.Counter, t);
+
         // PILOT SETUP parameters
         pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte = BGNET_SPD_TRA;
         pCtrl->BGNET.PILOT.SETUP.SPD.source = BGN_SOURCE_ACP;
@@ -417,9 +421,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.CTS.Counter, t);
 
-        pCtrl->BGNET.PILOT.Heading.value.nLong = 321; // Heading from compass (0-359)
-        pCtrl->BGNET.PILOT.Heading.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.PILOT.Heading.Counter, t);
+        pCtrl->BGNET.ACP.Heading.value.nLong = 321; // Heading from compass (0-359)
+        pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.Heading.Counter, t);
 
         pCtrl->BGNET.ACP.Rudder.value.nLong = -2; // Rudder position (-45-+45)
         pCtrl->BGNET.ACP.Rudder.source = BGN_SOURCE_ACP;
@@ -1094,7 +1098,7 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.Heading.value.nLong);
+    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     // when in AUTO, the display shows the COURSE TARGET (setpoint for the autopilot)
@@ -1709,9 +1713,9 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     CounterUp(&pCtrl->BGNET.ACP.Rudder.Counter, t);
                     break;
                 case BGNET_CHN_49_HEADING:
-                    pCtrl->BGNET.PILOT.Heading.value.nLong = ntohs(pCH->s.cv.uW[0]);
-                    pCtrl->BGNET.PILOT.Heading.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->BGNET.PILOT.Heading.Counter, t);
+                    pCtrl->BGNET.ACP.Heading.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, t);
                     break;
                 case  BGNET_CHN_7F_VMG:
                     pCtrl->BGNET.WIND.VMG.value.dValue = decode_channel_double(pCH, 0);
@@ -2759,10 +2763,19 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                         // it might be the case we do not have a recent HEADING channel received prior.
                                                                         // in such case we initialize to 0 (good luck!)
                                                                         // should we actually refuse to go into AUTO?
-                                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.PILOT.Heading.value.nLong;
+                                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.Heading.value.nLong;
                                                                         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
                                                                         CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
                                                                     }
+                                                                } else {
+                                                                    // Autopilot is disengaged, store the current CTS into MEM
+                                                                    pCtrl->BGNET.ACP.MEM.value.nLong = pCtrl->BGNET.ACP.CTS.value.nLong;
+                                                                    pCtrl->BGNET.ACP.MEM.source = BGN_SOURCE_BGNET;
+                                                                    CounterUp(&pCtrl->BGNET.ACP.MEM.Counter, t);
+                                                                    // Note: i know that the MEM is updated when AP is disengaged. This allows the
+                                                                    // skipper to go back to the original course after a interruption/diversion.
+                                                                    // but.... i have not found out how to return the MEM tot the PILOT, so that the course
+                                                                    // can be restored. Some future work still to be done.
                                                                 }
                                                                 // set new STATE (AUTO or STBY)
                                                                 pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE) | (pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE);
@@ -2770,7 +2783,6 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
 
                                                                 // make DATA command (to ALL, so also other PILOT units, if present, receive it)
-                                                                // koen
                                                                 len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
                                                                 pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
@@ -2804,7 +2816,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 CounterUp(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);                                                                
                                                                 break;
                                                             case BGNET_CHN_A6_AP_CTS:
-                                                                // the PILOT was put into AUTO with a pre-stored cource CRS
+                                                                // the PILOT was put into AUTO with a pre-stored course CRS
                                                                 // update CRS variable (no CHN)
                                                                 pCtrl->BGNET.ACP.CRS.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
                                                                 pCtrl->BGNET.ACP.CRS.source = BGN_SOURCE_BGNET;

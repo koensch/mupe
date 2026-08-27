@@ -530,7 +530,7 @@ static char* html_help(char *Buffer, size_t MaxBuf, int iPort) {
 
 static char* html_interface_top(char *Buffer) {
     const char *cDevTop =
-        "<h2>B&G Network Statistics</h2>"
+        "<h2>NETWORK Statistics</h2>"
         "<h3>Serial Interface</h3>"
         "<table>"
         "<tr><th colspan='3'>Communication Device</th><th colspan='2'>Service</th><th colspan='2'>Emulator</th></tr>"
@@ -653,60 +653,63 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Time received from external source (GPS/NMEA/API/SignalK)", pCtrl->BGNET.SERVICE.NetworkTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.NetworkTime.source), asciibuffer);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: PILOT WATCHDOG", "Countdown by timer, reset by PILOT HELLO", pCtrl->BGNET.SERVICE.PILOTWD.Counter.iCounter, t-pCtrl->BGNET.SERVICE.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.PILOTWD.source), pCtrl->BGNET.SERVICE.PILOTWD.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: WATCHDOG", "Countdown by timer, reset by PILOT HELLO", pCtrl->BGNET.SERVICE.PILOTWD.Counter.iCounter, t-pCtrl->BGNET.SERVICE.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.PILOTWD.source), pCtrl->BGNET.SERVICE.PILOTWD.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "External switch [0=OFF, 1=ON]", pCtrl->BGNET.ACP.Joystick.Counter.iCounter, t-pCtrl->BGNET.ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Joystick.source), pCtrl->BGNET.ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP Control STATE", "Autopilot Engaged/AUTO/1 or Not Engaged/STBY/0", pCtrl->BGNET.ACP.STATE.Counter.iCounter, t-pCtrl->BGNET.ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.STATE.source), pCtrl->BGNET.ACP.STATE.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP STATE", "Autopilot Engaged/AUTO/1 or Not Engaged/STBY/0", pCtrl->BGNET.ACP.STATE.Counter.iCounter, t-pCtrl->BGNET.ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.STATE.source), pCtrl->BGNET.ACP.STATE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP Control MODE", "Autopilot Mode [1=COMPass, 3=NAVigation, 4=VANE/WIND]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "Autopilot Mode [1=COMPass, 3=NAVigation, 4=VANE/WIND]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "ACP: EBS", "Effective Boat Speed (by source selection, KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Heading", "Compass reading (from Flux-Gate) [0-359 DegM]", pCtrl->BGNET.ACP.Heading.Counter.iCounter, t-pCtrl->BGNET.ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Heading.source), pCtrl->BGNET.ACP.Heading.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: EBS Select", "Speed source selection (0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW)", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Rudder", "Rudder position (from RRU) [-45-+45 Deg]", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CTS", "Course To Steer, autopilot setpoint (0-359 DegM)", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "ACP: EBS", "Effective Boat Speed by source selection [KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CRS", "Course Preset (0-359 DegM)", pCtrl->BGNET.ACP.CRS.Counter.iCounter, t-pCtrl->BGNET.ACP.CRS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CRS.source), pCtrl->BGNET.ACP.CRS.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: EBS Select", "Speed source selection [0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW]", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/SPD:", "Speed Select [0=TRAnsmitter, 1=MANual/FST, 2=SOG, 3=MANual/MED, 4=MANual/SLW]", pCtrl->BGNET.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.SPD.source), pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CTS", "Course To Steer, autopilot setpoint [0-359 DegM]", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/RESP:", "Steering Response [0=Normal, 1=Economic, 2=Downwind]", pCtrl->BGNET.PILOT.SETUP.RESP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.RESP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.RESP.source), pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CRS", "Course Preset [0-359 DegM]", pCtrl->BGNET.ACP.CRS.Counter.iCounter, t-pCtrl->BGNET.ACP.CRS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CRS.source), pCtrl->BGNET.ACP.CRS.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WIND:", "Wind Select Type [0=Appearent, 1=True]", pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WIND_SEL.source), pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA:", "Watch Alarm interval [1-360 Minutes]", pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_MIN.source), pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA:", "Watch Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC:", "Off-Course Alarm level[1-99 Deg]", pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_DEG.source), pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC:", "Off-Course Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_STAT.source), pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/DMP:", "Compass Damping [1-99 sec, 4=default]", pCtrl->BGNET.PILOT.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.DMP.source), pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/JS:", "Joystick Steering [NORMal, PROPortional]", pCtrl->BGNET.PILOT.SETUP.JSM.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.JSM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.JSM.source), pCtrl->BGNET.PILOT.SETUP.JSM.value.nByte);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/FR:", "Fault Reporting Disable [0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->BGNET.PILOT.SETUP.FR.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.FR.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.FR.source), pCtrl->BGNET.PILOT.SETUP.FR.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: MEM", "Course Memory [0-359 DegM]", pCtrl->BGNET.ACP.MEM.Counter.iCounter, t-pCtrl->BGNET.ACP.MEM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MEM.source), pCtrl->BGNET.ACP.MEM.value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED:", "Manual Speed select [1=FST, 3=MED, 4=SLW]", pCtrl->BGNET.PILOT.SPEED.SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.SEL.source), pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED:", "Manual Speed FST [1-990] x10, default", pCtrl->BGNET.PILOT.SPEED.FST.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.FST.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.FST.source), pCtrl->BGNET.PILOT.SPEED.FST.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED:", "Manual Speed MED [1-990] x10", pCtrl->BGNET.PILOT.SPEED.MED.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.MED.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.MED.source), pCtrl->BGNET.PILOT.SPEED.MED.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED:", "Manual Speed SLW [1-990] x10", pCtrl->BGNET.PILOT.SPEED.SLW.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.SLW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.SLW.source), pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK", "Backlight [0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", pCtrl->BGNET.NETWORK.BackLight.Counter.iCounter, t-pCtrl->BGNET.NETWORK.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.NETWORK.BackLight.source), pCtrl->BGNET.NETWORK.BackLight.value.nByte);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK:", "Backlight [0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", pCtrl->BGNET.NETWORK.BackLight.Counter.iCounter, t-pCtrl->BGNET.NETWORK.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.NETWORK.BackLight.source), pCtrl->BGNET.NETWORK.BackLight.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/SPD", "Speed Select [0=TRAnsmitter, 1=MANual/FST, 2=SOG, 3=MANual/MED, 4=MANual/SLW]", pCtrl->BGNET.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.SPD.source), pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK:", "Current compass reading (0-359 DegM)", pCtrl->BGNET.PILOT.Heading.Counter.iCounter, t-pCtrl->BGNET.PILOT.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.Heading.source), pCtrl->BGNET.PILOT.Heading.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/RESP", "Steering Response [0=Normal, 1=Economic, 2=Downwind]", pCtrl->BGNET.PILOT.SETUP.RESP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.RESP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.RESP.source), pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK:", "Current rudder position (-45-+45 Deg)", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WIND", "Wind Select Type [0=Appearent, 1=True]", pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WIND_SEL.source), pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm interval [1-360 Minutes]", pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_MIN.source), pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm level [1-99 Deg]", pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_DEG.source), pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_STAT.source), pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/DMP", "Compass Damping [1-99 sec, 4=default]", pCtrl->BGNET.PILOT.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.DMP.source), pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/JS", "Joystick Steering [NORMal, PROPortional]", pCtrl->BGNET.PILOT.SETUP.JSM.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.JSM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.JSM.source), pCtrl->BGNET.PILOT.SETUP.JSM.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/FR", "Fault Reporting Disable [0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->BGNET.PILOT.SETUP.FR.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.FR.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.FR.source), pCtrl->BGNET.PILOT.SETUP.FR.value.nByte);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: LOG", "Log (QUAD or SPEED), stored in EEPROM, no reset [NM]", pCtrl->BGNET.SPEED.StoredLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.StoredLogNM.source), (ITOD(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED/SETUP", "Manual Speed select [1=FST, 3=MED, 4=SLW]", pCtrl->BGNET.PILOT.SPEED.SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.SEL.source), pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED/SETUP", "Manual Speed FST [1-990] x10, default", pCtrl->BGNET.PILOT.SPEED.FST.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.FST.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.FST.source), pCtrl->BGNET.PILOT.SPEED.FST.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED/SETUP", "Manual Speed MED [1-990] x10", pCtrl->BGNET.PILOT.SPEED.MED.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.MED.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.MED.source), pCtrl->BGNET.PILOT.SPEED.MED.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED/SETUP", "Manual Speed SLW [1-990] x10", pCtrl->BGNET.PILOT.SPEED.SLW.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.SLW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.SLW.source), pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong);
+    strcat(Buffer, cLine);
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED: LOG", "Log (QUAD or SPEED), stored in EEPROM, no reset [NM]", pCtrl->BGNET.SPEED.StoredLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.StoredLogNM.source), DTOIROUND(ITOD(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), pCtrl->BGNET.SPEED.TripLogNM.value.dValue/BGNET_DIVISOR_TRIPLOG);
     strcat(Buffer, cLine);
@@ -722,38 +725,38 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Speed AVG", "Average Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedAVG.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedAVG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedAVG.source), pCtrl->BGNET.SPEED.SpeedAVG.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "SPEED: TIMER", "Timer value (since reset) [HH:MM:SS]", pCtrl->BGNET.SPEED.TIMER.Counter.iCounter, t-pCtrl->BGNET.SPEED.TIMER.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TIMER.source), strTimerCalc(pCtrl, asciibuffer));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "SPEED: TIMER", "5/10 minute count-down or count-up timer [HH:MM:SS]", pCtrl->BGNET.SPEED.TIMER.Counter.iCounter, t-pCtrl->BGNET.SPEED.TIMER.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TIMER.source), strTimerCalc(pCtrl, asciibuffer));
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/DMP: Speed Damping", "Response time of speed value [s]", pCtrl->BGNET.SPEED.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.DMP.source), pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/DMP", " Speed Damping [sec]", pCtrl->BGNET.SPEED.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.DMP.source), pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/CAL: Speed Calibration", "Adjustment of boatspeed against a know speed (manual)", pCtrl->BGNET.SPEED.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.CAL.source), pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/CAL", " Speed Calibration (manual)", pCtrl->BGNET.SPEED.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.CAL.source), pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/AUTOCAL: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.AUTOCAL.source), pCtrl->BGNET.SPEED.SETUP.AUTOCAL.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/AUTOCAL", "Speed Calibration (automatic procedure)", pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.AUTOCAL.source), pCtrl->BGNET.SPEED.SETUP.AUTOCAL.value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA: COG", "Course Over Ground, usually from positioning device [0-359 DegT]", pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.COG.source), pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/VTG/COG", "Course Over Ground, usually from positioning device [0-359 DegT]", pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.COG.source), pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA: SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/VTG/SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: SOG SELECT", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/VTG", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "External: XTE", "Cross Track Error [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/XTE", "Cross Track Error, <0= Port, >0= Starboard [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "External: WP", "WayPoint ID", pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/NMEA/RMB/WP", "WayPoint ID", pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "External: WPD", "WayPoint Distance [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/WPD", "WayPoint Distance [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: WPB", "WayPoint Bearing [0-359 DegM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/RMB/WPB", "WayPoint Bearing [0-359 DegM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
     strcat(Buffer, cLine);
 
     // ==== DEPTH
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth, uncalibrated [M]", pCtrl->BGNET.DEPTH.Depth_RAW.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_RAW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_RAW.source), pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Depth", "Measured by sensor [M]", pCtrl->BGNET.DEPTH.Depth_RAW.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_RAW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_RAW.source), pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH:", "Calibrated Depth [M]", pCtrl->BGNET.DEPTH.Depth_CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_CAL.source), pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Depth", "Calibrated [M]", pCtrl->BGNET.DEPTH.Depth_CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_CAL.source), pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/CAL:", "Depth calibration (0= Depth from sensor, >0= depth from waterline, <0= depth from keel) [M]", pCtrl->BGNET.DEPTH.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.CAL.source), pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/CAL:", "Depth calibration (0= sensor, >0= waterline, <0= keel) [M]", pCtrl->BGNET.DEPTH.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.CAL.source), pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/SHALLOW ALARM:", "Alarm depth [M]", pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.SA_M.source), pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue);
     strcat(Buffer, cLine);
@@ -784,7 +787,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: VMG", "Velocity Made Good [KT]", pCtrl->BGNET.WIND.VMG.Counter.iCounter, t-pCtrl->BGNET.WIND.VMG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.VMG.source), pCtrl->BGNET.WIND.VMG.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND/VOLTS:", "Battery Voltage [V]", pCtrl->BGNET.WIND.BATTERY.Counter.iCounter, t-pCtrl->BGNET.WIND.BATTERY.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.BATTERY.source), pCtrl->BGNET.WIND.BATTERY.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND/VOLTS:", "Battery Voltage [V] x10", pCtrl->BGNET.WIND.BATTERY.Counter.iCounter, t-pCtrl->BGNET.WIND.BATTERY.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.BATTERY.source), pCtrl->BGNET.WIND.BATTERY.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND/SETUP/DS: Damping", "Wind Speed damping [{1|2|4|8} sec]", pCtrl->BGNET.WIND.SETUP.DS.Counter.iCounter, t-pCtrl->BGNET.WIND.SETUP.DS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.SETUP.DS.source), pCtrl->BGNET.WIND.SETUP.DS.value.nLong);
     strcat(Buffer, cLine);

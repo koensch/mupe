@@ -189,13 +189,13 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
             CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
             pthread_mutex_unlock(&g_data_mutex);
 
-            switch(pCtrl->BGNET.PILOT.Heading.source) {
+            switch(pCtrl->BGNET.ACP.Heading.source) {
                 case BGN_SOURCE_NONE:
                 case BGN_SOURCE_ACP:
                 case BGN_SOURCE_NMEA:
-                    pCtrl->BGNET.PILOT.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
-                    pCtrl->BGNET.PILOT.Heading.source = BGN_SOURCE_NMEA;
-                    CounterUp(&pCtrl->BGNET.PILOT.Heading.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                    pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
+                    pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_NMEA;
+                    CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                     break;
             }
         }
