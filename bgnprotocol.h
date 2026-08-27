@@ -772,6 +772,11 @@ typedef struct {
         NMEA2K_VALUE TWA;
         NMEA2K_VALUE VMG;
         NMEA2K_VALUE BATTERY;
+        struct {
+            NMEA2K_VALUE DS;    // Damping Speed (small LCD panel)
+            NMEA2K_VALUE DA;    // Damping Angle (Analog dial)
+            NMEA2K_VALUE OF;    // Sensore OFFSET (port/Starboard alingment)            
+        } SETUP;
     } WIND;
 } BGNET;
 

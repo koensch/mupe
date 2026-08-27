@@ -515,7 +515,46 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter, t);
 
+        //====== WIND
+
+        pCtrl->BGNET.WIND.AWA.value.nLong = 0;
+        pCtrl->BGNET.WIND.AWA.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.AWA.Counter, t);
+
+        pCtrl->BGNET.WIND.AWS.value.nLong = 0;
+        pCtrl->BGNET.WIND.AWS.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.AWS.Counter, t);
+
+        pCtrl->BGNET.WIND.TWA.value.nLong = 0;
+        pCtrl->BGNET.WIND.TWA.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.TWA.Counter, t);
+
+        pCtrl->BGNET.WIND.TWS.value.nLong = 0;
+        pCtrl->BGNET.WIND.TWS.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.TWS.Counter, t);
+
+        pCtrl->BGNET.WIND.VMG.value.nLong = 0;
+        pCtrl->BGNET.WIND.VMG.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.VMG.Counter, t);
+
+        pCtrl->BGNET.WIND.BATTERY.value.nLong = 0;
+        pCtrl->BGNET.WIND.BATTERY.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.BATTERY.Counter, t);
+
+        pCtrl->BGNET.WIND.SETUP.DS.value.nLong = 0;
+        pCtrl->BGNET.WIND.SETUP.DS.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.SETUP.DS.Counter, t);
+
+        pCtrl->BGNET.WIND.SETUP.DA.value.nLong = 0;
+        pCtrl->BGNET.WIND.SETUP.DA.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.SETUP.DA.Counter, t);
+
+        pCtrl->BGNET.WIND.SETUP.OF.value.nLong = 0;
+        pCtrl->BGNET.WIND.SETUP.OF.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.WIND.SETUP.OF.Counter, t);
+
         // stage 3 - initialize device structure
+
         pCtrl->iNewDevice = BGN_NEW_RESET;
         for (i=0; i<BGNET_DEVICE_MAX; i++) {
             pCtrl->DEV[i].iNewDevice = BGN_NEW_RESET;
@@ -1870,17 +1909,17 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                             case BGNET_CMD_01_DATA:
                                 // process DATA command (broadcast)
                                 n = decode_command_DATA(pCtrl, pFRx);
-                                log_info("  Command %02X (with payload) DATA, %d channels", pFRx->CMD, n);
+                                //log_info("  Command %02X (with payload) DATA, %d channels", pFRx->CMD, n);
                                 break;
                             case BGNET_CMD_02_LABEL:
                                 // process LABEL command (only at startup, only by DATA)
                                 decode_command_LABEL(pCtrl, pFRx);
-                                log_info("  Command %02X (with payload) LABEL", pFRx->CMD);
+                                //log_info("  Command %02X (with payload) LABEL", pFRx->CMD);
                                 break;
                             case BGNET_CMD_06_SUBSCRIBE:
                                 // process SUBSCRIBE command (only at startup, only by DATA)
                                 decode_command_SUBSCRIBE(pCtrl, pFRx);
-                                log_info("  Command %02X (with payload) SUBSCRIBE", pFRx->CMD);
+                                //log_info("  Command %02X (with payload) SUBSCRIBE", pFRx->CMD);
                                 break;
                             case BGNET_CMD_C9_BACKLIGHT:
                                 // process LIGHTS command (when you press the LIGHTS button)
@@ -1888,7 +1927,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                 pCtrl->BGNET.NETWORK.BackLight.value.nByte = pFRx->payload[0]; // first byte is the LIGHTS state
                                 pCtrl->BGNET.NETWORK.BackLight.source = BGN_SOURCE_BGNET;
                                 CounterUp(&pCtrl->BGNET.NETWORK.BackLight.Counter, t);
-                                log_info("  Command %02X (with payload) BACKLIGHT (BY: %02X, %s, LEVEL: %02X)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName, pFRx->payload[0]);
+                                //log_info("  Command %02X (with payload) BACKLIGHT (BY: %02X, %s, LEVEL: %02X)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName, pFRx->payload[0]);
 
                                 #define BGNET_ENABLE_RESET_LOG
 #ifdef BGNET_ENABLE_RESET_LOG
@@ -1945,8 +1984,45 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                 // setup the pointer to our received CMD-REQ or CMD-DAT command
                                 pCHRx = (union CH *)(&pFRx->payload[1]);
+                                // only send a CMDACK when a preceeding CMDDAT or CMDREQ was handled
+                                int bSend_CMDACK = 1;
                                 // split behaviour by device type
                                 switch(pFRx->FROM & BGNET_TYPE_MASK) {
+                                    // WIND = CMD-REQ/CMD-DAT/CMD-ACK handshake 
+                                    case (BGNET_TYPE_NETWIND & BGNET_TYPE_MASK):
+                                        switch(pFRx->CMD) {
+                                            // WIND/SETUP actions
+                                            case BGNET_CMD_CE_PILOT_DMPDAT:
+                                                switch(pCHRx->s.CH) {
+                                                    // WIND/SETUP/DS (#1 = Damping Speed)
+                                                    case BGNET_CHN_50_AWS:
+                                                        pCtrl->BGNET.WIND.SETUP.DS.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.WIND.SETUP.DS.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.WIND.SETUP.DS.Counter, t);
+                                                        break;
+                                                    // WIND/SETUP/DA (#2 = Damping Angle)
+                                                    case BGNET_CHN_51_AWA:
+                                                        pCtrl->BGNET.WIND.SETUP.DA.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.WIND.SETUP.DA.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.WIND.SETUP.DA.Counter, t);
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_D3_PILOT_AM:
+                                                switch(pCHRx->s.CH) {
+                                                    // WIND/SETUP/OF (#3 = Angle Offset)
+                                                    case BGNET_CHN_51_AWA:
+                                                        pCtrl->BGNET.WIND.SETUP.OF.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.WIND.SETUP.OF.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.WIND.SETUP.OF.Counter, t);
+                                                        break;
+                                                }
+                                                break;
+                                            default:
+                                                // unhandled, do not send CMDACK
+                                                bSend_CMDACK = 0;
+                                        }
+                                        break;
                                     // QUAD = CMD-REQ/CMD-DAT/CMD-ACK handshake 
                                     case (BGNET_TYPE_NETQUAD & BGNET_TYPE_MASK):
                                         // when in 'Transmitter' and/or 'Demo' mode, the QUAD/SPEED/SETUP does not do handshaking, it manages it's setup internally
@@ -2462,7 +2538,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                     // HEADING was never touched, do not go to AUTO
                                                                 } else {
                                                                     // i'm not going to make things more complicated at this point. But realise that when
-                                                                    // we have no accurate HEADING data, i do not know where to steer the boad when going to AUTO
+                                                                    // we have no accurate HEADING data, i do not know where to steer the boat when going to AUTO
                                                                 }
                                                                 // get the new STATE; initialize the CTARGET with current HEADING if we go into AUTO
                                                                 if ((pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) == (BGN_AP_MODE1_STBY & BGN_AP_MODE1_MASK_STATE)) { // current STATE is STBY
@@ -2481,6 +2557,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                                 CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
 
                                                                 // make DATA command (to ALL, so also other PILOT units, if present, receive it)
+                                                                // koen
                                                                 len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
                                                                 pFTx = (FRAME_H*)&TxBuf[TxSize];
                                                                 len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
@@ -3013,6 +3090,7 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
 
                                                                 // i have solved this by injecting a DATA/0x01 command (broadcast), so any other node
                                                                 // also receives the new value.
+                                                                // koen
                                                                 pCHTx = (union CH*)&payload[0];
                                                                 pCHTx->s.CH = BGNET_CHN_A6_AP_CTS;
                                                                 pCHTx->s.FMT = BGN_FMT_08;
@@ -3085,8 +3163,17 @@ size_t bgnet_decode_frame(BGNET_CTRL* pCtrl, unsigned char* buffer, size_t len) 
                                                 break;
                                         }
                                     default:
-                                        // we have no information about other (than PILOT or QUAD) devices doing a handshake with ACP
+                                        // we have no information about other (than PILOT, QUAD or WIND) devices doing a handshake with ACP
                                         break;
+                                }
+                                if (bSend_CMDACK == 0) {
+                                    // do not send a CMD-ACK
+                                } else {
+                                    if (pFRx->TO == BGNET_TYPE_ALL) {
+                                        // the CMDDAT/CMDREQ we received was a broadcast. Do not reply to a broadcast
+                                    } else {
+
+                                    }                                
                                 }
                                 if (iIsValid > 0) {
                                     // make the CMD-ACK for the CMD-REQ/CMD-DAT we received (only for non-default passes)
