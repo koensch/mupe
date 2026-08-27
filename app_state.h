@@ -11,11 +11,29 @@
 #define MSEC1           2500 // usleep 2.5msec
 
 // generic defines
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+//#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define DTOIROUND(d)                    ((int)(d))
+#define ITOD(i)                         ((double)i)
+#define BGNET_PI                        3.14159
+#define BGNET_MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define BGNET_TIME_FMT                 "%Y-%m-%d %H:%M:%S" 
+
+
 
 // an incoming stream is captured every 1 msec. This buffer in only to
 // hold what 11008 baud can produce (= ca 1100 bytes/sec). 256 bytes should be OK
 #define BGNET_RXTXRAW_SIZE            1024    // max size readbuffer 
+
+// ASCII characters
+#define BGNET_ASC_NULL                  0x00
+#define BGNET_ASC_SPACE                 0x20
+#define BGNET_ASC_QUEST                 0x3F
+#define BGNET_ASC_A                     0x41
+#define BGNET_ASC_F                     0x46
+#define BGNET_ASC_N                     0x4E
+#define BGNET_ASC_O                     0x4F
+#define BGNET_ASC_0                     0x30
+#define BGNET_ASC_x                     0x78
 
 // thread control
 extern volatile int g_running;
@@ -64,10 +82,8 @@ typedef struct {
     time_t tCounterReset;
 } BGNET_COUNT;
 
-// most values we store are 'real' (floating point) values, but sometimes 
-// we need other datatype.
+// some values are stored as bytes, double, long, string of time, please be consistent
 typedef struct {
-    uint8_t datatype;
     BGNET_COUNT Counter;
     size_t source;
     union VALUE value;

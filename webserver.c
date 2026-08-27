@@ -133,7 +133,7 @@ static int handle_ws_handshake(int client_fd, const char *req)
     while (*p && *p != '\r' && *p != '\n' && i < (int)sizeof(key)-1) {
         key[i++] = *p++;
     }
-    key[i] = '\0';
+    key[i] = BGNET_ASC_NULL;
 
     const char *guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     char concat[256];
@@ -180,8 +180,8 @@ static void handle_api_state(int client_fd)
     pthread_mutex_unlock(&g_data_mutex);
 
     // convert Rx/Tx data to human readable format (haven't checked if the bytes are really a BGNET frame)
-    CommandToAscii(asciibufRx, sizeof(asciibufRx), (FRAME_H*)serial_dataRx);
-    CommandToAscii(asciibufTx, sizeof(asciibufTx), (FRAME_H*)serial_dataTx);
+    CommandToAscii(asciibufRx, sizeof(asciibufRx), (FRAME_H *)serial_dataRx);
+    CommandToAscii(asciibufTx, sizeof(asciibufTx), (FRAME_H *)serial_dataTx);
 
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "SerialDataRx", asciibufRx);
@@ -396,7 +396,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.pilot.triplog.value.dValue = triplog->valuedouble;
         g_n2kdata.pilot.triplog.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pilot.triplog.Counter, t);
-        pCtrl->BGNET.SPEED.TripLogNM.value.nLong = DTOIROUND(triplog->valuedouble * BGNET_DIVISOR_TRIPLOG);
+        pCtrl->BGNET.SPEED.TripLogNM.value.dValue = triplog->valuedouble * BGNET_DIVISOR_TRIPLOG;
         pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
     }
@@ -482,6 +482,7 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
         "Content-Type: text/html\r\n\r\n"
         "<html>\r\n"
         "<head>"
+            "<meta name='format-detection' content='telephone=no'>"
             "<style>body, table, td {font-family: Verdana; font-size: 14px;}\r\nh3 {margin-left: 20px;}\r\ntable {border-collapse: collapse; width: 95%; margin: 5px auto;}\r\nth, td {border:1px solid #ccc; padding: 5px; text-align: left;}</style>"
             "<title>%s</title>"
             "<link rel='shortcut icon' href='#' />"
@@ -633,7 +634,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     const char *cACPRowSSDSS = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>";
     const char *cACPRowSSDSD = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td></tr>";
     const char *cACPRowSSDSX = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td></tr>";
-    const char *cACPRowSSDSF = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.1f</td></tr>";
+    const char *cACPRowSSDSF = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -660,7 +661,19 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP Control MODE", "Autopilot Mode [1=COMPass, 3=NAVigation, 4=VANE/WIND]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
+<<<<<<< HEAD
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/SPD: ", "Speed Select [0=TRAnsmitter, 1=MANual/FST, 2=SOG, 3=MANual/MED, 4=MANual/SLW]", pCtrl->BGNET.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.SPD.source), pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte);
+=======
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "ACP: EBS", "Effective Boat Speed (by source selection, KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: EBS Select", "Speed source selection (0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW)", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CTS", "Course To Steer, autopilot setpoint (0-359 DegM)", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CRS", "Course Preset (0-359 DegM)", pCtrl->BGNET.ACP.CRS.Counter.iCounter, t-pCtrl->BGNET.ACP.CRS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CRS.source), pCtrl->BGNET.ACP.CRS.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: Speed Select", "[0=TRAnsmitter, 1=MANual/FST, 2=SOG, 3=MANual/MED, 4=MANual/SLW]", pCtrl->BGNET.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.SPD.source), pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte);
+>>>>>>> 0a42b33667d5e2ba5a0d622c9d9da053e4277f96
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/RESP:", "Steering Response [0=Normal, 1=Economic, 2=Downwind]", pCtrl->BGNET.PILOT.SETUP.RESP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.RESP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.RESP.source), pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte);
     strcat(Buffer, cLine);
@@ -670,7 +683,11 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA:", "Watch Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong);
     strcat(Buffer, cLine);
+<<<<<<< HEAD
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC:", "Off-Course Alarm [1-99 Degrees]", pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_DEG.source), pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
+=======
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP: OFF-COURSE Alarm", "[1-99 Deg]", pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_DEG.source), pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
+>>>>>>> 0a42b33667d5e2ba5a0d622c9d9da053e4277f96
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC:", "Off-Course Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_STAT.source), pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong);
     strcat(Buffer, cLine);
@@ -692,24 +709,34 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK:", "Backlight [0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", pCtrl->BGNET.NETWORK.BackLight.Counter.iCounter, t-pCtrl->BGNET.NETWORK.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.NETWORK.BackLight.source), pCtrl->BGNET.NETWORK.BackLight.value.nByte);
     strcat(Buffer, cLine);
+<<<<<<< HEAD
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: CTS", "Autopilot Course setpoint (0-359 Degrees M)", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
+=======
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Heading", "Current compass reading (0-359 DegM)", pCtrl->BGNET.PILOT.Heading.Counter.iCounter, t-pCtrl->BGNET.PILOT.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.Heading.source), pCtrl->BGNET.PILOT.Heading.value.nLong);
+>>>>>>> 0a42b33667d5e2ba5a0d622c9d9da053e4277f96
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Heading", "Current compass reading (0-359 Degrees M)", pCtrl->BGNET.PILOT.Heading.Counter.iCounter, t-pCtrl->BGNET.PILOT.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.Heading.source), pCtrl->BGNET.PILOT.Heading.value.nLong);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Rudder", "Current rudder position (-45-+45 Degrees)", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK: Rudder", "Current rudder position (-45-+45 Deg)", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: LOG", "Log (QUAD or SPEED), stored in EEPROM, no reset [NM]", pCtrl->BGNET.SPEED.StoredLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.StoredLogNM.source), (ITOD(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
     strcat(Buffer, cLine);
+<<<<<<< HEAD
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: TRIPLOG", "Trip Log (QUAD or SPEED), stored in EEPROM, with reset [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), (ITOD(pCtrl->BGNET.SPEED.TripLogNM.value.nLong)/BGNET_DIVISOR_TRIPLOG));
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRD", "Dead Reconing Distance (DATA or SPEED), resettable via QUAD [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), ITOD(pCtrl->BGNET.SPEED.DRD.value.nLong));
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRC", "Dead Reconing Course (DATA or SPEED), resettable via QUAD [0-359]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), ITOD(pCtrl->BGNET.SPEED.DRC.value.nLong));
+=======
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset) [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), pCtrl->BGNET.SPEED.TripLogNM.value.dValue/BGNET_DIVISOR_TRIPLOG);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Temperature", "Seawater temperature", pCtrl->BGNET.SPEED.Temperature.Counter.iCounter, t-pCtrl->BGNET.SPEED.Temperature.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.Temperature.source), pCtrl->BGNET.SPEED.Temperature.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: DRD", "Dead Reckoning Distance (displayed on DATA or SPEED, resettable via QUAD) [NM]", pCtrl->BGNET.SPEED.DRD.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRD.source), pCtrl->BGNET.SPEED.DRD.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Speed", "Current boat speed from sensor (used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), pCtrl->BGNET.SPEED.STW.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED: DRC", "Dead Reckoning Course (displayed on DATA or SPEED, resettable via QUAD) [0-359 DegT]", pCtrl->BGNET.SPEED.DRC.Counter.iCounter, t-pCtrl->BGNET.SPEED.DRC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.DRC.source), pCtrl->BGNET.SPEED.DRC.value.nLong);
+>>>>>>> 0a42b33667d5e2ba5a0d622c9d9da053e4277f96
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: SWT", "Sea Water Temperature [DegC]", pCtrl->BGNET.SPEED.Temperature.Counter.iCounter, t-pCtrl->BGNET.SPEED.Temperature.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.Temperature.source), pCtrl->BGNET.SPEED.Temperature.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: STW", "Speed Through Water (also used to reset SpeedMAX and SpeedAVG) [KT]", pCtrl->BGNET.SPEED.STW.Counter.iCounter, t-pCtrl->BGNET.SPEED.STW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.STW.source), pCtrl->BGNET.SPEED.STW.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: Speed MAX", "Maximum Speed (reset with DRD reset) [KT]", pCtrl->BGNET.SPEED.SpeedMAX.Counter.iCounter, t-pCtrl->BGNET.SPEED.SpeedMAX.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SpeedMAX.source), pCtrl->BGNET.SPEED.SpeedMAX.value.dValue);
     strcat(Buffer, cLine);
@@ -725,18 +752,27 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/AUTOCAL: Speed Calibration", "Adjustment of boatspeed using automatic procedure", pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.AUTOCAL.source), pCtrl->BGNET.SPEED.SETUP.AUTOCAL.value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: COG", "Course Over Ground, usually from positioning device [0-359 deg]", pCtrl->BGNET.ACP.COG.Counter.iCounter, t-pCtrl->BGNET.ACP.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COG.source), pCtrl->BGNET.ACP.COG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA: COG", "Course Over Ground, usually from positioning device [0-359 DegT]", pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.COG.source), pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.ACP.SOG.Counter.iCounter, t-pCtrl->BGNET.ACP.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SOG.source), pCtrl->BGNET.ACP.SOG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA: SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: SOG SELECT", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.ACP.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SOG_SEL.source), pCtrl->BGNET.ACP.SOG_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: SOG SELECT", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.ACP.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SOG_SEL.source), pCtrl->BGNET.ACP.SOG_SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Boatspeed, by source selection and default [KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "External: XTE", "Cross Track Error [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "Effectieve Boat Speed", "Source selection (0=TRA, 1=MAN, 2=SOG, 3=FST, 4=MED, 5=SLW)", pCtrl->BGNET.ACP.EBS_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS_SEL.source), pCtrl->BGNET.ACP.EBS_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "External: WP", "WayPoint ID", pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString);
     strcat(Buffer, cLine);
+<<<<<<< HEAD
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH:", "Measured Depth, uncalibrated [M]", pCtrl->BGNET.DEPTH.Depth_RAW.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_RAW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_RAW.source), pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue);
+=======
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "External: WPD", "WayPoint Distance [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "External: WPB", "WayPoint Bearing [0-359 DegM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
+    strcat(Buffer, cLine);
+// ==== DEPTH
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Measured Depth", "Depth, uncalibrated [M]", pCtrl->BGNET.DEPTH.Depth_RAW.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_RAW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_RAW.source), pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue);
+>>>>>>> 0a42b33667d5e2ba5a0d622c9d9da053e4277f96
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH:", "Calibrated Depth [M]", pCtrl->BGNET.DEPTH.Depth_CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_CAL.source), pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue);
     strcat(Buffer, cLine);
@@ -777,6 +813,19 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND/SETUP/OF: Offset", "Angle offset [0-359 Deg]", pCtrl->BGNET.WIND.SETUP.OF.Counter.iCounter, t-pCtrl->BGNET.WIND.SETUP.OF.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.SETUP.OF.source), pCtrl->BGNET.WIND.SETUP.OF.value.nLong);
     strcat(Buffer, cLine);
+// ==== WIND
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: AWS", "Appearent Wind Speed [0/99.9 KT]", pCtrl->BGNET.WIND.AWS.Counter.iCounter, t-pCtrl->BGNET.WIND.AWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.AWS.source), pCtrl->BGNET.WIND.AWS.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: AWA", "Appearent Wind Angle [-180/+180 Deg]", pCtrl->BGNET.WIND.AWA.Counter.iCounter, t-pCtrl->BGNET.WIND.AWA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.AWA.source), pCtrl->BGNET.WIND.AWA.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: TWS", "True Wind Speed [0/99.9 KT]", pCtrl->BGNET.WIND.TWS.Counter.iCounter, t-pCtrl->BGNET.WIND.TWS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.TWS.source), pCtrl->BGNET.WIND.TWS.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: TWA", "True Wind Angle [-180/+180 Deg]", pCtrl->BGNET.WIND.TWA.Counter.iCounter, t-pCtrl->BGNET.WIND.TWA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.TWA.source), pCtrl->BGNET.WIND.TWA.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "WIND: VMG", "Velocity Made Good [KT]", pCtrl->BGNET.WIND.VMG.Counter.iCounter, t-pCtrl->BGNET.WIND.VMG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.VMG.source), pCtrl->BGNET.WIND.VMG.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "WIND: BATTERY", "Battery Voltage [0/99 V]", pCtrl->BGNET.WIND.BATTERY.Counter.iCounter, t-pCtrl->BGNET.WIND.BATTERY.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.WIND.BATTERY.source), pCtrl->BGNET.WIND.BATTERY.value.nLong);
+    strcat(Buffer, cLine);
 
     return(Buffer);
 }
@@ -807,13 +856,13 @@ static char* html_NMEA_row(char *Buffer) {
     strcpy(Buffer, "");
     time(&t);
 
-    snprintf(cLine, sizeof(cLine), cNMEARow, "LATITUDE", "DD.MMMMMM North(+) or South(-) of the equator, usually from GPS [-90/+90 degree]", g_n2kdata.pos.lat.Counter.iCounter, (t - g_n2kdata.pos.lat.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lat.source), g_n2kdata.pos.lat.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "LATITUDE", "DD.MMMMMM North(+) or South(-) of the equator, usually from GPS [-90/+90 Deg]", g_n2kdata.pos.lat.Counter.iCounter, (t - g_n2kdata.pos.lat.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lat.source), g_n2kdata.pos.lat.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "LONGITUDE", "DDD.MMMMMM East(+) or West(-) of the prime meridian, usually from GPS [-180/+180 degree]", g_n2kdata.pos.lon.Counter.iCounter, (t - g_n2kdata.pos.lon.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lon.source), g_n2kdata.pos.lon.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "LONGITUDE", "DDD.MMMMMM East(+) or West(-) of the prime meridian, usually from GPS [-180/+180 Deg]", g_n2kdata.pos.lon.Counter.iCounter, (t - g_n2kdata.pos.lon.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lon.source), g_n2kdata.pos.lon.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "ALTITUDE", "[M] above 'Mean Sea Level', usually from GPS (for surface ships normally ignored)", g_n2kdata.pos.alt.Counter.iCounter, (t - g_n2kdata.pos.alt.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.alt.source), g_n2kdata.pos.alt.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "COG", "Course Over Ground, usually from GPS [0-359 degree]", g_n2kdata.pos.cog.Counter.iCounter, (t - g_n2kdata.pos.cog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.cog.source), g_n2kdata.pos.cog.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "COG", "Course Over Ground, usually from GPS [0-359 DegT]", g_n2kdata.pos.cog.Counter.iCounter, (t - g_n2kdata.pos.cog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.cog.source), g_n2kdata.pos.cog.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "SOG", "Speed Over Ground, usually from GPS [KT]", g_n2kdata.pos.sog.Counter.iCounter, (t - g_n2kdata.pos.sog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.sog.source), g_n2kdata.pos.sog.value.dValue);
     strcat(Buffer, cLine);
@@ -826,9 +875,9 @@ static char* html_NMEA_row(char *Buffer) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "RUDDER", "Rudder position, starboard(+) or port(-) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudder.Counter.iCounter, (t - g_n2kdata.boat.rudder.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudder.source), g_n2kdata.boat.rudder.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING M", "Magnetic Heading, usually from Compass  [0-359 degree]", g_n2kdata.boat.headingM.Counter.iCounter, (t - g_n2kdata.boat.headingM.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.headingM.source), g_n2kdata.boat.headingM.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING M", "Magnetic Heading, usually from Compass  [0-359 DegM]", g_n2kdata.boat.headingM.Counter.iCounter, (t - g_n2kdata.boat.headingM.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.headingM.source), g_n2kdata.boat.headingM.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING T", "True Heading, compensated for Deviation  [0-359 degree]", g_n2kdata.boat.headingT.Counter.iCounter, (t - g_n2kdata.boat.headingT.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.headingT.source), g_n2kdata.boat.headingT.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING T", "True Heading, compensated for Deviation  [0-359 DegT]", g_n2kdata.boat.headingT.Counter.iCounter, (t - g_n2kdata.boat.headingT.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.headingT.source), g_n2kdata.boat.headingT.value.dValue);
     strcat(Buffer, cLine);
 
     return(Buffer);
@@ -852,7 +901,7 @@ static char* html_command_top(char *Buffer) {
 static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     time_t t;
-    char cLine[256], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII], asciibufCMD[BGNET_CMD_LABEL_MAX];
+    char cLine[512], asciibufRx[BGN_CMD_ASCII*2], asciibufTx[BGN_CMD_ASCII*2], asciibufCMD[BGNET_CMD_LABEL_MAX];
     const char *cDevRow =
         "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
@@ -898,7 +947,7 @@ static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
             "<th colspan='3'>Command 0x06/%s [Rx]</th>"
             "<th colspan='7'>Various Commands/BUTTONS, ALARMS, RESETS [Tx/Rx]</th>"
             "</tr>"
-        "<tr><th>ID</th><th>Label</th><th>Node</th>"
+        "<tr><th>ID</th><th>Label</th><th>Source</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Label</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th>"
@@ -954,7 +1003,9 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             strcpy(cLine02, cDevRow02E);
         } else {
             InUse++;
-            y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload (the label part is displayed )
+            // to save some space we exclude the text portion of the frame (the whole frame was stored, but we
+            // only show the first portion)
+            y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload (the label part is displayed in the next column)
             byte2ascii(asciibuf02, sizeof(asciibuf02), pCtrl->CHN[i].x02.ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine02, sizeof(cLine02), cDevRow02,
                                                     pCtrl->CHN[i].x02.CounterRx.iCounter,
@@ -966,8 +1017,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
             strcpy(cLine06, cDevRow06E);
         } else {
             InUse++;
-            //y = BGNET_FRAME_HEAD + 4; // only show frame + 4 bytes payload
-            y = bgnet_sizeof_frame((FRAME_H*)(pCtrl->CHN[i].x06.ucRAW));
+            y = bgnet_sizeof_frame((FRAME_H *)(pCtrl->CHN[i].x06.ucRAW));
             byte2ascii(asciibuf06, sizeof(asciibuf06), pCtrl->CHN[i].x06.ucRAW, y, BYTE2ASCII_SPACED);
             snprintf(cLine06, sizeof(cLine06), cDevRow06,
                                                     pCtrl->CHN[i].x06.CounterRx.iCounter,
@@ -1152,7 +1202,7 @@ void *webserver_thread(void *arg)
             close(client_fd);
             continue;
         }
-        req[n] = '\0';
+        req[n] = BGNET_ASC_NULL;
 
         if (strstr(req, "Upgrade: websocket")) {
             if (handle_ws_handshake(client_fd, req) != 0) {
@@ -1191,9 +1241,6 @@ void *webserver_thread(void *arg)
                 send(client_fd, err, strlen(err), 0);
             }
         } else {
-            //log_info("webserver: req=%s", req);
-            //log_info("webserver: method=%s", method);
-            //log_info("webserver: path=%s", path);
             if (strcmp(path,"/bgnet/") == 0) {
                 handle_bgnet_html(client_fd, pCtrl);
             } else {
