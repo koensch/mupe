@@ -863,6 +863,8 @@ typedef struct {
 } BGNET_CTRL;
 
 // prototypes
+void log_debug_buffer(unsigned char *, size_t);
+
 size_t bgnet_decode_frame(BGNET_CTRL *, unsigned char *, size_t);
 size_t bgnet_process(BGNET_CTRL *, unsigned char *, size_t);
 void bgnet_initialize_reset(BGNET_CTRL *);

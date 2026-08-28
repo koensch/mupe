@@ -1,6 +1,7 @@
 #include "app_state.h"
 #include "logger.h"
 #include <stdio.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <string.h>
@@ -77,6 +78,81 @@ void log_debug(const char *fmt, ...) {
     va_list ap; va_start(ap, fmt);
     write_log(LOGGER_LEVEL_DEBUG, "[DEBUG]", fmt, ap);
     va_end(ap);
+}
+
+// convert a ASCII/HEX character to binary (0-15), or -1 if not hex
+// note we use a signed character to be able to return a error condition
+int16_t hex2bin(unsigned char ucHex) {
+    int16_t r;
+    switch (ucHex) {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            r = ucHex - '0';
+            break;
+        case 'A':
+        case 'B':
+        case 'C':
+        case 'D':
+        case 'E':
+        case 'F':
+            r = ucHex - 'A' + 10;
+            break;
+        case 'a':
+        case 'b':
+        case 'c':
+        case 'd':
+        case 'e':
+        case 'f':
+            r = ucHex - 'a' + 10;
+            break;
+        default:
+            r = -1;
+    }
+    return(r);
+} 
+
+int16_t ascii2byte(unsigned char *OutByte, char *InString, size_t size) {
+    size_t i;
+    int16_t r, ucLo, ucHi;
+    // initialize return value
+    r = 0;
+    // for every 2 ASCII characters (bytes), we need at least 1 binary byte
+    if (strlen(InString) > (size * 2)) {
+        r = -1; // too many ascii characters to fit into the binary array
+    } else {
+        if (strlen(InString) & 0x01) {
+            // we must always have an even number of ASCII characters
+            r = -2; // odd number of ascii/hex
+        } else {
+            if (size > SHRT_MAX) {
+                r = -3; // we return the bytecount as a signed byte so we are limited
+            } else {
+                for (i=0; i< (strlen(InString)/2); i++) {
+                    ucHi = hex2bin(InString[i*2 + 0]);
+                    ucLo = hex2bin(InString[i*2 + 1]);
+                    if ((ucHi < 0) | (ucLo < 0)) {
+                        r = -4; // not hex
+                        break;
+                    } else {
+                        // we work per byte, so we do not deal with endieness
+                        OutByte[i] = ((ucHi & 0x0F) << 4) | (ucLo & 0x0F);
+                    }
+                }
+                if (r == 0) {
+                    r = i - 1; // number of bytes in OutByte
+                }
+            }
+        }
+    }
+    return(r);
 }
 
 // note: we place the nibbles and characters in the same order that we receive them
