@@ -1972,8 +1972,8 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
 
     //unsigned char cs; // checksum calculated
     unsigned char *pBuf; // pointer to start and end of buffer
-    int RxSize, x, z, n, c;
-    int iIsValid, iValue;
+    int RxSize, x, z, c;
+    int iValue, bSend_CMDACK;
     time_t t;
     size_t y;
     // inside this routine we work with our local buffers to store generated frames as much as possible.
@@ -1995,7 +1995,6 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
         TxSize = 0;
         len_pl = 0;
         len_msg = 0;
-        iIsValid = 1; // tricky: if we hit a 'default' in a switch we reset this, so statistics is not updated
 
         switch (pFRx->CMD) {
             case BGNET_CMD_01_DATA:  // do not log DATA/0x01 frames
@@ -2109,12 +2108,11 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                             //bgnet_initialize_reset(pCtrl);
                             break;
                         default:
-                            iIsValid = 0; // do not update device/command statistics
                             log_info("  Command %02X (header only) IGNORED (from %02X %s)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName);
                             break;
                     }
-                    if (iIsValid > 0) {
-                        // update CMD structure
+                    if (bSend_CMDACK == 0) {
+                        // appearently we received an non-handled CMD that was not dealt with. We will register it
                         pCtrl->iNewCommand = BGN_NEW_SET; // signal possible CMD change
                         pCtrl->CMD[pFRx->CMD].iNewCommand = BGN_NEW_SET; // signal this command
                         memcpy(pCtrl->CMD[pFRx->CMD].Rx.ucFrame, pFRx, RxSize);
@@ -2126,7 +2124,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                         switch(pFRx->CMD) {
                             case BGNET_CMD_01_DATA:
                                 // process DATA command (broadcast)
-                                n = decode_command_DATA(pCtrl, pFRx);
+                                decode_command_DATA(pCtrl, pFRx);
                                 //log_info("  Command %02X (with payload) DATA, %d channels", pFRx->CMD, n);
                                 break;
                             case BGNET_CMD_02_LABEL:
@@ -2206,7 +2204,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 // setup the pointer to our received CMD-REQ or CMD-DAT command
                                 pCHRx = (union CH *)(&pFRx->payload[1]);
                                 // only send a CMDACK when a preceeding CMDDAT or CMDREQ was handled
-                                int bSend_CMDACK = 1;
+                                bSend_CMDACK = 1;
                                 // split behaviour by device type
                                 switch(pFRx->FROM & BGNET_TYPE_MASK) {
                                     // WIND = CMD-REQ/CMD-DAT/CMD-ACK handshake 
@@ -2252,416 +2250,386 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                         // replicating these to the QUAD/t.
                                         switch(pFRx->CMD) {
                                             // QUAD/RESET actions
-                                            case BGNET_CMD_20_PILOT_OCDAT:
-                                            case BGNET_CMD_21_PILOT_WADAT:
-                                            case BGNET_CMD_22_DEPTH_DADAT:
+                                            case BGNET_CMD_20_PILOT_OCDAT: // 3 bytes payload?!
+                                                switch(pCHRx->s.CH) {
+                                                    // DEPTH/SETUP/ANCHOR ALARM
+                                                    case BGNET_CHN_C4_DEPTH:
+                                                        // switch by DataType
+                                                        switch (pCHRx->s.FMT & BGNET_FMT_DT)  {
+                                                            // STATUS On/OFF
+                                                            case BGN_FMT_0F:
+                                                                // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
+                                                                if (pCHRx->s.FMT == BGNET_FMT_ON) {
+                                                                    // when activating the Anchor Alarm, also set the current depth (use calibrated depth)
+                                                                    pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue = pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue;
+                                                                    pCtrl->BGNET.DEPTH.SETUP.AMA_M.source = BGN_SOURCE_BGNET;
+                                                                    CounterUp(&pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter, t);
+                                                                    // enable the anchor alarm
+                                                                    pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte = 1;
+                                                                } else {
+                                                                    // disable the anchor alarm
+                                                                    pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte = 0;
+                                                                }
+                                                                pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter, t);
+                                                                break;
+                                                            // alarm level in M
+                                                            case BGN_FMT_01:
+                                                                break;
+                                                            case BGN_FMT_0D:
+                                                                // the Anchor Alarm sends 7 bytes payload with 2 values (shallow and deep)
+                                                                pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue = decode_channel_double(pCHRx, 0);
+                                                                pCtrl->BGNET.DEPTH.SETUP.ASA_M.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.DEPTH.SETUP.ASA_M.Counter, t);
+                                                                pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.dValue = decode_channel_double(pCHRx, 1);
+                                                                pCtrl->BGNET.DEPTH.SETUP.ADA_M.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.DEPTH.SETUP.ADA_M.Counter, t);
+                                                                break;
+                                                        }
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_21_PILOT_WADAT: // 3 bytes payload?!
+                                                switch(pCHRx->s.CH) {
+                                                    // DEPTH/SETUP/SHALLOW ALARM
+                                                    case BGNET_CHN_C4_DEPTH:
+                                                        // switch by DataType
+                                                        switch (pCHRx->s.FMT & BGNET_FMT_DT)  {
+                                                            // STATUS On/OFF
+                                                            case BGN_FMT_0F:
+                                                                // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
+                                                                if (pCHRx->s.FMT == BGNET_FMT_ON) {
+                                                                    pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte = 1;
+                                                                } else {
+                                                                    pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte = 0;
+                                                                }
+                                                                pCtrl->BGNET.DEPTH.SETUP.SA_STAT.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.DEPTH.SETUP.SA_STAT.Counter, t);
+                                                                break;
+                                                            // alarm level in M
+                                                            case BGN_FMT_01:
+                                                                pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue = decode_channel_double(pCHRx, 0);
+                                                                pCtrl->BGNET.DEPTH.SETUP.SA_M.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter, t);
+                                                                break;
+                                                        }
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_22_DEPTH_DADAT: // 3 bytes payload
+                                                switch(pCHRx->s.CH) {
+                                                    // DEPTH/SETUP/DEEP ALARM
+                                                    case BGNET_CHN_C4_DEPTH:
+                                                        // switch by DataType
+                                                        switch (pCHRx->s.FMT & BGNET_FMT_DT)  {
+                                                            // STATUS On/OFF
+                                                            case BGN_FMT_0F:
+                                                                // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
+                                                                if (pCHRx->s.FMT == BGNET_FMT_ON) {
+                                                                    pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
+                                                                } else {
+                                                                    pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 0;
+                                                                }
+                                                                pCtrl->BGNET.DEPTH.SETUP.DA_STAT.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.DEPTH.SETUP.DA_STAT.Counter, t);
+                                                                break;
+                                                            // alarm level in M
+                                                            case BGN_FMT_01:
+                                                                pCtrl->BGNET.DEPTH.SETUP.DA_M.value.dValue = decode_channel_double(pCHRx, 0);
+                                                                pCtrl->BGNET.DEPTH.SETUP.DA_M.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.DEPTH.SETUP.DA_M.Counter, t);
+                                                                break;
+                                                        }
+                                                        break;
+                                                }
+                                                break;
                                             case BGNET_CMD_CA_QUAD_TIMER:
+                                                // 2 bytes payload: 0=ACKSEQ + 1=minutes (no CHN)
+                                                switch(pFRx->payload[1]) {
+                                                    case 0x0A: // 10 minute count-down timer
+                                                        pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime + 10*60;
+                                                        pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
+                                                        break;
+                                                    case 0x05:
+                                                        pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime + 5*60;
+                                                        pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
+                                                        break;
+                                                    case 0x00:
+                                                        pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime + 0*60;
+                                                        pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
+                                                        break;
+                                                }
+                                                break;
                                             case BGNET_CMD_CB_QUAD_RESET:
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_CF_TRIPLOG:
+                                                        // SPEED/RESET LOG, 2 bytes payload
+                                                        // a QUAD/r only sends a CMD_CB/CHN_41 (to the QUAD/t)
+                                                        // a QUAD/t or QUAD/d sends nothing.
+                                                        pCtrl->BGNET.SPEED.TripLogNM.value.dValue = 0.0;
+                                                        pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
+                                                        break;
+                                                    case BGNET_CHN_81_DRD:
+                                                        // SPEED/DRD RESET, 2 bytes payload
+                                                        // a QUAD/r only sends a CMD_CB/CHN_81 (to the QUAD/t)
+                                                        // a QUAD/t or QUAD/d sends nothing.
+                                                        pCtrl->BGNET.SPEED.DRD.value.dValue = 0.0;
+                                                        pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.SPEED.DRD.Counter, t);
+                                                        pCtrl->BGNET.SPEED.SpeedMAX.value.dValue = pCtrl->BGNET.SPEED.STW.value.dValue;
+                                                        pCtrl->BGNET.SPEED.SpeedMAX.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.SPEED.SpeedMAX.Counter, t);
+                                                        pCtrl->BGNET.SPEED.SpeedAVG.value.dValue = pCtrl->BGNET.SPEED.STW.value.dValue;
+                                                        pCtrl->BGNET.SPEED.SpeedAVG.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.SPEED.SpeedAVG.Counter, t);
+                                                        break;
+                                                }
+                                                break;
                                             case BGNET_CMD_CD_PILOT_DMPREQ:
+                                                switch(pCHRx->s.CH) {
+                                                    // SPEED/SETUP/#1 = DMP
+                                                    case BGNET_CHN_41_STW:
+                                                        // create command with current SPEED/SETUP/DMP value
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_41_STW;
+                                                        pCHTx->s.FMT = BGN_FMT_08;
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_CE_PILOT_DMPDAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
                                             case BGNET_CMD_CE_PILOT_DMPDAT:
+                                                switch(pCHRx->s.CH) {
+                                                    // SPEED/SETUP/#1 = accept new setting
+                                                    case BGNET_CHN_41_STW:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new SPEED SELECT from the channel
+                                                        pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.SPEED.SETUP.DMP.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.SPEED.SETUP.DMP.Counter, t);
+                                                        break;
+                                                }
+                                                break;
                                             case BGNET_CMD_CF_PILOT_MANREQ:
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_41_STW:
+                                                        // create command with current SPEED/SETUP/#3, with CAL value
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_41_STW;
+                                                        pCHTx->s.FMT = BGN_FMT_08;
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D3_PILOT_AM, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                    case BGNET_CHN_C4_DEPTH:
+                                                        // create CMD-DAT with current DEPTH CAL value
+                                                        // 0= No Calibration
+                                                        // <0= offset to keel
+                                                        // >0= offset to watersurface
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        //pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
+                                                        //pCHTx->s.FMT = BGN_FMT_08;
+                                                        //pCHTx->s.cv.uW[0] = htons(11);
+                                                        c = BGNET_CHN_C4_DEPTH;
+                                                        encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue, 0);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D3_PILOT_AM, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
                                             case BGNET_CMD_D3_PILOT_AM:
+                                                switch(pCHRx->s.CH) {
+                                                    // SPEED/SETUP/#3 = accept new CAL setting
+                                                    case BGNET_CHN_41_STW:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new SPEED CAL from the channel
+                                                        pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.SPEED.SETUP.CAL.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.SPEED.SETUP.CAL.Counter, t);
+                                                        break;
+                                                    case BGNET_CHN_C4_DEPTH:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new DEPTH CAL from the channel
+                                                        pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue = decode_channel_double(pCHRx, 0);
+                                                        pCtrl->BGNET.DEPTH.SETUP.CAL.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.CAL.Counter, t);
+                                                        break;
+                                                    }
+                                                break;
                                             case BGNET_CMD_DD_QUAD_SHAREQ:
+                                                switch(pCHRx->s.CH) {
+                                                    // DEPTH/SETUP/DEEPALM
+                                                    case BGNET_CHN_C4_DEPTH:
+                                                        // create CMD-DAT with current DEEP ALARM STATUS value
+                                                        // 0= Off (0x0F)
+                                                        // #0 = On (0x1F)
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
+                                                        if (pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte == 0) {
+                                                            pCHTx->s.FMT = BGNET_FMT_OFF;
+                                                        } else {
+                                                            pCHTx->s.FMT = BGNET_FMT_ON;
+                                                        }
+                                                        len_pl = 3;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_22_DEPTH_DADAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        // send alarm level
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        c = BGNET_CHN_C4_DEPTH;
+                                                        encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.DA_M.value.dValue, 0);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_22_DEPTH_DADAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
                                             case BGNET_CMD_DE_PILOT_WAREQ:
+                                                switch(pCHRx->s.CH) {
+                                                    // DEPTH/SETUP/SHA
+                                                    case BGNET_CHN_C4_DEPTH:
+                                                        // create CMD-DAT with current SHALLOW ALARM STATUS value
+                                                        // 0= Off (0x0F)
+                                                        // #0 = On (0x1F)
+                                                        // create command with current SPEED/SETUP/DMP value
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
+                                                        if (pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte == 0) {
+                                                            pCHTx->s.FMT = BGNET_FMT_OFF;
+                                                        } else {
+                                                            pCHTx->s.FMT = BGNET_FMT_ON;
+                                                        }
+                                                        len_pl = 3;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_21_PILOT_WADAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        // send alarm level
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        c = BGNET_CHN_C4_DEPTH;
+                                                        encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue, 0);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_21_PILOT_WADAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
                                             case BGNET_CMD_DF_PILOT_OCREQ:
+                                                switch(pCHRx->s.CH) {
+                                                    // DEPTH/SETUP/ANCA
+                                                    case BGNET_CHN_C4_DEPTH:
+                                                        // create CMD-DAT with current ANCHOR ALARM STATUS value
+                                                        // 0= Off (0x0F)
+                                                        // #0 = On (0x1F)
+                                                        // create command with current SPEED/SETUP/DMP value
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
+                                                        if (pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte == 0) {
+                                                            pCHTx->s.FMT = BGNET_FMT_OFF;
+                                                        } else {
+                                                            pCHTx->s.FMT = BGNET_FMT_ON;
+                                                        }
+                                                        len_pl = 3;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_20_PILOT_OCDAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        // send alarm level (7 bytes payload)
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        c = BGNET_CHN_C4_DEPTH;
+                                                        encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_0D, pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue, 0);
+                                                        encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_0D, pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.dValue, 1);
+                                                        len_pl = 7;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_20_PILOT_OCDAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
                                             case BGNET_CMD_EA_QUAD_AUTOCAL:
                                                 // note the CMD/CHN combination for CAL and LOGCAL are the same. It is also the same correction albeit the
-                                                // first derived from a "reference speed", the other derived from a known distance and time. They are the same
+                                                // first derived from a "reference speed", the other derived from a "known distance and time". They are the same
                                                 switch(pFRx->CMD) {
-                                                    case BGNET_CMD_20_PILOT_OCDAT: // 3 bytes payload?!
-                                                        switch(pCHRx->s.CH) {
-                                                            // DEPTH/SETUP/ANCHOR ALARM
-                                                            case BGNET_CHN_C4_DEPTH:
-                                                                // switch by DataType
-                                                                switch (pCHRx->s.FMT & BGNET_FMT_DT)  {
-                                                                    // STATUS On/OFF
-                                                                    case BGN_FMT_0F:
-                                                                        // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
-                                                                        if (pCHRx->s.FMT == BGNET_FMT_ON) {
-                                                                            // when activating the Anchor Alarm, also set the current depth (use calibrated depth)
-                                                                            pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue = pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue;
-                                                                            pCtrl->BGNET.DEPTH.SETUP.AMA_M.source = BGN_SOURCE_BGNET;
-                                                                            CounterUp(&pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter, t);
-                                                                            // enable the anchor alarm
-                                                                            pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte = 1;
-                                                                        } else {
-                                                                            // disable the anchor alarm
-                                                                            pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte = 0;
-                                                                        }
-                                                                        pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter, t);
-                                                                        break;
-                                                                    // alarm level in M
-                                                                    case BGN_FMT_01:
-                                                                        break;
-                                                                    case BGN_FMT_0D:
-                                                                        // the Anchor Alarm sends 7 bytes payload with 2 values (shallow and deep)
-                                                                        pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue = decode_channel_double(pCHRx, 0);
-                                                                        pCtrl->BGNET.DEPTH.SETUP.ASA_M.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.ASA_M.Counter, t);
-                                                                        pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.dValue = decode_channel_double(pCHRx, 1);
-                                                                        pCtrl->BGNET.DEPTH.SETUP.ADA_M.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.ADA_M.Counter, t);
-                                                                        break;
-                                                                }
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_21_PILOT_WADAT: // 3 bytes payload?!
-                                                        switch(pCHRx->s.CH) {
-                                                            // DEPTH/SETUP/SHALLOW ALARM
-                                                            case BGNET_CHN_C4_DEPTH:
-                                                                // switch by DataType
-                                                                switch (pCHRx->s.FMT & BGNET_FMT_DT)  {
-                                                                    // STATUS On/OFF
-                                                                    case BGN_FMT_0F:
-                                                                        // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
-                                                                        if (pCHRx->s.FMT == BGNET_FMT_ON) {
-                                                                            pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte = 1;
-                                                                        } else {
-                                                                            pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte = 0;
-                                                                        }
-                                                                        pCtrl->BGNET.DEPTH.SETUP.SA_STAT.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.SA_STAT.Counter, t);
-                                                                        break;
-                                                                    // alarm level in M
-                                                                    case BGN_FMT_01:
-                                                                        pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue = decode_channel_double(pCHRx, 0);
-                                                                        pCtrl->BGNET.DEPTH.SETUP.SA_M.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.SA_M.Counter, t);
-                                                                        break;
-                                                                }
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_22_DEPTH_DADAT: // 3 bytes payload
-                                                        switch(pCHRx->s.CH) {
-                                                            // DEPTH/SETUP/DEEP ALARM
-                                                            case BGNET_CHN_C4_DEPTH:
-                                                                // switch by DataType
-                                                                switch (pCHRx->s.FMT & BGNET_FMT_DT)  {
-                                                                    // STATUS On/OFF
-                                                                    case BGN_FMT_0F:
-                                                                        // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
-                                                                        if (pCHRx->s.FMT == BGNET_FMT_ON) {
-                                                                            pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
-                                                                        } else {
-                                                                            pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 0;
-                                                                        }
-                                                                        pCtrl->BGNET.DEPTH.SETUP.DA_STAT.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.DA_STAT.Counter, t);
-                                                                        break;
-                                                                    // alarm level in M
-                                                                    case BGN_FMT_01:
-                                                                        pCtrl->BGNET.DEPTH.SETUP.DA_M.value.dValue = decode_channel_double(pCHRx, 0);
-                                                                        pCtrl->BGNET.DEPTH.SETUP.DA_M.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.DA_M.Counter, t);
-                                                                        break;
-                                                                }
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_CA_QUAD_TIMER:
-                                                        // 2 bytes payload: 0=ACKSEQ + 1=minutes (no CHN)
-                                                        switch(pFRx->payload[1]) {
-                                                            case 0x0A: // 10 minute count-down timer
-                                                                pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime + 10*60;
-                                                                pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
-                                                                break;
-                                                            case 0x05:
-                                                                pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime + 5*60;
-                                                                pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
-                                                                break;
-                                                            case 0x00:
-                                                                pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime + 0*60;
-                                                                pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_CB_QUAD_RESET:
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_CF_TRIPLOG:
-                                                                // SPEED/RESET LOG, 2 bytes payload
-                                                                // a QUAD/r only sends a CMD_CB/CHN_41 (to the QUAD/t)
-                                                                // a QUAD/t or QUAD/d sends nothing.
-                                                                pCtrl->BGNET.SPEED.TripLogNM.value.dValue = 0.0;
-                                                                pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
-                                                                break;
-                                                            case BGNET_CHN_81_DRD:
-                                                                // SPEED/DRD RESET, 2 bytes payload
-                                                                // a QUAD/r only sends a CMD_CB/CHN_81 (to the QUAD/t)
-                                                                // a QUAD/t or QUAD/d sends nothing.
-                                                                pCtrl->BGNET.SPEED.DRD.value.dValue = 0.0;
-                                                                pCtrl->BGNET.SPEED.DRD.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.SPEED.DRD.Counter, t);
-                                                                pCtrl->BGNET.SPEED.SpeedMAX.value.dValue = pCtrl->BGNET.SPEED.STW.value.dValue;
-                                                                pCtrl->BGNET.SPEED.SpeedMAX.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.SPEED.SpeedMAX.Counter, t);
-                                                                pCtrl->BGNET.SPEED.SpeedAVG.value.dValue = pCtrl->BGNET.SPEED.STW.value.dValue;
-                                                                pCtrl->BGNET.SPEED.SpeedAVG.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.SPEED.SpeedAVG.Counter, t);
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_CD_PILOT_DMPREQ:
-                                                        switch(pCHRx->s.CH) {
-                                                            // SPEED/SETUP/#1 = DMP
-                                                            case BGNET_CHN_41_STW:
-                                                                // create command with current SPEED/SETUP/DMP value
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_41_STW;
-                                                                pCHTx->s.FMT = BGN_FMT_08;
-                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_CE_PILOT_DMPDAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_CE_PILOT_DMPDAT:
-                                                        switch(pCHRx->s.CH) {
-                                                            // SPEED/SETUP/#1 = accept new setting
-                                                            case BGNET_CHN_41_STW:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new SPEED SELECT from the channel
-                                                                pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                                pCtrl->BGNET.SPEED.SETUP.DMP.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.SPEED.SETUP.DMP.Counter, t);
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_CF_PILOT_MANREQ:
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_41_STW:
-                                                                // create command with current SPEED/SETUP/#3, with CAL value
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_41_STW;
-                                                                pCHTx->s.FMT = BGN_FMT_08;
-                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D3_PILOT_AM, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                            case BGNET_CHN_C4_DEPTH:
-                                                                // create CMD-DAT with current DEPTH CAL value
-                                                                // 0= No Calibration
-                                                                // <0= offset to keel
-                                                                // >0= offset to watersurface
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                //pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
-                                                                //pCHTx->s.FMT = BGN_FMT_08;
-                                                                //pCHTx->s.cv.uW[0] = htons(11);
-                                                                c = BGNET_CHN_C4_DEPTH;
-                                                                encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue, 0);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D3_PILOT_AM, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_D3_PILOT_AM:
-                                                        switch(pCHRx->s.CH) {
-                                                            // SPEED/SETUP/#3 = accept new CAL setting
-                                                            case BGNET_CHN_41_STW:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new SPEED CAL from the channel
-                                                                pCtrl->BGNET.SPEED.SETUP.CAL.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                                pCtrl->BGNET.SPEED.SETUP.CAL.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.SPEED.SETUP.CAL.Counter, t);
-                                                                break;
-                                                            case BGNET_CHN_C4_DEPTH:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new DEPTH CAL from the channel
-                                                                pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue = decode_channel_double(pCHRx, 0);
-                                                                pCtrl->BGNET.DEPTH.SETUP.CAL.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.DEPTH.SETUP.CAL.Counter, t);
-                                                                break;
-                                                            }
-                                                        break;
-                                                    case BGNET_CMD_DD_QUAD_SHAREQ:
-                                                        switch(pCHRx->s.CH) {
-                                                            // DEPTH/SETUP/DEEPALM
-                                                            case BGNET_CHN_C4_DEPTH:
-                                                                // create CMD-DAT with current DEEP ALARM STATUS value
-                                                                // 0= Off (0x0F)
-                                                                // #0 = On (0x1F)
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
-                                                                if (pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte == 0) {
-                                                                    pCHTx->s.FMT = BGNET_FMT_OFF;
-                                                                } else {
-                                                                    pCHTx->s.FMT = BGNET_FMT_ON;
-                                                                }
-                                                                len_pl = 3;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_22_DEPTH_DADAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-
-                                                                // send alarm level
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                c = BGNET_CHN_C4_DEPTH;
-                                                                encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.DA_M.value.dValue, 0);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_22_DEPTH_DADAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_22_DEPTH_DADAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_DE_PILOT_WAREQ:
-                                                        switch(pCHRx->s.CH) {
-                                                            // DEPTH/SETUP/SHA
-                                                            case BGNET_CHN_C4_DEPTH:
-                                                                // create CMD-DAT with current SHALLOW ALARM STATUS value
-                                                                // 0= Off (0x0F)
-                                                                // #0 = On (0x1F)
-                                                                // create command with current SPEED/SETUP/DMP value
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
-                                                                if (pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte == 0) {
-                                                                    pCHTx->s.FMT = BGNET_FMT_OFF;
-                                                                } else {
-                                                                    pCHTx->s.FMT = BGNET_FMT_ON;
-                                                                }
-                                                                len_pl = 3;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_21_PILOT_WADAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-
-                                                                // send alarm level
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                c = BGNET_CHN_C4_DEPTH;
-                                                                encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue, 0);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_21_PILOT_WADAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_DF_PILOT_OCREQ:
-                                                        switch(pCHRx->s.CH) {
-                                                            // DEPTH/SETUP/ANCA
-                                                            case BGNET_CHN_C4_DEPTH:
-                                                                // create CMD-DAT with current ANCHOR ALARM STATUS value
-                                                                // 0= Off (0x0F)
-                                                                // #0 = On (0x1F)
-                                                                // create command with current SPEED/SETUP/DMP value
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_C4_DEPTH;
-                                                                if (pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte == 0) {
-                                                                    pCHTx->s.FMT = BGNET_FMT_OFF;
-                                                                } else {
-                                                                    pCHTx->s.FMT = BGNET_FMT_ON;
-                                                                }
-                                                                len_pl = 3;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_20_PILOT_OCDAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-
-                                                                // send alarm level (7 bytes payload)
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                c = BGNET_CHN_C4_DEPTH;
-                                                                encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_0D, pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue, 0);
-                                                                encode_channel_double(pCtrl, pCHTx, c, BGN_FMT_0D, pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.dValue, 1);
-                                                                len_pl = 7;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_20_PILOT_OCDAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-
-                                                                break;
-                                                        }
-                                                        break;
                                                     case BGNET_CMD_EA_QUAD_AUTOCAL:
                                                         // SPEED/SETUP/#5 = AUTOCAL
                                                         // there is no CHID associated with the CMD-REQ, just an number passed
@@ -2672,8 +2640,9 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 }
                                                 break;
                                             default:
-                                                // unhandled command, also no ACK required
-                                                iIsValid = 0; // do not update device/command statistics
+                                                // do not send CMDACK
+                                                bSend_CMDACK = 0;
+
                                                 x = bgnet_deviceindex(pCtrl, pFRx->FROM); // lookup by device address/type, so we can print the device name
                                                 log_info("  Command %02X (with body) IGNORED (from %02X %s)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName);
                                                 break;
@@ -2683,733 +2652,676 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
                                         switch(pFRx->CMD) {
                                             // PILOT/SETUP actions
-                                            case BGNET_CMD_D0_PILOT_SPDREQ:
-                                            case BGNET_CMD_D1_PILOT_RESPREQ:
-                                            case BGNET_CMD_D5_PILOT_RESPDAT:
-                                            case BGNET_CMD_DE_PILOT_WAREQ:
-                                            case BGNET_CMD_21_PILOT_WADAT:
-                                            case BGNET_CMD_DF_PILOT_OCREQ:
                                             case BGNET_CMD_20_PILOT_OCDAT:
-                                            case BGNET_CMD_CB_QUAD_RESET:
-                                            case BGNET_CMD_CD_PILOT_DMPREQ:
-                                            case BGNET_CMD_CE_PILOT_DMPDAT:
-                                            case BGNET_CMD_CF_PILOT_MANREQ:
-                                            case BGNET_CMD_D6_PILOT_SLWDAT:
-                                            case BGNET_CMD_D2_PILOT_MANREQ:
-
-                                            // PILOT KEY actions
-                                            case BGNET_CMD_D3_PILOT_AM:
-                                            case BGNET_CMD_D4_PILOT_MODE:
-                                            case BGNET_CMD_DC_PILOT_STEPREQ:
-                                            case BGNET_CMD_B1_PILOT_DELTADAT:
-
-                                                // Step 4 - handle the data from the received command.
-                                                // CMD-REQ: 2 bytes payload -> send a requested CMD-DAT response + CMD-ACK response
-                                                // CMD-DAT: 5 bytes payload -> handle the received channel + send a CMD-ACK response
-                                                // Note: the CMD-ACK is allways generated (at the emd of the switch statement)
-                                                // Note: when we must send data, do NOT use the DATA command (0x01), but use the corresponding
-                                                // CMD-DAT command; i found out the hard way.
-                                               // Note: i send the CMD-DAT and CMD-ACK message to the node that we received the CMD-REQ command from. It might be the
-                                                // case that 1 (or both) must be send to ALL (0xFF) in case there are multiple PILOTS on the network. As i have only 1
-                                                // PILOT unit i could not establish one or the other and choose to do it like this.
-                                                switch(pFRx->CMD) {
-                                                    case BGNET_CMD_CB_QUAD_RESET:
-                                                        switch (pCHRx->s.CH) {
-                                                            case BGNET_CHN_A6_AP_CTS:
-                                                                // happens when PILOT wants the stored CTS from the ACP. I do not know
-                                                                // what command to use, so i do not do anything. At least is makes the PILOT
-                                                                // to receive the CMDACK, preventing an error beep
-                                                                break;
-                                                            case BGNET_CHN_A7_AP_WPB:
-                                                                // happens when PILOT wants 'some unknown value' ACP. I do not know
-                                                                // what command to use, so i do not do anything. At least is makes the PILOT
-                                                                // to receive the CMDACK, preventing an error beep
-                                                                break;
+                                                // in PILOT/SETUP, when OFF-COURSE ALARM setting is entered, 5 bytes payload
+                                                // 0=ACKSEQ, 1=0x76, 2=FMT_01, 3/4=OC limit in degrees (1-99)
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_AF_AP_OC_ALARM:
+                                                        // update the channel value last, so we can compare if anything changed
+                                                        pCHTx = (union CH *)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
+                                                        if (pCHTx->s.FMT == pCHRx->s.FMT) {
+                                                            // no change
+                                                        } else {
+                                                           if (pCHRx->s.FMT == BGN_FMT_08) {
+                                                                pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong = 0;
+                                                            } else {
+                                                                pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong = 1;
+                                                            }
+                                                            pCtrl->BGNET.PILOT.SETUP.OC_STAT.source = BGN_SOURCE_BGNET;
+                                                            CounterUp(&pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter, t);
                                                         }
-                                                        break;
-                                                    case BGNET_CMD_DC_PILOT_STEPREQ:
-                                                        // the <10, >10, <1, >1 key was pressed, 2 bytes payload (at the same time also B1 with +/- 10/1)
-                                                        // 0=ACKSEQ, 1=0xA6
-                                                        // AT THE SAME TIME also a CMD_B1/A6 command is send with the actual value (-10,+10,-1 or +1)
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_A6_AP_CTS:
-                                                                // create command with current CTS value, but i do not know what command to use for REPLY
-                                                                break;
+                                                        if (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0]) {
+                                                            // no change
+                                                        } else {
+                                                            pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                            pCtrl->BGNET.PILOT.SETUP.OC_DEG.source = BGN_SOURCE_BGNET;
+                                                            CounterUp(&pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter, t);
                                                         }
-                                                        break;
-                                                    case BGNET_CMD_D3_PILOT_AM:
-                                                        // the AUTO or OFF key was pressed. We receive 5 bytes payload.
-                                                        // 0=ACKSEQ, 1=0xB5/AP_STATUS, 2=FMT_01, 3=0, 4= new state (1=AUTO , 0=STBY)
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_B5_AP_STATUS:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-                                                                if (pCtrl->CHN[BGNET_CHN_49_HEADING].x01.CounterRx.iCounter == 0) {
-                                                                    // HEADING was never touched, do not go to AUTO
-                                                                } else {
-                                                                    // i'm not going to make things more complicated at this point. But realise that when
-                                                                    // we have no accurate HEADING data, i do not know where to steer the boat when going to AUTO
-                                                                }
-                                                                // get the new STATE; initialize the CTARGET with current HEADING if we go into AUTO
-                                                                if ((pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) == (BGN_AP_MODE1_STBY & BGN_AP_MODE1_MASK_STATE)) { // current STATE is STBY
-                                                                    if ((pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE) == (BGN_AP_MODE1_AUTO & BGN_AP_MODE1_MASK_STATE)) { // new STATE is AUTO
-                                                                        // it might be the case we do not have a recent HEADING channel received prior.
-                                                                        // in such case we initialize to 0 (good luck!)
-                                                                        // should we actually refuse to go into AUTO?
-                                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.Heading.value.nLong;
-                                                                        pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
-                                                                    }
-                                                                } else {
-                                                                    // Autopilot is disengaged, store the current CTS into MEM
-                                                                    pCtrl->BGNET.ACP.MEM.value.nLong = pCtrl->BGNET.ACP.CTS.value.nLong;
-                                                                    pCtrl->BGNET.ACP.MEM.source = BGN_SOURCE_BGNET;
-                                                                    CounterUp(&pCtrl->BGNET.ACP.MEM.Counter, t);
-                                                                    // Note: i know that the MEM is updated when AP is disengaged. This allows the
-                                                                    // skipper to go back to the original course after a interruption/diversion.
-                                                                    // but.... i have not found out how to return the MEM tot the PILOT, so that the course
-                                                                    // can be restored. Some future work still to be done.
-                                                                }
-                                                                // set new STATE (AUTO or STBY)
-                                                                pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE) | (pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE);
-                                                                pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
-
-                                                                // make DATA command (to ALL, so also other PILOT units, if present, receive it)
-                                                                len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
-                                                                register_DATA_frame(pCtrl, pFTx);
-                                                        
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
-                                                                TxSize =TxSize + len_msg;
-                                                                break;
-                                                            // SPEED/MAN/FST entered speed value > ENTER
-                                                            case BGNET_CHN_46_AP_SPEED:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new SPEED SELECT from the channel
-                                                                pCtrl->BGNET.PILOT.SPEED.FST.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                                pCtrl->BGNET.PILOT.SPEED.FST.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SPEED.FST.Counter, t);
-                                                                // set the SPD/MAN/SEL to FST
-                                                                pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte = BGNET_SPD_MAN_FST;
-                                                                pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);                                                                
-                                                                break;
-                                                            case BGNET_CHN_A6_AP_CTS:
-                                                                // the PILOT was put into AUTO with a pre-stored course CRS
-                                                                // update CRS variable (no CHN)
-                                                                pCtrl->BGNET.ACP.CRS.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                                pCtrl->BGNET.ACP.CRS.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.ACP.CRS.Counter, t);
-                                                                // update CTS
-                                                                pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.CRS.value.nLong;
-                                                                pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
-
-                                                                // make DATA command (to ALL, so also other PILOT units, if present, receive it)
-                                                                len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
-                                                                register_DATA_frame(pCtrl, pFTx);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;                                               
-                                                    case BGNET_CMD_D6_PILOT_SLWDAT:
-                                                        // the MAN/SLW speed value was entered. We receive 5 bytes payload.
-                                                        // 0=ACKSEQ, 1=0x46, 2=FMT_01, 3/4= new value (0-990)
-                                                        switch(pCHRx->s.CH) {
-                                                            // SPEED/MAN/SLW entered speed value > ENTER
-                                                            case BGNET_CHN_46_AP_SPEED:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new SPEED SELECT from the channel
-                                                                pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                                pCtrl->BGNET.PILOT.SPEED.SLW.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SPEED.SLW.Counter, t);
-                                                                // set the SPD/MAN/SEL to SLW
-                                                                pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte = BGNET_SPD_MAN_SLW;
-                                                                pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);                                                                
-                                                                break;
-                                                            // PILOT/SETUP/WIND option entered T or A > ENTER
-                                                            case BGNET_CHN_AF_AP_OC_ALARM:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new SPEED SELECT from the channel
-                                                                pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte = pCHRx->s.cv.uB[1];
-                                                                pCtrl->BGNET.PILOT.SETUP.WIND_SEL.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter, t);
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_D4_PILOT_MODE:
-                                                        // the MODE key was pressed, 5 bytes payload:
-                                                        // 0=ACKSEQ, 1=0xA6/AP_CTARGET, 2=FMT_01, 3=0, 4= new state (1=COMP, 3=NAV, 4=VANE)
-                                                        // the SPEED selector is made (SPEED key, but also PILOT/SETUP/SPD selection)
-                                                        // 0=ACKSEQ, 1=0x46/AP_SPEED, 2=FMT_01, 3=0, 4= new SPEED mode (0=TRA, 1=MAN, 2=SOG)
-                                                        // Note: MANUAL speed selection can be set at 3 bands (SLW, MED, FST) via the PILOT/SPEED key
-                                                        switch(pCHRx->s.CH) {
-                                                            // MODE SELECT (COMP/NAV/VANE)
-                                                            case BGNET_CHN_A6_AP_CTS:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new MODE; do not set mode if we are in JOYSTCK
-                                                                if (pCtrl->BGNET.ACP.Joystick.value.nByte == BGN_JOYSTICK_OFF) {
-                                                                    pCtrl->BGNET.ACP.MODE.value.nByte = pCHRx->s.cv.uB[1];
-                                                                    pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_ACP;
-                                                                    CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t);
-                                                                } else {
-                                                                    // the JOYSTCK mode on a real system is via a physical switch wired to the ACP
-                                                                    // we can not emulate this.
-                                                                    // Going IN or OUT of JOYSTCK is not someting we can emulate. I keep it simple:
-                                                                    // JOYSTCK mode is always OFF (unless someone comes along with a great idea)
-                                                                }
-
-                                                                // make DATA command (to ALL, so also other PILOT units, if present, receive it)
-                                                                len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
-                                                                register_DATA_frame(pCtrl, pFTx);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                            // SETUP > SPEED SELECT (TRA/MAN/SOG) > ENTER
-                                                            case BGNET_CHN_46_AP_SPEED:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new SPEED SELECT from the channel
-                                                                pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte = pCHRx->s.cv.uB[1];
-                                                                pCtrl->BGNET.PILOT.SETUP.SPD.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SETUP.SPD.Counter, t);
-                                                                break;
-                                                            // SETUP > FR SELECT (ON/OFF) > ENTER
-                                                            case BGNET_CHN_07_AP_FR:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new FA SELECT from the channel
-                                                                pCtrl->BGNET.PILOT.SETUP.FR.value.nByte = pCHRx->s.cv.uB[1];
-                                                                pCtrl->BGNET.PILOT.SETUP.FR.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SETUP.FR.Counter, t);
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_D0_PILOT_SPDREQ:
-                                                        // the SPEED key was pressed, 2 bytes payload.
-                                                        // 0=ACKSEQ, 1=0x46 -> return current selected SPD source (TRA/MAN/SOG)
-                                                        // in SETUP, FR option is requested, 2 bytes payload
-                                                        // 0=ACKSEQ, 1=0x07 -> return current select FR state (1=OFF, 0=ON)
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_46_AP_SPEED:
-                                                                // create command with current SETUP/SPD setting (0=TRA, 1=MAN, 2=SOG)
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
-                                                                pCHTx->s.FMT = BGN_FMT_01;
-                                                                pCHTx->s.cv.uB[0] = 0;
-                                                                pCHTx->s.cv.uB[1] = pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte;
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D4_PILOT_MODE, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                            case BGNET_CHN_07_AP_FR:
-                                                                // create command with current FR SELECT
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                payload[1] = BGNET_CHN_07_AP_FR;
-                                                                payload[2] = BGN_FMT_08;
-                                                                payload[3] = 0;
-                                                                payload[4] = pCtrl->BGNET.PILOT.SETUP.FR.value.nByte;
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D4_PILOT_MODE, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_CF_PILOT_MANREQ:
-                                                        // in SPEED/SETUP/MAN, the FST speed value is requested, 2 bytes payload
-                                                        // 0=ACKSEQ, 1=0x46
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_46_AP_SPEED:
-                                                                // SEND SPD MAN/FST
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
-                                                                pCHTx->s.FMT = BGN_FMT_01;
-                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SPEED.FST.value.nLong);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D3_PILOT_AM, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_D1_PILOT_RESPREQ:
-                                                        // in SETUP, the RESPONSE parameter is configured, 2 bytes payload.
-                                                        // 0=ACKSEQ, 1=0xA6
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_A6_AP_CTS:
-                                                                // create command with current RESP SELECT
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                payload[1] = BGNET_CHN_A6_AP_CTS;
-                                                                payload[2] = BGN_FMT_01;
-                                                                payload[3] = 0;
-                                                                payload[4] = pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte;
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D5_PILOT_RESPDAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                            case BGNET_CHN_46_AP_SPEED:
-                                                                // SEND SPD MAN/MED
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
-                                                                pCHTx->s.FMT = BGN_FMT_01;
-                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SPEED.MED.value.nLong);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D5_PILOT_RESPDAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_D2_PILOT_MANREQ:
-                                                        // when MAN in SPD setup via SETUP, press the SPEED key, 2 bytes payload.
-                                                        // 0=ACKSEQ, 1=0x46
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_46_AP_SPEED:
-                                                                // SEND SPD MAN/SLW
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
-                                                                pCHTx->s.FMT = BGN_FMT_01;
-                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D6_PILOT_SLWDAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                            case BGNET_CHN_AF_AP_OC_ALARM:
-                                                                // SEND WIND_SEL
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_AF_AP_OC_ALARM;
-                                                                pCHTx->s.FMT = BGN_FMT_01;
-                                                                pCHTx->s.cv.uB[0] = 0;
-                                                                pCHTx->s.cv.uB[1] = pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte;
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D6_PILOT_SLWDAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_D5_PILOT_RESPDAT:
-                                                        // in SETUP, the RESPONSE parameter is configured, 5 bytes payload.
-                                                        // 0=ACKSEQ, 1=0xA6/AP_CTARGET, 2=FMT_01, 3=0, 4= new RESP selector
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_A6_AP_CTS:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte = pCHRx->s.cv.uB[1];
-                                                                pCtrl->BGNET.PILOT.SETUP.RESP.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SETUP.RESP.Counter, t);
-                                                                break;
-                                                            // SPEED/MAN/MED entered speed value > ENTER
-                                                            case BGNET_CHN_46_AP_SPEED:
-                                                                // update the channel value
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                // get the new SPEED SELECT from the channel
-                                                                pCtrl->BGNET.PILOT.SPEED.MED.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                                pCtrl->BGNET.PILOT.SPEED.MED.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SPEED.MED.Counter, t);
-                                                                // set the SPD/MAN/SEL to MED
-                                                                pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte = BGNET_SPD_MAN_MED;
-                                                                pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);                                                                
-                                                                break;
-                                                            case BGNET_CHN_EB_SOG:
-                                                                // broadcast by PILOT to FF, 3 bytes payload, unknown purpose. Is send when a MANual speed is selected
-                                                                // FF 50 03 D5 D9 B5 EB 0F FB
-                                                                // 0xB5 is most likely a ACKSEQ (this number changes in other instances)
-                                                                // 0xEB seems a channel ID (SOG)
-                                                                // 0x0F means "OFF" (0x1F means ON)
-                                                                // FB   is a valid CS
-                                                                // Because it's a broadcast, it should be relevant for all NETWORK attached units to switch something
-                                                                // OFF that has to do with the SOG
-                                                                // I think that it when a MANual speed is selected (FST/MED/SLW) the system should stop using the SOG
-                                                                // (that might be received via NMEA 0183 interface on the PILOT). For the very good reason, if the skipper
-                                                                // wanted to use the SOG, the MAN speed would never be selected (but the SOG instead). So i think that
-                                                                // this command is used to tell other nodes to stop using SOG (that might continue to be received)  
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                if (pCHRx->s.FMT == BGNET_FMT_OFF) {
-                                                                    if (pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte == 0) {
-                                                                        // is already OFF
-                                                                    } else {
-                                                                        pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte = 0;
-                                                                        pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source = BGN_SOURCE_BGNET;
-                                                                        CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter, t);                                                                
-                                                                    }
-                                                                } else {
-                                                                    // Action to switch ON is when we receive the SOG channel                                                                          pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
-                                                                }
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_DE_PILOT_WAREQ:
-                                                        // in PILOT/SETUP, the WATCH ALARM is configured, 2 bytes payload
-                                                        // 0=ACKSEQ, 1=0x76
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_76_AP_WA_ALARM:
-                                                                // create command with current WA SELECT
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_76_AP_WA_ALARM;
-                                                                if (pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong == 0) {
-                                                                    pCHTx->s.FMT = BGN_FMT_08;
-                                                                } else {
-                                                                    pCHTx->s.FMT = BGN_FMT_18;
-                                                                }
-                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_21_PILOT_WADAT, payload, len_pl);
-                                                        
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_21_PILOT_WADAT:
-                                                        // in PILOT/SETUP, when WATCH ALARM setting is entered, 5 bytes payload
-                                                        // 0=ACKSEQ, 1=0x76, 2=FMT_01, 3/4=WA limit in minutes (1-360)
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_76_AP_WA_ALARM:
-                                                                // update the channel value last, so we can compare if anything changed
-                                                                pCHTx = (union CH *)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
-                                                                if (pCHTx->s.FMT == pCHRx->s.FMT) {
-                                                                    // no change
-                                                                } else {
-                                                                   if (pCHRx->s.FMT == BGN_FMT_08) {
-                                                                        pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong = 0;
-                                                                    } else {
-                                                                        pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong = 1;
-                                                                    }
-                                                                    pCtrl->BGNET.PILOT.SETUP.WA_STAT.source = BGN_SOURCE_BGNET;
-                                                                    CounterUp(&pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter, t);
-                                                                }
-                                                                if (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0]) {
-                                                                    // no change
-                                                                } else {
-                                                                    pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                                    pCtrl->BGNET.PILOT.SETUP.WA_MIN.source = BGN_SOURCE_BGNET;
-                                                                    CounterUp(&pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter, t);
-                                                                }
-                                                                // update the channel value (if something changed)
-                                                                if ((pCHTx->s.FMT == pCHRx->s.FMT) & (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0])) {
-                                                                    // no change                                                        
-                                                                } else {
-                                                                    pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                    pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                    pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                    pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                    y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                    memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                    decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                    CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-                                                                }
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_DF_PILOT_OCREQ:
-                                                        // in PILOT/SETUP, the OFF-COURSE ALARM is configured, 2 bytes payload.
-                                                        // 0=ACKSEQ, 1=0xAF
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_AF_AP_OC_ALARM:
-                                                                // create command with current OC SELECT
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                pCHTx = (union CH *)&payload[1];
-                                                                pCHTx->s.CH = BGNET_CHN_AF_AP_OC_ALARM;
-                                                                if (pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong == 0) {
-                                                                    pCHTx->s.FMT = BGN_FMT_08;
-                                                                } else {
-                                                                    pCHTx->s.FMT = BGN_FMT_18;
-                                                                }
-                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_20_PILOT_OCDAT, payload, len_pl);
-                                                        
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_20_PILOT_OCDAT:
-                                                        // in PILOT/SETUP, when OFF-COURSE ALARM setting is entered, 5 bytes payload
-                                                        // 0=ACKSEQ, 1=0x76, 2=FMT_01, 3/4=OC limit in degrees (1-99)
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_AF_AP_OC_ALARM:
-                                                                // update the channel value last, so we can compare if anything changed
-                                                                pCHTx = (union CH *)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
-                                                                if (pCHTx->s.FMT == pCHRx->s.FMT) {
-                                                                    // no change
-                                                                } else {
-                                                                   if (pCHRx->s.FMT == BGN_FMT_08) {
-                                                                        pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong = 0;
-                                                                    } else {
-                                                                        pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong = 1;
-                                                                    }
-                                                                    pCtrl->BGNET.PILOT.SETUP.OC_STAT.source = BGN_SOURCE_BGNET;
-                                                                    CounterUp(&pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter, t);
-                                                                }
-                                                                if (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0]) {
-                                                                    // no change
-                                                                } else {
-                                                                    pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
-                                                                    pCtrl->BGNET.PILOT.SETUP.OC_DEG.source = BGN_SOURCE_BGNET;
-                                                                    CounterUp(&pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter, t);
-                                                                }
-                                                                // update the channel value (if something changed)
-                                                                if ((pCHTx->s.FMT == pCHRx->s.FMT) & (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0])) {
-                                                                    // no change                                                        
-                                                                } else {
-                                                                    pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                    pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                    pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                    pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                    y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                    memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                    decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                    CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-                                                                }
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_B1_PILOT_DELTADAT:
-                                                        // 1 of the 4 +/- keys was pressed, 5 bytes payload: 0-ACKSEQ, 1=0xA6/CHID, 2=0x01/FMT, 3/4=signed 16bits inc/decr value
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_A6_AP_CTS:
-                                                                iValue = decode_channel_numeric(pCHRx);
-                                                                pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.CTS.value.nLong + iValue;
-                                                                pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
-
-                                                                // i would expect to create a CMD-DAT message with the new CTS value
-                                                                // but i do not know what command to use to send it
-                                                                // now i rely on the 'regular' broadcast of channel data. You will observe that
-                                                                // there is some delay in the update. It works, but i find it annoying
-
-                                                                // i have solved this by injecting a DATA/0x01 command (broadcast), so any other node
-                                                                // also receives the new value.
-                                                                pCHTx = (union CH *)&payload[0];
-                                                                pCHTx->s.CH = BGNET_CHN_A6_AP_CTS;
-                                                                pCHTx->s.FMT = BGN_FMT_08;
-                                                                pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
-                                                                len_pl = 4;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
-                                                        
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_CD_PILOT_DMPREQ:
-                                                        // in PILOT/SETUP, the COMPASS DMP is configured, 2 bytes payload
-                                                        // 0=ACKSEQ, 1=0x49
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_49_HEADING:
-                                                                // create command with current DMP setting
-                                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                                payload[1] = BGNET_CHN_49_HEADING;
-                                                                payload[2] = BGN_FMT_01;
-                                                                payload[3] = 0;
-                                                                payload[4] = pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte; // (0-99)                                                        len_pl = 5;
-                                                                len_pl = 5;
-                                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_CE_PILOT_DMPDAT, payload, len_pl);
-
-                                                                memcpy(pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].CounterTx, t);
-                                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                                                TxSize = TxSize + len_msg;
-                                                                break;
-                                                        }
-                                                        break;
-                                                    case BGNET_CMD_CE_PILOT_DMPDAT:
-                                                        // in PILOT/SETUP, when COMPASS DMP setting is entered, 5 bytes payload
-                                                        // 0=ACKSEQ, 1=0x49, 2=FMT_01, 3=0, 4=DMP in seconds (1-99, 4=default)
-                                                        switch(pCHRx->s.CH) {
-                                                            case BGNET_CHN_49_HEADING:
-                                                                // update the channel value 
-                                                                pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
-                                                                pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
-                                                                y = bgnet_sizeof_channel(pCtrl, pCHRx);
-                                                                memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
-                                                                decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
-                                                                CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-
-                                                                pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte = (pCHRx->s.cv.uB[1]);
-                                                                pCtrl->BGNET.PILOT.SETUP.DMP.source = BGN_SOURCE_BGNET;
-                                                                CounterUp(&pCtrl->BGNET.PILOT.SETUP.DMP.Counter, t);
-                                                                break;
+                                                        // update the channel value (if something changed)
+                                                        if ((pCHTx->s.FMT == pCHRx->s.FMT) & (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0])) {
+                                                            // no change                                                        
+                                                        } else {
+                                                            pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                            y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                            memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                            decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                            CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
                                                         }
                                                         break;
                                                 }
                                                 break;
-                                            default:
-                                                // unhandled command, also no ACK required
-                                                iIsValid = 0; // do not update device/command statistics
+                                            case BGNET_CMD_21_PILOT_WADAT:
+                                                // in PILOT/SETUP, when WATCH ALARM setting is entered, 5 bytes payload
+                                                // 0=ACKSEQ, 1=0x76, 2=FMT_01, 3/4=WA limit in minutes (1-360)
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_76_AP_WA_ALARM:
+                                                        // update the channel value last, so we can compare if anything changed
+                                                        pCHTx = (union CH *)pCtrl->CHN[pCHRx->s.CH].x00.ucRAW; // we abuse the pCHTx pointer
+                                                        if (pCHTx->s.FMT == pCHRx->s.FMT) {
+                                                            // no change
+                                                        } else {
+                                                           if (pCHRx->s.FMT == BGN_FMT_08) {
+                                                                pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong = 0;
+                                                            } else {
+                                                                pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong = 1;
+                                                            }
+                                                            pCtrl->BGNET.PILOT.SETUP.WA_STAT.source = BGN_SOURCE_BGNET;
+                                                            CounterUp(&pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter, t);
+                                                        }
+                                                        if (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0]) {
+                                                            // no change
+                                                        } else {
+                                                            pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                            pCtrl->BGNET.PILOT.SETUP.WA_MIN.source = BGN_SOURCE_BGNET;
+                                                            CounterUp(&pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter, t);
+                                                        }
+                                                        // update the channel value (if something changed)
+                                                        if ((pCHTx->s.FMT == pCHRx->s.FMT) & (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0])) {
+                                                            // no change                                                        
+                                                        } else {
+                                                            pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                            pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                            y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                            memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                            decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                            CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        }
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_B1_PILOT_DELTADAT:
+                                                // 1 of the 4 +/- keys was pressed, 5 bytes payload: 0-ACKSEQ, 1=0xA6/CHID, 2=0x01/FMT, 3/4=signed 16bits inc/decr value
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_A6_AP_CTS:
+                                                        iValue = decode_channel_numeric(pCHRx);
+                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.CTS.value.nLong + iValue;
+                                                        pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
+                                                        // i would expect to create a CMD-DAT message with the new CTS value
+                                                        // but i do not know what command to use to send it
+                                                        // now i rely on the 'regular' broadcast of channel data. You will observe that
+                                                        // there is some delay in the update. It works, but i find it annoying
+                                                        // i have solved this by injecting a DATA/0x01 command (broadcast), so any other node
+                                                        // also receives the new value.
+                                                        pCHTx = (union CH *)&payload[0];
+                                                        pCHTx->s.CH = BGNET_CHN_A6_AP_CTS;
+                                                        pCHTx->s.FMT = BGN_FMT_08;
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
+                                                        len_pl = 4;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                                
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_CB_QUAD_RESET:
+                                                switch (pCHRx->s.CH) {
+                                                    case BGNET_CHN_A6_AP_CTS:
+                                                        // happens when PILOT wants the stored CTS from the ACP. I do not know
+                                                        // what command to use, so i do not do anything. At least is makes the PILOT
+                                                        // to receive the CMDACK, preventing an error beep
+                                                        break;
+                                                    case BGNET_CHN_A7_AP_WPB:
+                                                        // happens when PILOT wants 'some unknown value' ACP. I do not know
+                                                        // what command to use, so i do not do anything. At least is makes the PILOT
+                                                        // to receive the CMDACK, preventing an error beep
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_CD_PILOT_DMPREQ:
+                                                // in PILOT/SETUP, the COMPASS DMP is configured, 2 bytes payload
+                                                // 0=ACKSEQ, 1=0x49
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_49_HEADING:
+                                                        // create command with current DMP setting
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        payload[1] = BGNET_CHN_49_HEADING;
+                                                        payload[2] = BGN_FMT_01;
+                                                        payload[3] = 0;
+                                                        payload[4] = pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte; // (0-99)                                                        len_pl = 5;
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_CE_PILOT_DMPDAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_CE_PILOT_DMPDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_CE_PILOT_DMPDAT:
+                                                // in PILOT/SETUP, when COMPASS DMP setting is entered, 5 bytes payload
+                                                // 0=ACKSEQ, 1=0x49, 2=FMT_01, 3=0, 4=DMP in seconds (1-99, 4=default)
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_49_HEADING:
+                                                        // update the channel value 
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte = (pCHRx->s.cv.uB[1]);
+                                                        pCtrl->BGNET.PILOT.SETUP.DMP.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SETUP.DMP.Counter, t);
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_CF_PILOT_MANREQ:
+                                                // in SPEED/SETUP/MAN, the FST speed value is requested, 2 bytes payload
+                                                // 0=ACKSEQ, 1=0x46
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_46_AP_SPEED:
+                                                        // SEND SPD MAN/FST
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
+                                                        pCHTx->s.FMT = BGN_FMT_01;
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SPEED.FST.value.nLong);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D3_PILOT_AM, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D3_PILOT_AM].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_D0_PILOT_SPDREQ:
+                                                // the SPEED key was pressed, 2 bytes payload.
+                                                // 0=ACKSEQ, 1=0x46 -> return current selected SPD source (TRA/MAN/SOG)
+                                                // in SETUP, FR option is requested, 2 bytes payload
+                                                // 0=ACKSEQ, 1=0x07 -> return current select FR state (1=OFF, 0=ON)
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_46_AP_SPEED:
+                                                        // create command with current SETUP/SPD setting (0=TRA, 1=MAN, 2=SOG)
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
+                                                        pCHTx->s.FMT = BGN_FMT_01;
+                                                        pCHTx->s.cv.uB[0] = 0;
+                                                        pCHTx->s.cv.uB[1] = pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte;
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D4_PILOT_MODE, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                    case BGNET_CHN_07_AP_FR:
+                                                        // create command with current FR SELECT
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        payload[1] = BGNET_CHN_07_AP_FR;
+                                                        payload[2] = BGN_FMT_08;
+                                                        payload[3] = 0;
+                                                        payload[4] = pCtrl->BGNET.PILOT.SETUP.FR.value.nByte;
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D4_PILOT_MODE, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D4_PILOT_MODE].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_D1_PILOT_RESPREQ:
+                                                // in SETUP, the RESPONSE parameter is configured, 2 bytes payload.
+                                                // 0=ACKSEQ, 1=0xA6
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_A6_AP_CTS:
+                                                        // create command with current RESP SELECT
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        payload[1] = BGNET_CHN_A6_AP_CTS;
+                                                        payload[2] = BGN_FMT_01;
+                                                        payload[3] = 0;
+                                                        payload[4] = pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte;
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D5_PILOT_RESPDAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                    case BGNET_CHN_46_AP_SPEED:
+                                                        // SEND SPD MAN/MED
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
+                                                        pCHTx->s.FMT = BGN_FMT_01;
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SPEED.MED.value.nLong);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D5_PILOT_RESPDAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D5_PILOT_RESPDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_D2_PILOT_MANREQ:
+                                                // when MAN in SPD setup via SETUP, press the SPEED key, 2 bytes payload.
+                                                // 0=ACKSEQ, 1=0x46
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_46_AP_SPEED:
+                                                        // SEND SPD MAN/SLW
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_46_AP_SPEED;
+                                                        pCHTx->s.FMT = BGN_FMT_01;
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D6_PILOT_SLWDAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                    case BGNET_CHN_AF_AP_OC_ALARM:
+                                                        // SEND WIND_SEL
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_AF_AP_OC_ALARM;
+                                                        pCHTx->s.FMT = BGN_FMT_01;
+                                                        pCHTx->s.cv.uB[0] = 0;
+                                                        pCHTx->s.cv.uB[1] = pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte;
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D6_PILOT_SLWDAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_D3_PILOT_AM:
+                                                // the AUTO or OFF key was pressed. We receive 5 bytes payload.
+                                                // 0=ACKSEQ, 1=0xB5/AP_STATUS, 2=FMT_01, 3=0, 4= new state (1=AUTO , 0=STBY)
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_B5_AP_STATUS:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        if (pCtrl->CHN[BGNET_CHN_49_HEADING].x01.CounterRx.iCounter == 0) {
+                                                            // HEADING was never touched, do not go to AUTO
+                                                        } else {
+                                                            // i'm not going to make things more complicated at this point. But realise that when
+                                                            // we have no accurate HEADING data, i do not know where to steer the boat when going to AUTO
+                                                        }
+                                                        // get the new STATE; initialize the CTARGET with current HEADING if we go into AUTO
+                                                        if ((pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) == (BGN_AP_MODE1_STBY & BGN_AP_MODE1_MASK_STATE)) { // current STATE is STBY
+                                                            if ((pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE) == (BGN_AP_MODE1_AUTO & BGN_AP_MODE1_MASK_STATE)) { // new STATE is AUTO
+                                                                // it might be the case we do not have a recent HEADING channel received prior.
+                                                                // in such case we initialize to 0 (good luck!)
+                                                                // should we actually refuse to go into AUTO?
+                                                                pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.Heading.value.nLong;
+                                                                pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
+                                                            }
+                                                        } else {
+                                                            // Autopilot is disengaged, store the current CTS into MEM
+                                                            pCtrl->BGNET.ACP.MEM.value.nLong = pCtrl->BGNET.ACP.CTS.value.nLong;
+                                                            pCtrl->BGNET.ACP.MEM.source = BGN_SOURCE_BGNET;
+                                                            CounterUp(&pCtrl->BGNET.ACP.MEM.Counter, t);
+                                                            // Note: i know that the MEM is updated when AP is disengaged. This allows the
+                                                            // skipper to go back to the original course after a interruption/diversion.
+                                                            // but.... i have not found out how to return the MEM tot the PILOT, so that the course
+                                                            // can be restored. Some future work still to be done.
+                                                        }
+                                                        // set new STATE (AUTO or STBY)
+                                                        pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE) | (pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE);
+                                                        pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
+                                                        // make DATA command (to ALL, so also other PILOT units, if present, receive it)
+                                                        len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                                        register_DATA_frame(pCtrl, pFTx);
+                                                
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
+                                                        TxSize =TxSize + len_msg;
+                                                        break;
+                                                    // SPEED/MAN/FST entered speed value > ENTER
+                                                    case BGNET_CHN_46_AP_SPEED:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new SPEED SELECT from the channel
+                                                        pCtrl->BGNET.PILOT.SPEED.FST.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.PILOT.SPEED.FST.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SPEED.FST.Counter, t);
+                                                        // set the SPD/MAN/SEL to FST
+                                                        pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte = BGNET_SPD_MAN_FST;
+                                                        pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);                                                                
+                                                        break;
+                                                    case BGNET_CHN_A6_AP_CTS:
+                                                        // the PILOT was put into AUTO with a pre-stored course CRS
+                                                        // update CRS variable (no CHN)
+                                                        pCtrl->BGNET.ACP.CRS.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.ACP.CRS.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.ACP.CRS.Counter, t);
+                                                        // update CTS
+                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.CRS.value.nLong;
+                                                        pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
+                                                        // make DATA command (to ALL, so also other PILOT units, if present, receive it)
+                                                        len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                                        register_DATA_frame(pCtrl, pFTx);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;                                               
+                                            case BGNET_CMD_D4_PILOT_MODE:
+                                                // the MODE key was pressed, 5 bytes payload:
+                                                // 0=ACKSEQ, 1=0xA6/AP_CTARGET, 2=FMT_01, 3=0, 4= new state (1=COMP, 3=NAV, 4=VANE)
+                                                // the SPEED selector is made (SPEED key, but also PILOT/SETUP/SPD selection)
+                                                // 0=ACKSEQ, 1=0x46/AP_SPEED, 2=FMT_01, 3=0, 4= new SPEED mode (0=TRA, 1=MAN, 2=SOG)
+                                                // Note: MANUAL speed selection can be set at 3 bands (SLW, MED, FST) via the PILOT/SPEED key
+                                                switch(pCHRx->s.CH) {
+                                                    // MODE SELECT (COMP/NAV/VANE)
+                                                    case BGNET_CHN_A6_AP_CTS:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new MODE; do not set mode if we are in JOYSTCK
+                                                        if (pCtrl->BGNET.ACP.Joystick.value.nByte == BGN_JOYSTICK_OFF) {
+                                                            pCtrl->BGNET.ACP.MODE.value.nByte = pCHRx->s.cv.uB[1];
+                                                            pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_ACP;
+                                                            CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t);
+                                                        } else {
+                                                            // the JOYSTCK mode on a real system is via a physical switch wired to the ACP
+                                                            // we can not emulate this.
+                                                            // Going IN or OUT of JOYSTCK is not someting we can emulate. I keep it simple:
+                                                            // JOYSTCK mode is always OFF (unless someone comes along with a great idea)
+                                                        }
+                                                        // make DATA command (to ALL, so also other PILOT units, if present, receive it)
+                                                        len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                                        register_DATA_frame(pCtrl, pFTx);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                    // SETUP > SPEED SELECT (TRA/MAN/SOG) > ENTER
+                                                    case BGNET_CHN_46_AP_SPEED:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new SPEED SELECT from the channel
+                                                        pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte = pCHRx->s.cv.uB[1];
+                                                        pCtrl->BGNET.PILOT.SETUP.SPD.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SETUP.SPD.Counter, t);
+                                                        break;
+                                                    // SETUP > FR SELECT (ON/OFF) > ENTER
+                                                    case BGNET_CHN_07_AP_FR:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new FA SELECT from the channel
+                                                        pCtrl->BGNET.PILOT.SETUP.FR.value.nByte = pCHRx->s.cv.uB[1];
+                                                        pCtrl->BGNET.PILOT.SETUP.FR.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SETUP.FR.Counter, t);
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_D5_PILOT_RESPDAT:
+                                                // in SETUP, the RESPONSE parameter is configured, 5 bytes payload.
+                                                // 0=ACKSEQ, 1=0xA6/AP_CTARGET, 2=FMT_01, 3=0, 4= new RESP selector
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_A6_AP_CTS:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte = pCHRx->s.cv.uB[1];
+                                                        pCtrl->BGNET.PILOT.SETUP.RESP.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SETUP.RESP.Counter, t);
+                                                        break;
+                                                    // SPEED/MAN/MED entered speed value > ENTER
+                                                    case BGNET_CHN_46_AP_SPEED:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new SPEED SELECT from the channel
+                                                        pCtrl->BGNET.PILOT.SPEED.MED.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.PILOT.SPEED.MED.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SPEED.MED.Counter, t);
+                                                        // set the SPD/MAN/SEL to MED
+                                                        pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte = BGNET_SPD_MAN_MED;
+                                                        pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);                                                                
+                                                        break;
+                                                    case BGNET_CHN_EB_SOG:
+                                                        // broadcast by PILOT to FF, 3 bytes payload, unknown purpose. Is send when a MANual speed is selected
+                                                        // FF 50 03 D5 D9 B5 EB 0F FB
+                                                        // 0xB5 is most likely a ACKSEQ (this number changes in other instances)
+                                                        // 0xEB seems a channel ID (SOG)
+                                                        // 0x0F means "OFF" (0x1F means ON)
+                                                        // FB   is a valid CS
+                                                        // Because it's a broadcast, it should be relevant for all NETWORK attached units to switch something
+                                                        // OFF that has to do with the SOG
+                                                        // I think that it when a MANual speed is selected (FST/MED/SLW) the system should stop using the SOG
+                                                        // (that might be received via NMEA 0183 interface on the PILOT). For the very good reason, if the skipper
+                                                        // wanted to use the SOG, the MAN speed would never be selected (but the SOG instead). So i think that
+                                                        // this command is used to tell other nodes to stop using SOG (that might continue to be received)  
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        if (pCHRx->s.FMT == BGNET_FMT_OFF) {
+                                                            if (pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte == 0) {
+                                                                // is already OFF
+                                                            } else {
+                                                                pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte = 0;
+                                                                pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter, t);                                                                
+                                                            }
+                                                        } else {
+                                                            // Action to switch ON is when we receive the SOG channel                                                                          pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
+                                                        }
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_D6_PILOT_SLWDAT:
+                                                // the MAN/SLW speed value was entered. We receive 5 bytes payload.
+                                                // 0=ACKSEQ, 1=0x46, 2=FMT_01, 3/4= new value (0-990)
+                                                switch(pCHRx->s.CH) {
+                                                    // SPEED/MAN/SLW entered speed value > ENTER
+                                                    case BGNET_CHN_46_AP_SPEED:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new SPEED SELECT from the channel
+                                                        pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.PILOT.SPEED.SLW.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SPEED.SLW.Counter, t);
+                                                        // set the SPD/MAN/SEL to SLW
+                                                        pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte = BGNET_SPD_MAN_SLW;
+                                                        pCtrl->BGNET.PILOT.SPEED.SEL.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SPEED.SEL.Counter, t);                                                                
+                                                        break;
+                                                    // PILOT/SETUP/WIND option entered T or A > ENTER
+                                                    case BGNET_CHN_AF_AP_OC_ALARM:
+                                                        // update the channel value
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new SPEED SELECT from the channel
+                                                        pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte = pCHRx->s.cv.uB[1];
+                                                        pCtrl->BGNET.PILOT.SETUP.WIND_SEL.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter, t);
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_DC_PILOT_STEPREQ:
+                                                // the <10, >10, <1, >1 key was pressed, 2 bytes payload (at the same time also B1 with +/- 10/1)
+                                                // 0=ACKSEQ, 1=0xA6
+                                                // AT THE SAME TIME also a CMD_B1/A6 command is send with the actual value (-10,+10,-1 or +1)
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_A6_AP_CTS:
+                                                        // create command with current CTS value, but i do not know what command to use for REPLY
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_DE_PILOT_WAREQ:
+                                                // in PILOT/SETUP, the WATCH ALARM is configured, 2 bytes payload
+                                                // 0=ACKSEQ, 1=0x76
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_76_AP_WA_ALARM:
+                                                        // create command with current WA SELECT
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_76_AP_WA_ALARM;
+                                                        if (pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong == 0) {
+                                                            pCHTx->s.FMT = BGN_FMT_08;
+                                                        } else {
+                                                            pCHTx->s.FMT = BGN_FMT_18;
+                                                        }
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_21_PILOT_WADAT, payload, len_pl);
+                                                
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_21_PILOT_WADAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
+                                            case BGNET_CMD_DF_PILOT_OCREQ:
+                                                // in PILOT/SETUP, the OFF-COURSE ALARM is configured, 2 bytes payload.
+                                                // 0=ACKSEQ, 1=0xAF
+                                                switch(pCHRx->s.CH) {
+                                                    case BGNET_CHN_AF_AP_OC_ALARM:
+                                                        // create command with current OC SELECT
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_AF_AP_OC_ALARM;
+                                                        if (pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong == 0) {
+                                                            pCHTx->s.FMT = BGN_FMT_08;
+                                                        } else {
+                                                            pCHTx->s.FMT = BGN_FMT_18;
+                                                        }
+                                                        pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_20_PILOT_OCDAT, payload, len_pl);
+                                                
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_20_PILOT_OCDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
+                                                }
+                                                break;
+                                            default:                                                
+                                                bSend_CMDACK = 0; // do not send CMDACK
                                                 x = bgnet_deviceindex(pCtrl, pFRx->FROM); // lookup by device address/type, so we can print the device name
                                                 log_info("  Command %02X (with body) IGNORED (from %02X %s)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName);
                                                 break;
                                         }
+                                        break;
                                     default:
-                                        // we have no information about other (than PILOT, QUAD or WIND) devices doing a handshake with ACP
+                                        // we have no information about other (than PILOT, QUAD or WIND) devices doing a handshake with other nodes                                        
+                                        bSend_CMDACK = 0; // do not send CMDACK
                                         break;
                                 }
                                 if (bSend_CMDACK == 0) {
@@ -3418,37 +3330,34 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     if (pFRx->TO == BGNET_TYPE_ALL) {
                                         // the CMDDAT/CMDREQ we received was a broadcast. Do not reply to a broadcast
                                     } else {
+                                        // make the CMD-ACK for the CMD-REQ/CMD-DAT we received (only for non-default passes)
+                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                        len_pl = 1;
+                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_ACK, payload, len_pl);
 
+                                        memcpy(pCtrl->CMD[BGNET_CMD_ACK].Tx.ucFrame, pFTx, len_msg);
+                                        CounterUp(&pCtrl->CMD[BGNET_CMD_ACK].CounterTx, t);
+                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                        TxSize = TxSize + len_msg;
+
+                                        // put it for transmission
+                                        pthread_mutex_lock(&g_data_mutex);
+                                        memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+                                        g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                        pthread_mutex_unlock(&g_data_mutex);
                                     }                                
-                                }
-                                if (iIsValid > 0) {
-                                    // make the CMD-ACK for the CMD-REQ/CMD-DAT we received (only for non-default passes)
-                                    payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                    len_pl = 1;
-                                    pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                    len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_ACK, payload, len_pl);
-
-                                    memcpy(pCtrl->CMD[BGNET_CMD_ACK].Tx.ucFrame, pFTx, len_msg);
-                                    CounterUp(&pCtrl->CMD[BGNET_CMD_ACK].CounterTx, t);
-                                    memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                    CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                    TxSize = TxSize + len_msg;
-
-                                    // put it for transmission
-                                    pthread_mutex_lock(&g_data_mutex);
-                                    memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
-                                    g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
-                                    pthread_mutex_unlock(&g_data_mutex);
                                 }
                                 break;
                         }
-                        if (iIsValid > 0) {
-                            // store incoming CMD  (only for non-default passes)
+                        if (bSend_CMDACK == 0) {
+                            // appearently we received an non-handled CMD that was not dealt with. We will register it
                             pCtrl->iNewCommand = BGN_NEW_SET; // signal possible CMD change
                             pCtrl->CMD[pFRx->CMD].iNewCommand = BGN_NEW_SET; // signal this command
                             memcpy(pCtrl->CMD[pFRx->CMD].Rx.ucFrame, pFRx, RxSize);
                             CounterUp(&pCtrl->CMD[pFRx->CMD].CounterRx, t);
-                        }   
+                        }
                     } else {
                         // payload CS is bad, only skip this sub-frame, the length is known. We will continue other subframes tha are in the
                         // the same receive buffer
