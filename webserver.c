@@ -40,7 +40,7 @@ static void ws_add_client(int fd)
 }
 
 char* strSource(char* buffer, size_t nSource) {
-    char cSOURCE[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","ACP","NA"};
+    char cSOURCE[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","ACP",""};
     if (nSource > 8) {
         strcpy(buffer, cSOURCE[0]);
     } else {
@@ -677,6 +677,21 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK", "Backlight [0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", pCtrl->BGNET.NETWORK.BackLight.Counter.iCounter, t-pCtrl->BGNET.NETWORK.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.NETWORK.BackLight.source), pCtrl->BGNET.NETWORK.BackLight.value.nByte);
+    strcat(Buffer, cLine);
+
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/AUTO", "AUTO key pressed", pCtrl->BGNET.PILOT.KEY.AUTO.iCounter, t-pCtrl->BGNET.PILOT.KEY.AUTO.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/OFF", "OFF key pressed", pCtrl->BGNET.PILOT.KEY.OFF.iCounter, t-pCtrl->BGNET.PILOT.KEY.OFF.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/COURSE", "COURSE key (<10,<1,10>,1>) pressed", pCtrl->BGNET.PILOT.KEY.COURSE.iCounter, t-pCtrl->BGNET.PILOT.KEY.COURSE.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/<10", "<10 key pressed", pCtrl->BGNET.PILOT.KEY.P10.iCounter, t-pCtrl->BGNET.PILOT.KEY.P10.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/<1", "<1 key pressed", pCtrl->BGNET.PILOT.KEY.P1.iCounter, t-pCtrl->BGNET.PILOT.KEY.P1.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/10>", "10> key pressed", pCtrl->BGNET.PILOT.KEY.S10.iCounter, t-pCtrl->BGNET.PILOT.KEY.S10.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/1>", "1> key pressed", pCtrl->BGNET.PILOT.KEY.S1.iCounter, t-pCtrl->BGNET.PILOT.KEY.S1.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/SPD", "Speed Select [0=TRAnsmitter, 1=MANual/FST, 2=SOG, 3=MANual/MED, 4=MANual/SLW]", pCtrl->BGNET.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.SPD.source), pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte);

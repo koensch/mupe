@@ -503,6 +503,18 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.EBS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.EBS.Counter, t);
 
+        // initialize key counters (we need them to detect double-key presses and simultaneous key presses)
+
+        CounterInit(&pCtrl->BGNET.PILOT.KEY.AUTO, t);
+        CounterInit(&pCtrl->BGNET.PILOT.KEY.OFF, t);
+        CounterInit(&pCtrl->BGNET.PILOT.KEY.COURSE, t);
+        CounterInit(&pCtrl->BGNET.PILOT.KEY.P10, t);
+        CounterInit(&pCtrl->BGNET.PILOT.KEY.S10, t);
+        CounterInit(&pCtrl->BGNET.PILOT.KEY.P1, t);
+        CounterInit(&pCtrl->BGNET.PILOT.KEY.S1, t);
+
+// ==== SPEED
+
         pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong = 33;
         pCtrl->BGNET.SPEED.SETUP.DMP.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SPEED.SETUP.DMP.Counter, t);
@@ -2739,6 +2751,20 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 switch(pCHRx->s.CH) {
                                                     case BGNET_CHN_A6_AP_CTS:
                                                         iValue = decode_channel_numeric(pCHRx);
+                                                        switch (iValue) {
+                                                            case -10:
+                                                                CounterUp(&pCtrl->BGNET.PILOT.KEY.P10, t);
+                                                                break;
+                                                            case -1:
+                                                                CounterUp(&pCtrl->BGNET.PILOT.KEY.P1, t);
+                                                                break;
+                                                            case +10:
+                                                                CounterUp(&pCtrl->BGNET.PILOT.KEY.S10, t);
+                                                                break;
+                                                            case +1:
+                                                                CounterUp(&pCtrl->BGNET.PILOT.KEY.S1, t);
+                                                                break;
+                                                        }
                                                         pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.CTS.value.nLong + iValue;
                                                         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
                                                         CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
@@ -2979,6 +3005,13 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         } else {
                                                             // i'm not going to make things more complicated at this point. But realise that when
                                                             // we have no accurate HEADING data, i do not know where to steer the boat when going to AUTO
+                                                        }
+                                                        if ((pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE)) {
+                                                            // AUTO key was pressed
+                                                            CounterUp(&pCtrl->BGNET.PILOT.KEY.AUTO, t);
+                                                        } else {
+                                                            // OFF key was pressed
+                                                            CounterUp(&pCtrl->BGNET.PILOT.KEY.OFF, t);
                                                         }
                                                         // get the new STATE; initialize the CTARGET with current HEADING if we go into AUTO
                                                         if ((pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) == (BGN_AP_MODE1_STBY & BGN_AP_MODE1_MASK_STATE)) { // current STATE is STBY
@@ -3254,6 +3287,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 // AT THE SAME TIME also a CMD_B1/A6 command is send with the actual value (-10,+10,-1 or +1)
                                                 switch(pCHRx->s.CH) {
                                                     case BGNET_CHN_A6_AP_CTS:
+                                                        CounterUp(&pCtrl->BGNET.PILOT.KEY.COURSE, t);
                                                         // create command with current CTS value, but i do not know what command to use for REPLY
                                                         break;
                                                 }

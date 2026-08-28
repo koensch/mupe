@@ -769,6 +769,15 @@ typedef struct {
                 NMEA2K_VALUE WPB;   // Waypoint Bearing RMB#11
             } RMB;
         } NMEA;
+        struct {
+            BGNET_COUNT AUTO;
+            BGNET_COUNT OFF;
+            BGNET_COUNT COURSE; // Any of the <10/>10/<1?>1 keys
+            BGNET_COUNT P10;    // <10
+            BGNET_COUNT S10;    // >10
+            BGNET_COUNT P1;     // <1
+            BGNET_COUNT S1;     // >1
+        } KEY;
     } PILOT;
     // SPEED parameters
     struct {

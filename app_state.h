@@ -67,6 +67,7 @@ extern int  g_serial_mode;
 // used when a derived/calculated value used mixed sources
 #define BGN_SOURCE_MIXED    5
 #define BGN_SOURCE_ACP      6
+#define BGN_SOURCE_BLANK    7
 
 union VALUE {
     double dValue;      // used for floating point values
