@@ -287,6 +287,8 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *ap_state  = cJSON_GetObjectItem(root, "ap_state");  // "auto" or "off"
     cJSON *ap_mode   = cJSON_GetObjectItem(root, "ap_mode");   // "comp", "nav" or "vane"
     cJSON *ap_js     = cJSON_GetObjectItem(root, "ap_js");     // "on" or "off"
+    // network
+    cJSON *lights    = cJSON_GetObjectItem(root, "lights");    // set lights (0,3,2 or 1)
 
     pthread_mutex_lock(&g_data_mutex);
 
@@ -466,6 +468,31 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         } else {
             // nothing to do
         }        
+    }
+    // curl --data "{\"lights\":{0|3|2|1}}" http://localhost:8080/api/update
+    FRAME_H FTx;
+    unsigned char payload[BGNET_FRAME_PAYLOAD_MAX];
+    size_t len_msg;
+    if (lights) {
+        switch (lights->valueint) {
+            case 0:
+            case 3:
+            case 2:
+            case 1:
+                payload[0] = lights->valueint;
+                len_msg = bgnet_encode_frame(&FTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_C9_BACKLIGHT, payload, 1);
+                // register command send
+                memcpy(pCtrl->CMD[BGNET_CMD_C9_BACKLIGHT].Tx.ucFrame, &FTx, len_msg);
+                CounterUp(&pCtrl->CMD[BGNET_CMD_C9_BACKLIGHT].CounterTx, t);
+                memcpy(pCtrl->DEV[FTx.FROM].Tx.ucFrame, &FTx, len_msg);
+                CounterUp(&pCtrl->DEV[FTx.FROM].CounterTx, t);
+                // put it for transmission
+                // we are already locked  pthread_mutex_lock(&g_data_mutex);
+                memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &FTx, len_msg); // put output message in write buffer
+                g_serial_data_lenTx = g_serial_data_lenTx + len_msg; // increment byte counter in TX buffer
+                // we are already locked  pthread_mutex_unlock(&g_data_mutex);
+                break;
+        }
     }
 
     pthread_mutex_unlock(&g_data_mutex);
@@ -855,7 +882,7 @@ static char* html_NMEA_row(char *Buffer) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "DEPTH", "Water depth, usually corrected for the sensor depth [M]", g_n2kdata.boat.depth.Counter.iCounter, (t - g_n2kdata.boat.depth.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.depth.source), g_n2kdata.boat.depth.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "SEATEMP", "Temperature of the seawater at sensor depth [degC]", g_n2kdata.boat.seatemp.Counter.iCounter, (t - g_n2kdata.boat.seatemp.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.seatemp.source), g_n2kdata.boat.seatemp.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "SEATEMP", "Temperature of the seawater at sensor depth [DegC]", g_n2kdata.boat.seatemp.Counter.iCounter, (t - g_n2kdata.boat.seatemp.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.seatemp.source), g_n2kdata.boat.seatemp.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "RUDDER", "Rudder position, starboard(+) or port(-) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudder.Counter.iCounter, (t - g_n2kdata.boat.rudder.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudder.source), g_n2kdata.boat.rudder.value.dValue);
     strcat(Buffer, cLine);
@@ -885,7 +912,7 @@ static char* html_command_top(char *Buffer) {
 static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i;
     time_t t;
-    char cLine[512], asciibufRx[BGN_CMD_ASCII*2], asciibufTx[BGN_CMD_ASCII*2], asciibufCMD[BGNET_CMD_LABEL_MAX];
+    char cLine[512], asciibufRx[BGN_CMD_ASCII*2], asciibufTx[BGN_CMD_ASCII*4], asciibufCMD[BGNET_CMD_LABEL_MAX];
     const char *cDevRow =
         "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 

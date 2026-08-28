@@ -701,17 +701,17 @@ char *strChannelLabel(BGNET_CTRL *pCtrl, char *pBuf, unsigned char ucCHN) {
 };
 
 // encode a frame (with or without payload)
-size_t bgnet_encode_frame(FRAME_H *pFH, int iTo, int iFrom, int iCmd, unsigned char *payload, int payloadlength) {
-    pFH->TO = iTo;
-    pFH->FROM = iFrom;
-    pFH->PL = payloadlength;
-    pFH->CMD = iCmd;
+size_t bgnet_encode_frame(FRAME_H *pFH, unsigned char ucTo, unsigned char ucFrom, unsigned char ucCmd, unsigned char *payload, unsigned char ucPL) {
+    pFH->TO = ucTo;
+    pFH->FROM = ucFrom;
+    pFH->PL = ucPL;
+    pFH->CMD = ucCmd;
     pFH->CSH = bgnet_checksum_head_calc(pFH);
-    if (payloadlength == 0) {
+    if (ucPL == 0) {
         // nothing to do
     } else {
-        memcpy(pFH->payload, payload, payloadlength);
-        pFH->payload[payloadlength] = bgnet_checksum_frame_calc(pFH);
+        memcpy(pFH->payload, payload, ucPL);
+        pFH->payload[ucPL] = bgnet_checksum_frame_calc(pFH);
     }
     return(bgnet_sizeof_frame(pFH));
 }
@@ -2123,13 +2123,11 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                             log_info("  Command %02X (header only) IGNORED (from %02X %s)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName);
                             break;
                     }
-                    if (bSend_CMDACK == 0) {
-                        // appearently we received an non-handled CMD that was not dealt with. We will register it
-                        pCtrl->iNewCommand = BGN_NEW_SET; // signal possible CMD change
-                        pCtrl->CMD[pFRx->CMD].iNewCommand = BGN_NEW_SET; // signal this command
-                        memcpy(pCtrl->CMD[pFRx->CMD].Rx.ucFrame, pFRx, RxSize);
-                        CounterUp(&pCtrl->CMD[pFRx->CMD].CounterRx, t);
-                    }
+                    // register all received CMD's
+                    pCtrl->iNewCommand = BGN_NEW_SET; // signal possible CMD change
+                    pCtrl->CMD[pFRx->CMD].iNewCommand = BGN_NEW_SET; // signal this command
+                    memcpy(pCtrl->CMD[pFRx->CMD].Rx.ucFrame, pFRx, RxSize);
+                    CounterUp(&pCtrl->CMD[pFRx->CMD].CounterRx, t);
                 } else {
                     // frame has some payload; check CR over the payload
                     if (bgnet_checksum_frame_check(pCtrl, pFRx) == BGNET_CHECKSUM_OK) {
@@ -3006,12 +3004,24 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                             // i'm not going to make things more complicated at this point. But realise that when
                                                             // we have no accurate HEADING data, i do not know where to steer the boat when going to AUTO
                                                         }
+                                                        // realise that when you press AUTO and the AP is already in AUTO, no CMD is
+                                                        // send by PILOT, but if you press OFF, it always sends the OFF CMD, also if the
+                                                        // AP is already in STBY
                                                         if ((pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE)) {
                                                             // AUTO key was pressed
                                                             CounterUp(&pCtrl->BGNET.PILOT.KEY.AUTO, t);
                                                         } else {
                                                             // OFF key was pressed
                                                             CounterUp(&pCtrl->BGNET.PILOT.KEY.OFF, t);
+                                                            // check joystick state. Turn it OFF when it's ON
+                                                            if (pCtrl->BGNET.ACP.Joystick.value.nByte == BGN_JOYSTICK_OFF) {
+                                                                // joystick is OFF, don't do a thing
+                                                            } else {
+                                                                // joystick is ON, switch it OFF
+                                                                pCtrl->BGNET.ACP.Joystick.value.nByte = BGN_JOYSTICK_OFF;
+                                                                pCtrl->BGNET.ACP.Joystick.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.ACP.Joystick.Counter, t);
+                                                            }
                                                         }
                                                         // get the new STATE; initialize the CTARGET with current HEADING if we go into AUTO
                                                         if ((pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) == (BGN_AP_MODE1_STBY & BGN_AP_MODE1_MASK_STATE)) { // current STATE is STBY
@@ -3385,13 +3395,11 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 }
                                 break;
                         }
-                        if (bSend_CMDACK == 0) {
-                            // appearently we received an non-handled CMD that was not dealt with. We will register it
-                            pCtrl->iNewCommand = BGN_NEW_SET; // signal possible CMD change
-                            pCtrl->CMD[pFRx->CMD].iNewCommand = BGN_NEW_SET; // signal this command
-                            memcpy(pCtrl->CMD[pFRx->CMD].Rx.ucFrame, pFRx, RxSize);
-                            CounterUp(&pCtrl->CMD[pFRx->CMD].CounterRx, t);
-                        }
+                        // register all received CMD's
+                        pCtrl->iNewCommand = BGN_NEW_SET; // signal possible CMD change
+                        pCtrl->CMD[pFRx->CMD].iNewCommand = BGN_NEW_SET; // signal this command
+                        memcpy(pCtrl->CMD[pFRx->CMD].Rx.ucFrame, pFRx, RxSize);
+                        CounterUp(&pCtrl->CMD[pFRx->CMD].CounterRx, t);
                     } else {
                         // payload CS is bad, only skip this sub-frame, the length is known. We will continue other subframes tha are in the
                         // the same receive buffer

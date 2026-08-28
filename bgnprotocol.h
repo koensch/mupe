@@ -872,7 +872,7 @@ size_t bgnet_sizeof_channel(BGNET_CTRL *, union CH *);
 size_t bgnet_sizeof_frame(FRAME_H *);
 char* strCommandLabel(BGNET_CTRL *, char *, unsigned char);
 char* strChannelLabel(BGNET_CTRL *, char *, unsigned char);
-size_t bgnet_encode_frame(FRAME_H *, int, int, int, unsigned char *, int);
+size_t bgnet_encode_frame(FRAME_H *, unsigned char, unsigned char, unsigned char, unsigned char *, unsigned char);
 int makeRESPresponse(BGNET_CTRL *, unsigned char *);
 int makeWAresponse(BGNET_CTRL *, unsigned char *);
 int makeOCresponse(BGNET_CTRL *, unsigned char *);
