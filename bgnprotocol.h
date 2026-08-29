@@ -863,6 +863,7 @@ typedef struct {
 
 // prototypes
 void log_debug_buffer(unsigned char *, size_t);
+void log_debug_frame(FRAME_H *);
 
 size_t bgnet_decode_frame(BGNET_CTRL *, unsigned char *, size_t);
 size_t bgnet_process(BGNET_CTRL *, unsigned char *, size_t);
@@ -896,6 +897,7 @@ char* CommandToAscii(char*, size_t, FRAME_H*);
 #define BYTE2ASCII_EMPTY     0
 #define BYTE2ASCII_NOTEVEN  -1
 #define BYTE2ASCII_NOTHEX   -2
+#define BYTE2ASCII_NONE     0   // undefined string
 #define BYTE2ASCII_PLAIN    2   // continous string:        00010203 .... FEFF  -> 1 byte takes 2 characters
 #define BYTE2ASCII_SPACED   3   // space between bytes:     00 01 02 03 .... FE FF -> 1 bytes take 3 characters
 #define BYTE2ASCII_HEXED    5   // every byte preceeded by  0x00 0x01 0x02 0x03 .... 0xFE 0xFF -> 1 bytes take 5 characters

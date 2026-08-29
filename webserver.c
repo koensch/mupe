@@ -257,7 +257,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         return;
     }
 
-    log_debug("webserver: api_update: %s", body);
+    //log_debug("webserver: api_update: %s", body);
 
     // GPS information
     cJSON *latitude  = cJSON_GetObjectItem(root, "latitude");  // lattitude +=North of equator, -=South of equator
@@ -501,10 +501,10 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // interface upon output. Just put a placeholder "00" there.
     // The frame shall consist of a string containg a hex-formatted characters.
     // This example sets the LIGHTS to 3. With this command you can allso make "specific lights" command
-    // (switch on/off the lights on a specific node) which is not possible with the BGN 'LIGHTS' button. 
+    // (switch on/off the lights on a specific node) which is not possible with the BGN 'LIGHTS' button.
     if (frame) {
         // convert the received ascii/hex bytes as a binary frame, check the validity (do not support subframes)
-        r = ascii2frame(&FRx, frame->valuestring, NULL);        
+        r = ascii2frame(&FRx, frame->valuestring, NULL);
         if (r > 0) {
             // convert received frame into a transmit frame with calculated checksums
             len_msg = bgnet_encode_frame(&FTx, FRx.TO, FRx.FROM, FRx.CMD, FRx.payload, FRx.PL);

@@ -121,14 +121,44 @@ int16_t hex2bin(unsigned char ucHex) {
 } 
 
 int16_t ascii2byte(unsigned char *OutByte, char *InString, size_t size) {
-    size_t i;
+    size_t i, iHexType;
     int16_t r, ucLo, ucHi;
     r = 0;  // initialize return value
-    // input string must be a multiple of 2
-    if ((strlen(InString)%2) == 0) {
-        for (i=0; i<BGNET_MIN((strlen(InString)*2), size); i++) {
-            ucHi = hex2bin(InString[i*2 + 0]);
-            ucLo = hex2bin(InString[i*2 + 1]);
+
+    // determine what type of hex-string we are dealing with
+    // usually a user does not specify the trailing terminator (otherwise you do not arrive at a multiple of 5 or 3), so we assume it's not there
+    iHexType = BYTE2ASCII_NONE;
+    // if the length is a multiple of 5, and it starts with a '0x'/'0X' and has a space, most likely it's a 'hexed' hex-string
+    if ((InString[0] == BGNET_ASC_0) & ((InString[1] == BGNET_ASC_X)|(InString[1] == BGNET_ASC_x))  & (InString[4]==BGNET_ASC_SPACE) & ((strlen(InString)+1)%BYTE2ASCII_HEXED == 0)) {
+        iHexType = BYTE2ASCII_HEXED;
+    // if the length is a multiple of 3, and it has a space as the 3rd character, most likely it's a 'spaced' hex-string
+    } else if ((InString[2]==BGNET_ASC_SPACE) & ((strlen(InString)+1)%BYTE2ASCII_SPACED == 0)) {
+        iHexType = BYTE2ASCII_SPACED;
+    // if the length is a multiple of2, most likely it is a 'plain' hex-string
+    } else if (strlen(InString)%BYTE2ASCII_PLAIN == 0) {
+        iHexType = BYTE2ASCII_PLAIN;    
+    }
+
+    // we must have a good idea how the hex-string is formatted
+    if (iHexType == BYTE2ASCII_NONE) {
+        // we must always have an even number of ASCII characters
+        r = BYTE2ASCII_NOTEVEN; // odd number of ascii/hex
+    } else {
+        for (i=0; i<BGNET_MIN((strlen(InString)*iHexType), size); i++) {
+            switch (iHexType) {
+                case BYTE2ASCII_HEXED:
+                    ucHi = hex2bin(InString[i*iHexType + 2]);
+                    ucLo = hex2bin(InString[i*iHexType + 3]);
+                    break;
+                case BYTE2ASCII_SPACED:
+                    ucHi = hex2bin(InString[i*iHexType + 0]);
+                    ucLo = hex2bin(InString[i*iHexType + 1]);
+                    break;
+                case BYTE2ASCII_PLAIN:
+                    ucHi = hex2bin(InString[i*iHexType + 0]);
+                    ucLo = hex2bin(InString[i*iHexType + 1]);
+                    break;
+            }
             if ((ucHi < 0) | (ucLo < 0)) {
                 r = BYTE2ASCII_NOTHEX;
                 break;
@@ -138,11 +168,8 @@ int16_t ascii2byte(unsigned char *OutByte, char *InString, size_t size) {
             }
         }
         if (r == 0) {
-            r = i; // number of bytes in OutByte. Note: if r>size, the ascii string might be missing the last portion
+            r = i; // number of bytes in OutByte. Note: if r>size, not all hex-ascii was read
         }
-    } else {
-        // we must always have an even number of ASCII characters
-        r = BYTE2ASCII_NOTEVEN; // odd number of ascii/hex
     }
     return(r);
 }
