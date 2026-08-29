@@ -502,6 +502,9 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // The frame shall consist of a string containg a hex-formatted characters.
     // This example sets the LIGHTS to 3. With this command you can allso make "specific lights" command
     // (switch on/off the lights on a specific node) which is not possible with the BGN 'LIGHTS' button.
+    // via the API, you can also send a CMD to the ACP, example to simulate the AUTO key pressed on PILOT:
+    // curl --data "{\"frame\":\"00 50 05 D3 D8 0E B5 01 00 01 E6\"}" http://localhost:8080/api/update
+    //
     if (frame) {
         // convert the received ascii/hex bytes as a binary frame, check the validity (do not support subframes)
         r = ascii2frame(&FRx, frame->valuestring, NULL);
