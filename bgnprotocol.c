@@ -484,7 +484,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
 
-        safecopyWPID(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID, "WP01hobbeldehobbelduif"); // safecopy WPID (12 characters maximum)
+        safecopyWPID(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID, "WP01hobbeldehobbelduif"); // safecopy WPID (11 characters + 1 nullbyte)
         pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter, t);
 

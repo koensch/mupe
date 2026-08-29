@@ -140,19 +140,18 @@
 
 #define BGNET_FRAME_HEAD                5   //size of HEADER (fixed)
 #define BGNET_FRAME_TAIL_CS             1   //bytes in the TAIL (payload checksum)
-// the 'payload length is a unsigned byte that has a maximum of 0xFF (=255). Consequently the payload's maximum is 255 bytes. On average
+// the 'payload length' is a unsigned byte that has a maximum of 0xFF (=255). Consequently the payload's maximum is 255 bytes. On average
 // that is about 50 channels maximum.
-// This results in a maximum frame length of header + payload + CR equals 261 bytes.
+// This results in a maximum frame length of header + payload + CR = 261 bytes.
 // Realise that a Rx/Tx buffer can hold multiple frames
 #define BGNET_FRAME_PAYLOAD_MAX         255
 typedef struct {        // for the FRAME header we use a pointer and respect the maximum size to hold the biggest possible frame
-    uint8_t TO;
-    uint8_t FROM;
+    uint8_t TO;         // destination
+    uint8_t FROM;       // originator
     uint8_t PL;         // payload length
-    uint8_t CMD;        // Command
+    uint8_t CMD;        // Command ID
     uint8_t CSH;        // Checksum HEAD
-    uint8_t payload[BGNET_FRAME_PAYLOAD_MAX + BGNET_FRAME_TAIL_CS];  // payload (variable size) + CR byte
-    // uint8_t CSP;     // Checksum payload is placed after the last payload byte
+    uint8_t payload[BGNET_FRAME_PAYLOAD_MAX + BGNET_FRAME_TAIL_CS];  // payload (variable size) + CSP byte
 } FRAME_H;
 
 // maximum number of possible devices. B&G advises a maximum of around 20 devices on the same network. Because
@@ -162,7 +161,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 // FROM/TO address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA is 0xD6, another time it's 0x60.
 // The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51. As long as you have 1 of each it's simple. I do not have multiple
 // units of the same type, so i was never able to reverse-engineer the address negotiations.
-#define BGNET_TYPE_MASK                 0xF0 // mask the device type from the address
+#define BGNET_TYPE_MASK                 0xF0 // mask the node type from the address
 #define BGNET_TYPE_NETACP               0x00 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
 #define BGNET_TYPE_NETQUAD              0x30 // confirmed
 #define BGNET_TYPE_NETPILOT             0x50 // confirmed
@@ -201,24 +200,24 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                              //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
                                              //(no firmware version number is included in NETWORK series)
 #define BGNET_CMD_0E_PILOT_HELLO        0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
-                                               // PILOT: "00 51 00 0E A1" (no payload)
-                                               // PILOT broadcasts this command in 'normal' mode, and also in 'demo' mode.
-                                               // if PILOT receives a DATA command (with some minimal channels), it leaves the "NO PILOT" state
+                                             // PILOT: "00 51 00 0E A1" (no payload)
+                                             // PILOT broadcasts this command in 'normal' mode, and also in 'demo' mode.
+                                             // if PILOT receives a DATA command (with some minimal channels), it leaves the "NO PILOT" state
 #define BGNET_CMD_20_PILOT_OCDAT        0x20 // 5 bytes payload after SET of WA minutes, CH = AF
-                                               // 3 or 5 bytes payload for ANCHOR ALARM status (on QUAD): On/Off (3 bytes) and level (in meters, 5 bytes)
+                                             // 3 or 5 bytes payload for ANCHOR ALARM status (on QUAD): On/Off (3 bytes) and level (in meters, 5 bytes)
 #define BGNET_CMD_21_PILOT_WADAT        0x21 // 5 bytes payload after SET of WA minutes, CH = 76
 #define BGNET_CMD_22_DEPTH_DADAT        0x22 // 3 or 5 bytes payload for DEEP ALARM status (on QUAD): On/Off (3 bytes) and level (in meters, 5 bytes)
 #define BGNET_CMD_B1_PILOT_DELTADAT     0xB1 // STEP/ADJUST -10/-1/+1/+10, 5 bytes payload (00 A6 01 FF F6) = -10
 #define BGNET_CMD_C9_BACKLIGHT          0xC9 // LIGHTS button pressed (all units) -> header + 1 bytes payload: {0|1|2|3}
-                                               // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
-                                               // cycles though 0-3-2-1-0
+                                             // At powerup, initializes to 0 (off). When pressed (1st time), it displays the current setting, when presed again it
+                                             // cycles though 0-3-2-1-0
 #define BGNET_CMD_CA_QUAD_TIMER         0xCA // 2 bytes payload, 10min timer: 00 0A, 5min timer: 00 05, count-up timer: 00 00 (no CHN ID)
 #define BGNET_CMD_CB_QUAD_RESET         0xCB // 2 bytes payload (00 CF), request to reset channel CF (triplognm, send by QUADr (QUADt or QUADd seems not to accept this reset)
-                                                // also used by PILOT when some bits in the STATE byte are received
+                                             // also used by PILOT when some bits in the STATE byte are received
 #define BGNET_CMD_CD_PILOT_DMPREQ       0xCD // QUAD repeater: 2 bytes payload (00 CF, 00 41), request to reset channel CF(=TRIPLOGNM) or 41(=BOATSPEEDKT > DR_DIST/DR_COURSE)
-                                               // Note: DRD is displayed on SPEED and DATA, not on QUAD.
-                                               // Possibly also the reset command to a QUADt, but could not test this as i have no working QUADt
-                                               // PILOT: 2 bytes payload (ACKSEQ, 0x49)
+                                             // Note: DRD is displayed on SPEED and DATA, not on QUAD.
+                                             // Possibly also the reset command to a QUADt, but could not test this as i have no working QUADt
+                                             // PILOT: 2 bytes payload (ACKSEQ, 0x49)
 #define BGNET_CMD_CE_PILOT_DMPDAT       0xCE
 #define BGNET_CMD_CF_PILOT_MANREQ       0xCF // 2 bytes payload (00 46), 46=AP_SPEED -> Response FST/MID/SLW
 
@@ -227,7 +226,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CMD_D2_PILOT_MANREQ       0xD2 // 2 bytes payload (00 46), MAN speed selection (FST, MED, SLW) via SPEED key
 #define BGNET_CMD_D3_PILOT_AM           0xD3 // 5 bytes payload (00 B5 01 00 XX), B5= channel, XX: {AUTO|STBY}, reply with B5?
 #define BGNET_CMD_D4_PILOT_MODE         0xD4 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: {COMP|VANE|NAV}
-                                               //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRAnsmitter, 1=MANual, 2=SOG)
+                                             //                 (00 46 01 00 XX), 46= channel, XX: SPEED MODE (0=TRAnsmitter, 1=MANual, 2=SOG)
 #define BGNET_CMD_D5_PILOT_RESPDAT      0xD5 // 5 bytes payload (00 A6 01 00 XX), A6= channel, XX: RESP MODE (0=Normal, 1=Eco, 2=Downwind)
 #define BGNET_CMD_D6_PILOT_SLWDAT       0xD6 // 5 bytes payload (00 46 01 00 XX), 46= channel, XX: MANSLW speed (0-990)
 #define BGNET_CMD_DC_PILOT_STEPREQ      0xDC // 2 bytes payload (00 A6), A6= channel, is followed by command 0xB1/ADJUST to speficy the actual step (+/-, 10/1)
@@ -237,30 +236,30 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CMD_E7_ALARM_ACK          0xE7 // 2 bytes payload (00 xx), is send by the node where the alarm was acknowdldged. Alarm initiating node
                                              // responds wit a CMD-ACK
 #define BGNET_CMD_EA_QUAD_AUTOCAL       0xEA // sometimes we get this CMD: 00 30 02 EA E4 03 01 A6 while stepping though SPEED SETUP (4th option)
-                                               // and i do not know what it does, so we just send a CMD-ACK
-#define BGNET_CMD_ACK                   0xFD // 1 byte payload
+                                             // and i do not know what it does, so we just send a CMD-ACK
+#define BGNET_CMD_ACK                   0xFD // 1 byte payload (ACK sequence)
 
 // layout of the VALUE (1 or more in the payload of a DATA command)
-#define BGNET_CHN_CID                   0   // position of channel byte
+#define BGNET_CHN_CID                   0    // position of channel byte
 // FMT byte is encoded as follows
 // MSB bit 7,6    : divisor (00=1, 01=10, 10=100, 11=1000)
 //     bit 5,4    : size/padding (00=4, 01=3, 10=2, 11=1), note that bit 4 might also be used to trigger thet alarm beeper
 // LSB bit 3,2,1,0: datatype (0000-1111, see decoding routine)
-    #define BGNET_FMT_DIVPAD        0xF0    // bits 7,6,5,4  - Divisor & Padding
-    #define BGNET_FMT_DIVPAD_DIV    0xC0    // bits 7,6      - Divisor
-    #define BGNET_FMT_DIVPAD_PAD    0x30    // bits 5,4      - Padding
-    #define BGNET_FMT_DT            0x0F    // bits 3,2,1,0  - DataType
-    #define BGNET_FMT_ALARM         0x10    // bit 4         - Alarmbit
-                                            // a 'alarm-capable-originating' node (like QUAD) will beep when it receives the alarmbit,
-                                            // also if that channel does not have alarm capabilities (settable alarm limits)
+    #define BGNET_FMT_DIVPAD        0xF0     // bits 7,6,5,4  - Divisor & Padding
+    #define BGNET_FMT_DIVPAD_DIV    0xC0     // bits 7,6      - Divisor
+    #define BGNET_FMT_DIVPAD_PAD    0x30     // bits 5,4      - Padding
+    #define BGNET_FMT_DT            0x0F     // bits 3,2,1,0  - DataType
+    #define BGNET_FMT_ALARM         0x10     // bit 4         - Alarmbit
+                                             // a 'alarm-capable-originating' node (like QUAD) will beep when it receives the alarmbit,
+                                             // also if that channel does not have alarm capabilities (settable alarm limits)
 
 // DATA/LATLON commands (CMD={1|3}) sends instrument data by 'Channel', each idetified by a 'Channel Number' 
-#define BGNET_CHANNEL_MAX           0x0100 // 0x00-0xFF, both included
+#define BGNET_CHANNEL_MAX               0x0100 // 0x00-0xFF, both included
 
-#define BGNET_CHN_00_NODERESET        0X00
-#define BGNET_CHN_01_UNKNOWN          0X01
-#define BGNET_CHN_03_UNKNOWN          0X03
-#define BGNET_CHN_07_AP_FR            0X07  // FR - Fault Reporting. When PILOT receives this channel, causes PILOT to display an error message and to 'freeze'
+#define BGNET_CHN_00_NODERESET          0x00
+#define BGNET_CHN_01_UNKNOWN            0x01
+#define BGNET_CHN_03_UNKNOWN            0x03
+#define BGNET_CHN_07_AP_FR              0x07  // FR - Fault Reporting. When PILOT receives this channel, causes PILOT to display an error message and to 'freeze'
                                             // 0x00 = "UNCOMIS"      This channelID is also used in PILOT/SETUP/FR option SELECT.
                                             // 0x01 = "INT CMP"      To ' 'un-freeze' you need to cycle power on the PILOT
                                             // 0x02 = "RUD ERR"
@@ -277,7 +276,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                             // 0x0D = "ERR ERR"
                                             // 0x0E = "ERR ERR"
                                             // 0x0F = "ERR ERR"
-#define BGNET_CHN_0B_RUDDER           0X0B  // range (-,PORT)<99 or >99(+,STARBOARD)
+#define BGNET_CHN_0B_RUDDER             0x0B  // range (-,PORT)<99 or >99(+,STARBOARD)
 //#define BGNET_CHN_0C_LINEAR5          0x0C
 //#define BGNET_CHN_0D_LINEAR6          0x0D
 //#define BGNET_CHN_0E_LINEAR7          0x0E
@@ -892,5 +891,17 @@ void NMEAinit(NMEA2K_VALUE*, time_t);
 #define BGN_CMD_ASCII_SEP   " /.../ "
 #define BGN_CMD_DATA_TAIL           6
 char* CommandToAscii(char*, size_t, FRAME_H*);
+
+// we use a option string to allow for spacing, and output formatting
+#define BYTE2ASCII_EMPTY     0
+#define BYTE2ASCII_NOTEVEN  -1
+#define BYTE2ASCII_NOTHEX   -2
+#define BYTE2ASCII_PLAIN    2   // continous string:        00010203 .... FEFF  -> 1 byte takes 2 characters
+#define BYTE2ASCII_SPACED   3   // space between bytes:     00 01 02 03 .... FE FF -> 1 bytes take 3 characters
+#define BYTE2ASCII_HEXED    5   // every byte preceeded by  0x00 0x01 0x02 0x03 .... 0xFE 0xFF -> 1 bytes take 5 characters
+char* byte2ascii(char*, size_t, unsigned char*, size_t, int);
+int16_t hex2bin(unsigned char);
+int16_t ascii2byte(unsigned char *, char *, size_t);
+int16_t ascii2frame(FRAME_H *, char *, size_t *);
 
 #endif

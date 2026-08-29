@@ -1,7 +1,8 @@
 #include "app_state.h"
+#include "config.h"
+#include "bgnprotocol.h"
 #include "logger.h"
 #include <stdio.h>
-#include <limits.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <string.h>
@@ -80,38 +81,38 @@ void log_debug(const char *fmt, ...) {
     va_end(ap);
 }
 
-// convert a ASCII/HEX character to binary (0-15), or -1 if not hex
+// convert a ASCII/HEX character to binary (0-15), return -1 if not hex
 // note we use a signed character to be able to return a error condition
 int16_t hex2bin(unsigned char ucHex) {
     int16_t r;
     switch (ucHex) {
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-            r = ucHex - '0';
+        case BGNET_ASC_0:
+        case BGNET_ASC_1:
+        case BGNET_ASC_2:
+        case BGNET_ASC_3:
+        case BGNET_ASC_4:
+        case BGNET_ASC_5:
+        case BGNET_ASC_6:
+        case BGNET_ASC_7:
+        case BGNET_ASC_8:
+        case BGNET_ASC_9:
+            r = ucHex - BGNET_ASC_0;
             break;
-        case 'A':
-        case 'B':
-        case 'C':
-        case 'D':
-        case 'E':
-        case 'F':
-            r = ucHex - 'A' + 10;
+        case BGNET_ASC_A:
+        case BGNET_ASC_B:
+        case BGNET_ASC_C:
+        case BGNET_ASC_D:
+        case BGNET_ASC_E:
+        case BGNET_ASC_F:
+            r = ucHex - BGNET_ASC_A + 10;
             break;
-        case 'a':
-        case 'b':
-        case 'c':
-        case 'd':
-        case 'e':
-        case 'f':
-            r = ucHex - 'a' + 10;
+        case BGNET_ASC_a:
+        case BGNET_ASC_b:
+        case BGNET_ASC_c:
+        case BGNET_ASC_d:
+        case BGNET_ASC_e:
+        case BGNET_ASC_f:
+            r = ucHex - BGNET_ASC_a + 10;
             break;
         default:
             r = -1;
@@ -122,34 +123,54 @@ int16_t hex2bin(unsigned char ucHex) {
 int16_t ascii2byte(unsigned char *OutByte, char *InString, size_t size) {
     size_t i;
     int16_t r, ucLo, ucHi;
-    // initialize return value
-    r = 0;
-    // for every 2 ASCII characters (bytes), we need at least 1 binary byte
-    if (strlen(InString) > (size * 2)) {
-        r = -1; // too many ascii characters to fit into the binary array
-    } else {
-        if (strlen(InString) & 0x01) {
-            // we must always have an even number of ASCII characters
-            r = -2; // odd number of ascii/hex
-        } else {
-            if (size > SHRT_MAX) {
-                r = -3; // we return the bytecount as a signed byte so we are limited
+    r = 0;  // initialize return value
+    // input string must be a multiple of 2
+    if ((strlen(InString)%2) == 0) {
+        for (i=0; i<BGNET_MIN((strlen(InString)*2), size); i++) {
+            ucHi = hex2bin(InString[i*2 + 0]);
+            ucLo = hex2bin(InString[i*2 + 1]);
+            if ((ucHi < 0) | (ucLo < 0)) {
+                r = BYTE2ASCII_NOTHEX;
+                break;
             } else {
-                for (i=0; i< (strlen(InString)/2); i++) {
-                    ucHi = hex2bin(InString[i*2 + 0]);
-                    ucLo = hex2bin(InString[i*2 + 1]);
-                    if ((ucHi < 0) | (ucLo < 0)) {
-                        r = -4; // not hex
-                        break;
-                    } else {
-                        // we work per byte, so we do not deal with endieness
-                        OutByte[i] = ((ucHi & 0x0F) << 4) | (ucLo & 0x0F);
-                    }
-                }
-                if (r == 0) {
-                    r = i - 1; // number of bytes in OutByte
-                }
+                // we work per byte, so we do not deal with endieness, we can shift the nibbles as we need
+                OutByte[i] = ((ucHi & 0x0F) << 4) | (ucLo & 0x0F);
             }
+        }
+        if (r == 0) {
+            r = i; // number of bytes in OutByte. Note: if r>size, the ascii string might be missing the last portion
+        }
+    } else {
+        // we must always have an even number of ASCII characters
+        r = BYTE2ASCII_NOTEVEN; // odd number of ascii/hex
+    }
+    return(r);
+}
+int16_t ascii2frame(FRAME_H *pF, char *pString, size_t *pOffset) {
+    int16_t r, len_msg;
+    size_t offset = 0;
+    if (pOffset != NULL) offset = *pOffset;
+    // convert the ascii/hex string into a binary frame (just the header)
+    r = ascii2byte((unsigned char *)pF, &pString[offset], BGNET_FRAME_HEAD);
+    if (r == BYTE2ASCII_EMPTY) {
+        // no more data in source string, just return it
+    } else {
+        if (r > 0) {
+            len_msg = bgnet_sizeof_frame(pF);
+            if (len_msg > r) {
+                // frame is bigger than just the header; re-read the frame with the header + payload
+                // (i know i could just add reading the payload to the exsiting header, but that is too complex at this point)
+                r = ascii2byte((unsigned char *)pF, &pString[offset], len_msg);
+                if (r > 0) {
+                    if (pOffset != NULL) *pOffset = *pOffset + len_msg; // (incase we come back to read a buffer with subframes)
+                } else {
+                    // r must contain a negative error code; just return it
+                }
+            } else {
+                // seems to be a frame without payload, it already have it
+            }
+        } else {
+            // r must contain a negative error code; just return it
         }
     }
     return(r);
@@ -162,19 +183,19 @@ int16_t ascii2byte(unsigned char *OutByte, char *InString, size_t size) {
 //       log_info("Received: %s (%d bytes)", asciibuf, n);
 char* byte2ascii(char *string, size_t size, unsigned char *input, size_t len, int option) {
     size_t i;
-    const char hex[16]={'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+    const char hex[16]={BGNET_ASC_0,BGNET_ASC_1,BGNET_ASC_2,BGNET_ASC_3,BGNET_ASC_4,BGNET_ASC_5,BGNET_ASC_6,BGNET_ASC_7,BGNET_ASC_8,BGNET_ASC_9,BGNET_ASC_A,BGNET_ASC_B,BGNET_ASC_C,BGNET_ASC_D,BGNET_ASC_E,BGNET_ASC_F};
     switch (option) {
         case  BYTE2ASCII_PLAIN:
             for (i=0;i<BGNET_MIN(size/2-1,len);i++){        // leave 1 byte in the target string for the null-terminator
-                string[i*2+0] = hex[((input[i]>>4)&0xF)];   // high nibble
-                string[i*2+1] = hex[(input[i]&0xF)];        // low nibble
+                string[i*2+0] = hex[((input[i]>>4)&0x0F)];  // high nibble
+                string[i*2+1] = hex[(input[i]&0x0F)];       // low nibble
             }
             string[i*2+0] = BGNET_ASC_NULL;
             break;
         case  BYTE2ASCII_SPACED:
             for (i=0;i<BGNET_MIN(size/3-1,len);i++){        // leave 1 byte in the target string for the null-terminator
-                string[i*3+0] = hex[((input[i]>>4)&0xF)];   // high nibble
-                string[i*3+1] = hex[(input[i]&0xF)];        // low nibble
+                string[i*3+0] = hex[((input[i]>>4)&0x0F)];  // high nibble
+                string[i*3+1] = hex[(input[i]&0x0F)];       // low nibble
                 string[i*3+2] = BGNET_ASC_SPACE;
             }
             string[i*3+0] = BGNET_ASC_NULL;
@@ -183,8 +204,8 @@ char* byte2ascii(char *string, size_t size, unsigned char *input, size_t len, in
             for (i=0;i<BGNET_MIN(size/5-1,len);i++){        // leave 1 byte in the target string for the null-terminator
                 string[i*5+0] = BGNET_ASC_0;
                 string[i*5+1] = BGNET_ASC_x;
-                string[i*5+2] = hex[((input[i]>>4)&0xF)];   // high nibble
-                string[i*5+3] = hex[(input[i]&0xF)];        // low nibble
+                string[i*5+2] = hex[((input[i]>>4)&0x0F)];  // high nibble
+                string[i*5+3] = hex[(input[i]&0x0F)];       // low nibble
                 string[i*5+4] = BGNET_ASC_SPACE;
             }
             string[i*5+0] = BGNET_ASC_NULL;
