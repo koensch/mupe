@@ -67,7 +67,7 @@ BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 //       the application attempts to adjust the value and divisor to get the compatible display representation.
 //       This FMT is only used for creating output (write) DATA commands (0x01) for DataType 1 and 8. For incoming
 //       messages, the sender(s) alread did the scaling for us.
-BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
+BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     //Index                      Label              FMT         From             Freq  Phase   CMD02          CMD_06  Import/Export enable  Import From          Export To            PGN SK
     {0,                          "UNKNOWN 00",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 01",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -301,13 +301,13 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX+1] = { \
     {0,                          "UNKNOWN E5",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN E6",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN E7",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_E8_WPD,           "NMEA/RMB/WPD",    BGN_FMT_08, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_E8_WPD,           "NMEA/RMB/WPD",    BGN_FMT_88, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN E9",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 129026,  ""},\
     {0,                          "UNKNOWN EA",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_EB_SOG,           "NMEA/VTG/SOG",    BGN_FMT_08, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 129026,  ""},\
     {0,                          "UNKNOWN EC",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN ED",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_EE_XTE,           "NMEA/RMB/XTE",    BGN_FMT_01, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_EE_XTE,           "NMEA/RMB/XTE",    BGN_FMT_81, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN EF",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN F0",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN F1",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\

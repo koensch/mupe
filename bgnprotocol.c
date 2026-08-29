@@ -480,7 +480,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter, t);
 
-        pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue = -0.1234;
+        pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue = -1.234;
         pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
 
@@ -1121,24 +1121,28 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-//#define INCLUDE_WIND
-#ifdef INCLUDE_WIND
-
-#endif
 //#define INCLUDE_NAV
 #ifdef INCLUDE_NAV
+
+    c = BGNET_CHN_98_NMEA_ACTIVE;
+    puCH = (union CH *)&(payload[r]);
+    puCH->s.CH = c;
+    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     c = BGNET_CHN_EE_XTE;
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    // always shows 2 digits <1.23 or >1.23. if it's bigger that 9.99 miles you
-    // are soo off that a few digits dont's make a difference
-    // do not use encode_channel_double(() with autoscaling
+    // always shows 2 digits <1.23 or >1.23. any value > 9.99 is shown as 9.99
+    // (if you are soo far off-track, it doen not matter if it's 9.99 or 15.9 NM)
+    // do not use encode_channel_double(() with autoscaling does not work here
+    // negative is displayed as "<0.12" (XTE to port, drifted to the left, steer right), positive value 
+    // is displayed as ">0.12" (XTE to starboard, drifted to the right, steer left)
     puCH->s.cv.sW[0] = htons(DTOIROUND(pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue * 100.0));
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
    
-    c = BGNET_CHN_A7_AP_WPB;
+    c = BGNET_CHN_DE_WPB;
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -1152,10 +1156,14 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.sW[0] = htons(DTOIROUND(pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue * 100.0));
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
+    // appearently, the PILOT transmits 0xFB/WPID when received via NMEA input. But when send
+    // this channel to the PILOT, it does not display in on the screen.
+    // (WPD, WPB, XTE, also received via NMEA are correctly displayed when received over the network)
     c = BGNET_CHN_FB_WPID;
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    puCH->s.FMT = BGN_FMT_0A;
     switch (strlen(pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString)) {
         case 0:
             puCH->s.cv.uB[0] = BGNET_ASC_QUEST;
@@ -1186,9 +1194,14 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
             puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[1];
             puCH->s.cv.uB[2] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[2];
             puCH->s.cv.uB[3] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[3];
+            puCH->s.cv.uB[0] = BGNET_ASC_A;
+            puCH->s.cv.uB[1] = BGNET_ASC_A;
+            puCH->s.cv.uB[2] = BGNET_ASC_A;
+            puCH->s.cv.uB[3] = BGNET_ASC_A;
             break;
     }
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
 #endif
 
     return(r);
@@ -2010,6 +2023,11 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
 
         switch (pFRx->CMD) {
             case BGNET_CMD_01_DATA:  // do not log DATA/0x01 frames
+                if (pFRx->FROM == BGNET_TYPE_NETACP) {
+                    // do not print
+                } else {
+                    log_debug_frame(pFRx);
+                }
                 break;
             default:
                 log_debug_frame(pFRx);
@@ -3292,13 +3310,28 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 }
                                                 break;
                                             case BGNET_CMD_DC_PILOT_STEPREQ:
-                                                // the <10, >10, <1, >1 key was pressed, 2 bytes payload (at the same time also B1 with +/- 10/1)
-                                                // 0=ACKSEQ, 1=0xA6
-                                                // AT THE SAME TIME also a CMD_B1/A6 command is send with the actual value (-10,+10,-1 or +1)
                                                 switch(pCHRx->s.CH) {
+                                                    // the <10, >10, <1, >1 key was pressed, 2 bytes payload (at the same time also B1 with +/- 10/1)
+                                                    // 0=ACKSEQ, 1=0xA6
+                                                    // AT THE SAME TIME also a CMD_B1/A6 command is send with the actual value (-10,+10,-1 or +1)
                                                     case BGNET_CHN_A6_AP_CTS:
                                                         CounterUp(&pCtrl->BGNET.PILOT.KEY.COURSE, t);
                                                         // create command with current CTS value, but i do not know what command to use for REPLY
+                                                        break;
+                                                    // while NXT is flashing, the AUTO key is pressed twice. We receive a 2-byte payload:
+                                                    // - ACKSEQ
+                                                    // - CHID
+                                                    case BGNET_CHN_DE_WPB:
+                                                        // copy the value from channel WPB to CTS, save current CTS into MEM
+                                                        pCtrl->BGNET.ACP.MEM.value.nLong = pCtrl->BGNET.ACP.CTS.value.nLong;
+                                                        pCtrl->BGNET.ACP.MEM.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.ACP.MEM.Counter, t);
+                                                        // set the Tx pointer to the most recent received value for this channel
+                                                        pCHTx = (union CH *)&pCtrl->CHN[pCHRx->s.CH].x01.ucRAW;
+                                                        // retrieve the most recent value and put it in our CTS
+                                                        pCtrl->BGNET.ACP.CTS.value.nLong = ntohs(pCHTx->s.cv.uW[0]);
+                                                        pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
                                                         break;
                                                 }
                                                 break;

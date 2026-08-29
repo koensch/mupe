@@ -495,9 +495,10 @@ union CH {
 #pragma pack()
 
 // divisor may be used to scale the value to more digits
-#define BGN_FMT_00      0x00        // FMT initialized
+#define BGN_FMT_00      0x00        // No data
 #define BGN_FMT_01      0x01        // 16 bit signed register, is used for a value that falls in range -255/+255 (rudder position, wind angle, temperature)
                                     // optionally scaled down to 25.5, 2.55, 0.255 using the divisor
+#define BGN_FMT_81      0x81        // used by 0xEE, XTE (fixed divisor 100x, signed, +/-, range 0-9.99)
 #define BGN_FMT_91      0x91
 #define BGN_FMT_03      0x03        // Timer value (5 bytes, 0x75 only), last 3 bytes are HH:MM:SS
 #define BGN_FMT_02      0x02        // 32 bit unsigned register (6 bytes) 
@@ -513,9 +514,10 @@ union CH {
                                     // confirmed (press any key on a ALARM capable device) or the alarm state is returned to normal
                                     // (a null-string) is send.
 #define BGN_FMT_08      0x08        // 16 bit unsigned register (0-999), optionally scaled down to 99.9, 9.9 0r 0.9 using the divisor
-#define BGN_FMT_48      0x48        // used by channel 0xCF, TRIPLOGNM (with divisor = 10)
 #define BGN_FMT_18      0x18        // used by WA and OC
-#define BGN_FMT_0A      0x0A        // used by WPID channel 0xFB
+#define BGN_FMT_48      0x48        // used by channel 0xCF, TRIPLOGNM (with fixed divisor = 10)
+#define BGN_FMT_88      0x88        // used by channel 0xE8, WPD (with fixed divisor = 100)
+#define BGN_FMT_0A      0x0A        // used by 0xFB, WPID, 4 ASCII characters
 #define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
 #define BGN_FMT_0F      0x0F        // Boolean/switch value: 0x0F= Off, 0x1F= On
     #define BGNET_FMT_ON    0x1F
