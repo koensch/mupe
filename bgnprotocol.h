@@ -590,7 +590,9 @@ typedef struct {
 
 // register device statistics
 typedef struct {
-    BGNET_COUNT PowerUp; // POWERUP command seen
+    BGNET_COUNT PowerUp_Seen; // POWERUP command counter
+    uint16_t PowerUp_InitSeen; // POWERUP init observed
+    uint16_t PowerUp_InitDone; // POWERUP init done
     int iNewDevice; // New DEVICE data might have been received
     BGNET_COUNT CounterRx;
     int iCSError_Header;

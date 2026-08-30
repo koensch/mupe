@@ -384,7 +384,8 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         CounterUp(&g_n2kdata.wind.baro.Counter, t);
     }
 
-    // pilot information from navigation systems, autopilot, trip planners
+    // PILOT navigation information
+
     // curl --data "{\"cts\":128.9}" http://localhost:8080/api/update
     if (cts) {
         g_n2kdata.pilot.cts.value.dValue = cts->valuedouble;
@@ -403,6 +404,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
     }
+    // curl --data "{\"vmg\":6.54}" http://localhost:8080/api/update
     if (vmg) {
         g_n2kdata.pilot.vmg.value.dValue = vmg->valuedouble;
         g_n2kdata.pilot.vmg.source = BGN_SOURCE_API;
@@ -412,7 +414,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
     }
 
-    // autopilot control
+    // PILOT control
 
     // curl --data "{\"ap_state\":\"off\"}" http://localhost:8080/api/update
     // curl --data "{\"ap_state\":\"auto\"}" http://localhost:8080/api/update
@@ -432,6 +434,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // curl --data "{\"ap_mode\":\"nav\"}" http://localhost:8080/api/update
     // curl --data "{\"ap_mode\":\"vane\"}" http://localhost:8080/api/update
     // curl --data "{\"ap_mode\":\"comp\"}" http://localhost:8080/api/update
+    // note: when using the MODE button on PILOT, it will switch to VANE mode
     if (ap_mode) {
         if (strcmp(ap_mode->valuestring, "comp") == 0) {
             pCtrl->BGNET.ACP.MODE.value.nByte = (pCtrl->BGNET.ACP.MODE.value.nByte & ~BGN_AP_MODE2_MASK_MODE) | BGN_AP_MODE2_COMP; // set COMP pattern
@@ -470,6 +473,9 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
             // nothing to do
         }        
     }
+
+    // NETWORK control
+
     // curl --data "{\"lights\":{0|3|2|1}}" http://localhost:8080/api/update
     FRAME_H FTx, FRx;
     unsigned char payload[BGNET_FRAME_PAYLOAD_MAX];
@@ -502,8 +508,13 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // The frame shall consist of a string containg a hex-formatted characters.
     // This example sets the LIGHTS to 3. With this command you can allso make "specific lights" command
     // (switch on/off the lights on a specific node) which is not possible with the BGN 'LIGHTS' button.
+
     // via the API, you can also send a CMD to the ACP, example to simulate the AUTO key pressed on PILOT:
     // curl --data "{\"frame\":\"00 50 05 D3 D8 0E B5 01 00 01 E6\"}" http://localhost:8080/api/update
+    // to simulate the POWERUP of a WIND module:
+    // curl --data "{\"frame\":\"FF 70 00 0A 87\"}" http://localhost:8080/api/update
+    // to simulate data from WIND:
+    // curl --data "{\"frame\":\"FF 70 20 01 70 8D 48 00 78 50 88 04 05 4E 88 00 00 51 01 00 64 52 08 00 00 57 88 05 D7 59 01 00 89 7F 88 FD 59 9B\"}" http://localhost:8080/api/update
     //
     if (frame) {
         // convert the received ascii/hex bytes as a binary frame, check the validity (do not support subframes)
@@ -648,7 +659,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
                         ((pCtrl->DEV[i].source == BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
                         i,
                         pCtrl->pDEVDT[x].sProdName,
-                        pCtrl->DEV[i].PowerUp.iCounter,
+                        pCtrl->DEV[i].PowerUp_Seen.iCounter,
                         pCtrl->pDEVDT[x].iEnable,
                         pCtrl->DEV[i].CounterRx.iCounter,
                         (t - pCtrl->DEV[i].CounterRx.tTimestamp),
@@ -758,11 +769,11 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm interval [1-360 Minutes]", pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_MIN.source), pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm level [1-99 Deg]", pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_DEG.source), pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_STAT.source), pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_STAT.source), pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/DMP", "Compass Damping [1-99 sec, 4=default]", pCtrl->BGNET.PILOT.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.DMP.source), pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte);
     strcat(Buffer, cLine);
