@@ -2814,7 +2814,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         // to receive the CMDACK, preventing an error beep
                                                         break;
                                                     case BGNET_CHN_A7_AP_WPB:
-                                                        // happens when PILOT wants 'some unknown value' ACP. I do not know
+                                                        // happens when PILOT wants 'some unknown value' from the ACP. I do not know
                                                         // what command to use, so i do not do anything. At least is makes the PILOT
                                                         // to receive the CMDACK, preventing an error beep
                                                         break;
@@ -3318,9 +3318,20 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         CounterUp(&pCtrl->BGNET.PILOT.KEY.COURSE, t);
                                                         // create command with current CTS value, but i do not know what command to use for REPLY
                                                         break;
-                                                    // while NXT is flashing, the AUTO key is pressed twice. We receive a 2-byte payload:
-                                                    // - ACKSEQ
-                                                    // - CHID
+                                                    // when a new set of navigation data is received via the NMEA port, the message "NXT xxx"
+                                                    // is displayed
+                                                    // While NXT is flashing, the AUTO key is pressed twice. We receive a 2-byte payload:
+                                                    // FF 50 02 DC D3 8D DE 3F
+                                                    // - ACKSEQ (do not send a CMDACK to a broadcast)
+                                                    // - CHID, 0xDE/WPB
+                                                    // This commands translate to "copy the value from CHN 0xDE/WPB to CHN 0xA6/CTS"
+                                                    // This only works if the navigation data is received via the NMEA port on the PILOT.
+                                                    // If we send WPID, WPB and WPD via the network, the pilot does not detect a new course
+                                                    // (and does not start flashing NXT). Networked WPB and WPD are displayed on PILOT, but WPID
+                                                    // is not.
+                                                    // As long as the WPID stays the same, PILOT thinks we're still on the same leg (also if the
+                                                    // positional or WPB data is changed)
+                                                    // What the difference between 0xDE/WPB and 0xA7/WPB is not yet clear
                                                     case BGNET_CHN_DE_WPB:
                                                         // copy the value from channel WPB to CTS, save current CTS into MEM
                                                         pCtrl->BGNET.ACP.MEM.value.nLong = pCtrl->BGNET.ACP.CTS.value.nLong;
