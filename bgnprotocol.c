@@ -599,15 +599,15 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.WIND.BATTERY.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.WIND.BATTERY.Counter, t);
 
-        pCtrl->BGNET.WIND.SETUP.DS.value.nLong = 0;
+        pCtrl->BGNET.WIND.SETUP.DS.value.nLong = 4;
         pCtrl->BGNET.WIND.SETUP.DS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.WIND.SETUP.DS.Counter, t);
 
-        pCtrl->BGNET.WIND.SETUP.DA.value.nLong = 0;
+        pCtrl->BGNET.WIND.SETUP.DA.value.nLong = 4;
         pCtrl->BGNET.WIND.SETUP.DA.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.WIND.SETUP.DA.Counter, t);
 
-        pCtrl->BGNET.WIND.SETUP.OF.value.nLong = 0;
+        pCtrl->BGNET.WIND.SETUP.OF.value.nLong = 4;
         pCtrl->BGNET.WIND.SETUP.OF.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.WIND.SETUP.OF.Counter, t);
 
@@ -1060,6 +1060,52 @@ int makeWINDresponseSHORT(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
     return(r);
 }
+// Send WIND/SETUP parameters 
+size_t sendWINDSETUP(BGNET_CTRL *pCtrl, unsigned char ucTO, unsigned char ucFROM) {
+    size_t len_msg, TxSize;
+    union CH *puCH;
+    FRAME_H *pFTx;
+    unsigned char TxBuf[1024], payload[16];
+
+    len_msg = 0;
+    TxSize = 0;
+
+    pFTx = (FRAME_H *)&TxBuf[TxSize];
+    payload[0] = 0; // ACKSEQ
+    puCH = (union CH *)&payload[1];
+    puCH->s.CH = BGNET_CHN_50_AWS;
+    puCH->s.FMT = BGN_FMT_08;
+    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.WIND.SETUP.DS.value.nLong);
+    len_msg =  bgnet_encode_frame(pFTx, ucTO, ucFROM, BGNET_CMD_CE_PILOT_DMPDAT, payload, 5);
+    TxSize = TxSize + len_msg;
+
+    pFTx = (FRAME_H *)&TxBuf[TxSize];
+    payload[0] = 0; // ACKSEQ
+    puCH = (union CH *)&payload[1];
+    puCH->s.CH = BGNET_CHN_51_AWA;
+    puCH->s.FMT = BGN_FMT_08;
+    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.WIND.SETUP.DA.value.nLong);
+    len_msg =  bgnet_encode_frame(pFTx, ucTO, ucFROM, BGNET_CMD_CE_PILOT_DMPDAT, payload, 5);
+    TxSize = TxSize + len_msg;
+
+    pFTx = (FRAME_H *)&TxBuf[TxSize];
+    payload[0] = 0; // ACKSEQ
+    puCH = (union CH *)&payload[1];
+    puCH->s.CH = BGNET_CHN_51_AWA;
+    puCH->s.FMT = BGN_FMT_01;
+    puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.WIND.SETUP.OF.value.nLong);
+    len_msg =  bgnet_encode_frame(pFTx, ucTO, ucFROM, BGNET_CMD_D3_PILOT_AM, payload, 5);
+    TxSize = TxSize + len_msg;
+
+    // put it for transmission
+    pthread_mutex_lock(&g_data_mutex);
+    memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+    g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
+    pthread_mutex_unlock(&g_data_mutex);
+
+    return(TxSize);
+}
+
 
 int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
@@ -2138,8 +2184,8 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                             break;
                         case BGNET_CMD_0A_POWERUP:
                             CounterUp(&pCtrl->DEV[pFRx->FROM].PowerUp_Seen, t);
-                            pCtrl->DEV[pFRx->FROM].PowerUp_InitSeen = 1;
-                            pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 0;
+                            pCtrl->DEV[pFRx->FROM].PowerUp_InitSeen = 1;  // set 'PowerUp seen'
+                            pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 0;  // reset 'Init done' (force init)
                             // when we receive this message one (or more) devices went though the startup process (ie. power was
                             // switch ON while we (the ACP) were still running.
                             // At this moment i see no reason to do something special at this occasion. Realise that most networks
@@ -2153,32 +2199,53 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                             //bgnet_initialize_reset(pCtrl);
 
                             // if this device was enabled for use
-                            if (pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, pFRx->FROM)].iEnable == 1) {
+                            if (pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, pFRx->FROM)].iEnable == 0) {
+                                // sorry, never had this type of device in my hands and could not guarentee predictable outcome. forget it for the time being
+                            } else {
                                 // if powerup is complete, but initialisation not done
-                                if ((pCtrl->DEV[pFRx->FROM].PowerUp_InitSeen == 1) & (pCtrl->DEV[pFRx->FROM].PowerUp_InitDone == 0)) {
-                                    // node needs initialisation by device type
-                                    switch (pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, pFRx->FROM)].iDeviceType & BGNET_TYPE_MASK) {
-                                        case (BGNET_TYPE_NETWIND & BGNET_TYPE_MASK):
-                                            // initialize WIND
-                                            log_debug("Initializing WIND");
-                                            pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
-                                            break;
-                                        case (BGNET_TYPE_NETQUAD & BGNET_TYPE_MASK):
-                                            // initialize DEPTH & SPEED
-                                            log_debug("Initializing QUAD");
-                                            pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
-                                            break;
-                                        case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
-                                            // initialize PILOT
-                                            log_debug("Initializing PILOT");
-                                            pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
-                                            break;
-                                        default:
-                                            // other nodes (like DATA) do not require initialisation
-                                            pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
-                                            break;
+                                if (pCtrl->DEV[pFRx->FROM].PowerUp_InitSeen == 0) {
+                                    // not a PowerUp CMD received, we do not know for sure the node is up-and-running
+                                    // note: This situation may occur when the NETWORK is running and we (re)start our
+                                    //       application/service. That is not a problem, because the nodes might have
+                                    //       been initialized the previous time.
+                                    //       if some changes were made to our application that require the nodes to
+                                    //       reinitialize, the solution is to power-reset the NETWORK.
+                                } else {
+                                    if (pCtrl->DEV[pFRx->FROM].PowerUp_InitDone == 0) {
+                                        // node needs initialisation by device type
+                                        // note: the initialisation we do here is sending the settings from our variables to
+                                        //       the nodes. Every devicetype has different set of settings.
+                                        //       This is how we ensure the default settings from our application are set into
+                                        //       the nodes memory.
+                                        //       Realise that after 30 years the battery-backup of the nodes are not able to
+                                        //       maintain the memory powered. They will fall-back to their internal defaults.
+                                        //       So we write our settings out when we see a PowerUp command.
+                                        switch (pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, pFRx->FROM)].iDeviceType & BGNET_TYPE_MASK) {
+                                            case (BGNET_TYPE_NETWIND & BGNET_TYPE_MASK):
+                                                // initialize WIND
+                                                log_debug("Initializing WIND");
+                                                sendWINDSETUP(pCtrl, pFRx->FROM, BGNET_TYPE_NETACP);
+                                                pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
+                                                break;
+                                            case (BGNET_TYPE_NETQUAD & BGNET_TYPE_MASK):
+                                                // initialize DEPTH & SPEED
+                                                log_debug("Initializing QUAD");
+                                                //pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
+                                                break;
+                                            case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
+                                                // initialize PILOT
+                                                log_debug("Initializing PILOT");
+                                                //pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
+                                                break;
+                                            default:
+                                                // other nodes (like DATA) do not require initialisation
+                                                pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
+                                                break;
+                                        }
+                                    } else {
+                                        // node is already initialized, nothing to do
                                     }
-                                }        
+                                }
                             } 
                             break;
                         default:

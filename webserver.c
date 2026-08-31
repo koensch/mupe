@@ -616,7 +616,7 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->databits,
                                             pCtrl->pCfg->stopbits,
                                             pCtrl->pCfg->mode,
-                                            (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong>0?"<text style='color:green;'>OK</text>":"<text style='color:red;'>FLUNK</text>"),
+                                            (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong>0?"<text style='color:green;'><b>OK</b></text>":"<text style='color:red;'><b>FLUNK</b></text>"),
                                             BGNET_TYPE_NETACP,
                                             pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_TYPE_NETACP)].sProdName
                                         );
@@ -635,7 +635,7 @@ static char* html_device_top(char *Buffer) {
         "<h3>NETWORK nodes</h3>"
         "<table>"
         "<tr><th colspan='4'>Device</th><th colspan='5'>Rx (input FROM node)</th><th colspan='3'>Tx (output TO node)</th></tr>"
-        "<tr><th>Node</th><th>Type</th><th>PowerUp Command</th><th>Enabled</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>CS Err/Head</th><th>CS Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
+        "<tr><th>Node</th><th>Type</th><th>Enabled</th><th colspan='2'>PowerUp</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>CS Err/Head</th><th>CS Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -645,7 +645,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     time_t t;
     char cLine[512], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII];
     const char *cDevRow =
-        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -659,8 +659,9 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
                         ((pCtrl->DEV[i].source == BGN_SOURCE_BGNET)?"":"bgcolor='#dbdbdb'"),
                         i,
                         pCtrl->pDEVDT[x].sProdName,
-                        pCtrl->DEV[i].PowerUp_Seen.iCounter,
                         pCtrl->pDEVDT[x].iEnable,
+                        pCtrl->DEV[i].PowerUp_Seen.iCounter,
+                        pCtrl->DEV[i].PowerUp_InitDone,
                         pCtrl->DEV[i].CounterRx.iCounter,
                         (t - pCtrl->DEV[i].CounterRx.tTimestamp),
                         CommandToAscii(asciibufRx, sizeof(asciibufRx), &pCtrl->DEV[i].Rx.FH),
@@ -746,9 +747,9 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK", "Backlight [0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", pCtrl->BGNET.NETWORK.BackLight.Counter.iCounter, t-pCtrl->BGNET.NETWORK.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.NETWORK.BackLight.source), pCtrl->BGNET.NETWORK.BackLight.value.nByte);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/AUTO", "AUTO key pressed", pCtrl->BGNET.PILOT.KEY.AUTO.iCounter, t-pCtrl->BGNET.PILOT.KEY.AUTO.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/AUTO", "AUTO key pressed (only when in STBY)", pCtrl->BGNET.PILOT.KEY.AUTO.iCounter, t-pCtrl->BGNET.PILOT.KEY.AUTO.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/OFF", "OFF key pressed", pCtrl->BGNET.PILOT.KEY.OFF.iCounter, t-pCtrl->BGNET.PILOT.KEY.OFF.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/OFF", "OFF key pressed (always)", pCtrl->BGNET.PILOT.KEY.OFF.iCounter, t-pCtrl->BGNET.PILOT.KEY.OFF.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/COURSE", "COURSE key (<10,<1,10>,1>) pressed", pCtrl->BGNET.PILOT.KEY.COURSE.iCounter, t-pCtrl->BGNET.PILOT.KEY.COURSE.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
     strcat(Buffer, cLine);
