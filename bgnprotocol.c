@@ -1380,11 +1380,11 @@ int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.WIND.TWA.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    // is calculated, displayed by DATA (based on inputs from WIND and SPEED/QUAD)
+    // is calculated by WIND (using speed data from SPEED or QUAD), displayed by DATA
 
-    //c = BGNET_CHN_7F_VMG;
-    //puCH = (union CH *)&(payload[r]);
-    //r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.VMG.value.dValue, 0);
+    c = BGNET_CHN_7F_VMG;
+    puCH = (union CH *)&(payload[r]);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.VMG.value.dValue, 0);
 
     // TARGET TWA is set PILOT in VANE mode
 
@@ -2220,21 +2220,36 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
         len_pl = 0;
         len_msg = 0;
 
-        switch (pFRx->CMD) {
-            case BGNET_CMD_01_DATA:  // do not log every DATA/0x01 frames
-                switch (pFRx->FROM) {
-                    case BGNET_TYPE_NETACP:
-                    case BGNET_TYPE_NETQUAD:
-                            // do not log
-                            break;
+        switch (g_serial_mode) {
+            case BGN_SERIAL_MODE_RW:
+                // in RW mode, do not log any DATA command
+                switch (pFRx->CMD) {
+                    case BGNET_CMD_01_DATA:
+                        break;
                     default:
                         log_debug_frame(pFRx);
                         break;
                 }
                 break;
             default:
-                log_debug_frame(pFRx);
-                break;           
+                // do not log some DATA/0x01 commands
+                switch (pFRx->CMD) {
+                    case BGNET_CMD_01_DATA:
+                        switch (pFRx->FROM) {
+                            case BGNET_TYPE_NETACP:
+                            case BGNET_TYPE_NETQUAD:
+                                // do not log
+                                break;
+                            default:
+                                log_debug_frame(pFRx);
+                                break;
+                        }
+                        break;
+                    default:
+                        log_debug_frame(pFRx);
+                        break;                    
+                }
+                break;
         }
 
         // sorry, but the code branch and switch/cases have become more complex than i ever envisaged. It was developped over

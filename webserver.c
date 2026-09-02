@@ -449,6 +449,11 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
             pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_API;
             CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t);
         } else {
+            if (strlen(ap_mode->valuestring) == 2) {
+                pCtrl->BGNET.ACP.MODE.value.nByte = ((hex2bin(ap_mode->valuestring[0]) & 0x0F) << 4) | (hex2bin(ap_mode->valuestring[1]) & 0x0F);
+                pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_API;
+                CounterUp(&pCtrl->BGNET.ACP.MODE.Counter, t);
+            }
             // nothing to do
         }        
     }

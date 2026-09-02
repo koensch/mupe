@@ -402,9 +402,11 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGN_AP_MODE2_NAV        0x03   //         4 PILOT SETUP option appears: "WIND A/T", behaviour unknown
     #define BGN_AP_MODE2_VANE       0x04   //         5 makeds "MEM 000" displayed, but no command observed
     #define BGN_AP_MODE2_JOYSTICK   0x06   //         6-7 seems unused
+    #define BGN_AP_MODE2_MEM        0x20    //      8 unknown, 9 displays "MEM 000" in the screen
+
     #define BGN_AP_MODE2_EXPERIM    0x00   // used for experiments
 #define BGNET_CHN_BA_UNKNOWN          0xBA
-#define BGNET_CHN_BB_LATITUDE         0xBB
+#define BGNET_CHN_BB_LATITUDE         0xBB( | (hex2bin(ap_mode->valuestring[1] & 0x0F));
 #define BGNET_CHN_BC_LONGITUDE        0xBC
 #define BGNET_CHN_C1_DEPTHRAW         0xC1 // i assume that this is the RAW depth value, but i am not sure
 #define BGNET_CHN_C2_DEPTHFT          0xC2
