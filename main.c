@@ -69,8 +69,8 @@ BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 //       messages, the sender(s) alread did the scaling for us.
 BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     //Index                      Label              FMT         From             Freq  Phase   CMD02          CMD_06  Import/Export enable  Import From          Export To            PGN SK
-    {0,                          "UNKNOWN 00",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {0,                          "UNKNOWN 01",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_00_NODERESET,     "SPEED/SETUP/ACAL/DAT",      BGN_FMT_08, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_01_UNKNOWN,       "SPEED/SETUP/ACAL/REQ",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 02",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 03",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 04",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -563,8 +563,8 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN E6"},\
     {BGNET_CMD_E7_ALARM_ACK,     "ALARM OFF"},\
     {0,                          "ALARM TOGGLE"},\
-    {0,                          "UNKNOWN E9"},\
-    {BGNET_CMD_EA_QUAD_AUTOCAL,  "SPEED AUTO CAL"},\
+    {BGNET_CMD_E9_QUAD_ACAL_DAT, "SPEED ACAL/DAT"},\
+    {BGNET_CMD_EA_QUAD_ACAL_REQ, "SPEED ACAL/REQ"},\
     {0,                          "UNKNOWN EB"},\
     {0,                          "UNKNOWN EC"},\
     {0,                          "UNKNOWN ED"},\

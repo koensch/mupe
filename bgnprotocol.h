@@ -30,8 +30,13 @@
 // - NET QUAD: has a 'repeater mode' (tYPEr)
 // - NET QUAD-R: does have NMEA output capabilities that the QUAD module has not. You can configure a QUAD as
 //   a repeater, but that does not give it the NMEA capability.
-// - NET QUAD has a 'demo mode' (press <TIMER> to display stored LOG, press <SETUP>, select 'TYPEd'; TYPEd option only displayed when QUAD has no data receiving
-//   (showing OFF in the display)
+// - NET QUAD has a 'demo mode' (setup is a little hidden)
+//          - select TYPEr mode, power down/up
+//          - wait untill display shows "OFF" (3x)
+//          - press TIMER button until "LOG" is displayed
+//          - press SETUP, observe that there are now 3 options (TYPEr, TYPEd and TYPEt)
+//          - select TYPEd mode, power down/up
+//          - observe demo mode is active 
 // - NET PILOT: has a 'demo mode' (TYPE D)
 // - NET PILOT: has a connector at the back for NMEA0183 input. Could be a 2-pin connector (use cable 612-OA-014)
 //   or a 3-pin connector (use cable 612-OA-053). Cables are no longer produced.
@@ -186,7 +191,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                              //  WIND:  4E(AWINDSPEEDRAW),50(AWINDSPEEDKT),51(AWINDANGLE),52(TWINDANGLERAW),8D(BATTVOLTS)
                                              //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
                                              //         (when AUTO) 53(TARGET TWA),A6 (COURSETARGET),A7 (AP WP BEARING),B5 (AP MODE)
-                                             //  QUAD:  20(SEATEMP),31(ECHOSND),41(BOATSPEEDKT),42(BOATSPEEDRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
+                                             //  QUAD:  20(SEATEMP),31(ECHOSND),41(STW),42(STWRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
                                              //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOWALM),FD(DEPTHALM),FE(ANCHORALM)
                                              //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
                                              // QUAD: if you reconfigure the TEMP units, the new label is send with as 0x02/0x20 command to ALL (0xFF), making the DATA
@@ -235,8 +240,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CMD_DF_PILOT_OCREQ        0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
 #define BGNET_CMD_E7_ALARM_ACK          0xE7 // 2 bytes payload (00 xx), is send by the node where the alarm was acknowdldged. Alarm initiating node
                                              // responds wit a CMD-ACK
-#define BGNET_CMD_EA_QUAD_AUTOCAL       0xEA // sometimes we get this CMD: 00 30 02 EA E4 03 01 A6 while stepping though SPEED SETUP (4th option)
-                                             // and i do not know what it does, so we just send a CMD-ACK
+#define BGNET_CMD_E9_QUAD_ACAL_DAT      0xE9 // 5 bytes payload (00, 00 88 00 00) being the AUTOCAL value,CHID 0x00 is weird
+#define BGNET_CMD_EA_QUAD_ACAL_REQ      0xEA // 2 bytes payload (2C 01), requesting the AUTOCAL value
 #define BGNET_CMD_ACK                   0xFD // 1 byte payload (ACK sequence)
 
 // layout of the VALUE (1 or more in the payload of a DATA command)
@@ -562,7 +567,8 @@ typedef struct {
 
 // if we want to be able to createoutgoing broadcasts 'on the fly' we must have means to
 // scheddule the channels. We can not send them all in one go, that would overwhelm the
-// communications.
+// communications.    puCH->s.cv.uB[1] = BGNET_SPD_SOG;
+
 // we will create a process that will determine what channels have their turn to be broadcasted
 // - all channels with frequency 0 are skipped, all channels with freq 1 will be included every scan, 2 every other scan
 // - with the phase it will be phased over multiple scans (works only for freq 2 and higher)
@@ -612,7 +618,7 @@ typedef struct {
 } BGN_DEVICE;
 
 // register Command statistics
-typedef struct {
+typedef struct { 
     int iNewCommand; // new COMMAND was received
     BGNET_COUNT CounterRx;
     union {
@@ -668,22 +674,13 @@ typedef struct {
 
 // Alarm Definition Table
 typedef struct {
-#define BGNET_ALARMTYPE_NA  -1
-#define BGNET_ALARMTYPE_WA  0
-#define BGNET_ALARMTYPE_OC  1
-#define BGNET_ALARMTYPE_DEP 2
-#define BGNET_ALARMTYPE_SHW 3
-#define BGNET_ALARMTYPE_ANC 4
-    unsigned char ucAT;     // alarm type
     unsigned char ucCHN;    // channel number (that will carry the alarmbit)
-    NMEA2K_VALUE *pCHN;     // pointer to the value associated with the Channel
-    NMEA2K_VALUE *pALL;     // pointer to the value with the 'Alarm Level LOW'
-    NMEA2K_VALUE *pALH;     // pointer to the value with the 'Alarm Level HIGH'
-    NMEA2K_VALUE *pALR;     // pointer to the value with the 'Alarm Level REFERENCE'
-    BGNET_COUNT Counter;
+    BGNET_COUNT Counter;    // alarm counter
+    BGNET_COUNT Flasher1;   // used to flash alarm text
+    BGNET_COUNT Flasher2;   // used to flash display (only used for WAtch Alarm)
     char AlarmText0[12];
     char AlarmText1[12];
-} BGNET_ALMDT;
+} BGNET_ALARM;
 
 typedef struct {
     int iNewACP;
@@ -810,10 +807,13 @@ typedef struct {
         NMEA2K_VALUE ANC_ALARM;
         struct {
             NMEA2K_VALUE CAL;      // CALibration: 0= No Calibration, <0= offset to keel (>depth under keel), >0= offset to watersurface (>waterdepth)
+            BGNET_ALARM  SA_ALARM; // Shallow Alarm Control Block
             NMEA2K_VALUE SA_M;     // Shallow Alarm limit (meter, absolute)
             NMEA2K_VALUE SA_STAT;  // Shallow Alarm ON/OFF
+            BGNET_ALARM  DA_ALARM; // Deep Alarm Control Block
             NMEA2K_VALUE DA_M;     // Deep Alarm limit (meter, absolute)
             NMEA2K_VALUE DA_STAT;  // Deep Alarm ON/OFF
+            BGNET_ALARM  WA_ALARM; // Watch Alarm Control Block
             NMEA2K_VALUE ASA_M;    // Anchor Shallow Alarm limit (meter, relative to the depth at the moment of setting)
             NMEA2K_VALUE ADA_M;    // Anchor Deep Alarm limit (meter, relative to the depth at the moment of setting)
             NMEA2K_VALUE AMA_M;    // Anchor Measured depth at the moment of setting
@@ -838,7 +838,7 @@ typedef struct {
 #define BGNET_CTRL_INIT            1
 #define BGNET_CTRL_INIT_RESET      0
 // we count down from 1000 before we do the device processing
-#define BGNET_CTRL_DEVCNTR_INIT    1000
+#define BGNET_CTRL_DEVCNTR_INIT    500
 
 typedef struct {
     int iInitialized;
@@ -851,7 +851,6 @@ typedef struct {
     BGNET_CHNDT *pCHNDT; // channel definitions
     BGNET_FMTDT *pFMTDT; // format definitions
     BGNET_CMDDT *pCMDDT; // command definitions
-    BGNET_ALMDT *pALMDT; // alarm definitions
     Config* pCfg;        // config structure
 
     BGNET BGNET; // ACP status
