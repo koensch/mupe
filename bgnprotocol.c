@@ -593,12 +593,12 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         strcpy(pCtrl->BGNET.DEPTH.SETUP.DA_ALARM.AlarmText0, "DEEP");
         strcpy(pCtrl->BGNET.DEPTH.SETUP.DA_ALARM.AlarmText0, "ALARM");
 
-        pCtrl->BGNET.DEPTH.SETUP.WA_ALARM.ucCHN = BGNET_CHN_C4_DEPTH;
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.WA_ALARM.Counter, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.WA_ALARM.Flasher1, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.WA_ALARM.Flasher2, t);
-        strcpy(pCtrl->BGNET.DEPTH.SETUP.WA_ALARM.AlarmText0, "ANCHOR");
-        strcpy(pCtrl->BGNET.DEPTH.SETUP.WA_ALARM.AlarmText0, "ALARM");
+        pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.ucCHN = BGNET_CHN_C4_DEPTH;
+        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Counter, t);
+        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Flasher1, t);
+        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Flasher2, t);
+        strcpy(pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.AlarmText0, "ANCHOR");
+        strcpy(pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.AlarmText0, "ALARM");
 
 //====== WIND
 
@@ -1294,8 +1294,8 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
         r = r + bgnet_sizeof_channel(pCtrl, puCH);
     } else {
         // show alternating the SHALOW or DEEP setting from the alarm
-        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.WA_ALARM.Flasher2, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-        if ((pCtrl->BGNET.DEPTH.SETUP.WA_ALARM.Flasher2.iCounter%2) == 0) {
+        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Flasher2, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+        if ((pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Flasher2.iCounter%2) == 0) {
             // Shallow Alarm (measured level - shallow limit), minimum depth
             r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue - pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue, 0);
         } else {
@@ -1323,24 +1323,12 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
 // the LONG one is broadcasting everything (including the SHORT channels)
 // long:  FF 70 20 01 70 8D 48 00 78 50 88 04 05 4E 88 00 00 51 01 00 64 52 08 00 00 57 88 05 D7 59 01 00 89 7F 88 FD 59 9B
+// the SHORT one is broadcasting only the channels needed by other WIND (repeater) nodes
+// short: FF 70 0C 01 84 4E 88 00 00 51 01 00 96 52 08 00 00 92
+// we always send the LONG frame
 int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0, c;
     union CH *puCH;
-
-    c = BGNET_CHN_8D_BATTERY;  // shown on WIND (small LCD, button <VOLTS>)
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(DTOIROUND(pCtrl->BGNET.WIND.BATTERY.value.nLong)); // Volts x 10
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    c = BGNET_CHN_50_AWS;  // shown on DATA and WIND
-    puCH = (union CH *)&(payload[r]);
-    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.AWS.value.dValue, 0);
-
-    c = BGNET_CHN_4E_AWSRAW;
-    puCH = (union CH *)&(payload[r]);
-    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.AWS.value.dValue + 0.43, 0);
 
 //#define WINDSIM
 #ifdef WINDSIM
@@ -1349,6 +1337,15 @@ int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
     pCtrl->BGNET.WIND.AWA.source = BGN_SOURCE_ACP;
     CounterUp(&pCtrl->BGNET.WIND.AWA.Counter, pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp);
 #endif
+
+    c = BGNET_CHN_4E_AWSRAW;
+    puCH = (union CH *)&(payload[r]);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.AWS.value.dValue + 0.43, 0);
+
+    c = BGNET_CHN_50_AWS;  // shown on DATA and WIND
+    puCH = (union CH *)&(payload[r]);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.AWS.value.dValue, 0);
+
     c = BGNET_CHN_51_AWA; // -180/+180 degrees shown on WIND DIAL
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
@@ -1363,12 +1360,14 @@ int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.WIND.AWA.value.nLong + 180 - 3);  // unsigned 0/+360
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_53_TARGET_TWA; // -180/+180 degrees, shown on PILOT (when in VANE mode)
+    c = BGNET_CHN_8D_BATTERY;  // shown on WIND (small LCD, button <VOLTS>)
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = (int16_t)htons(-121);  // signed -180/+180
+    puCH->s.cv.uW[0] = htons(DTOIROUND(pCtrl->BGNET.WIND.BATTERY.value.nLong)); // Volts x 10
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
+    // TWA, TWS and VMG are calculated by WIND, provided the WIND node receives STW from SPEED or QUAD
 
     c = BGNET_CHN_57_TWS; // shown on DATA and WIND
     puCH = (union CH *)&(payload[r]);
@@ -1381,36 +1380,20 @@ int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.WIND.TWA.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_7F_VMG;
-    puCH = (union CH *)&(payload[r]);
-    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.VMG.value.dValue, 0);
+    // is calculated, displayed by DATA (based on inputs from WIND and SPEED/QUAD)
 
-    return(r);
-}
+    //c = BGNET_CHN_7F_VMG;
+    //puCH = (union CH *)&(payload[r]);
+    //r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.VMG.value.dValue, 0);
 
-// the SHORT one is broadcasting only the channels needed by other WIND (repeater) nodes
-// short: FF 70 0C 01 84 4E 88 00 00 51 01 00 96 52 08 00 00 92 
-int makeWINDresponseSHORT(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0, c;
-    union CH *puCH;
+    // TARGET TWA is set PILOT in VANE mode
 
-    c = BGNET_CHN_4E_AWSRAW;
-    puCH = (union CH *)&(payload[r]);
-    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.AWS.value.dValue + 0.43, 0);
-
-    c = BGNET_CHN_51_AWA; // -180/+180 degrees shown on WIND DIAL
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.WIND.AWA.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    c = BGNET_CHN_52_AWARAW;
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.WIND.AWA.value.nLong + 3);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    //c = BGNET_CHN_53_TARGET_TWA; // -180/+180 degrees, shown on PILOT (when in VANE mode)
+    //puCH = (union CH *)&(payload[r]);
+    //puCH->s.CH = c;
+    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    //puCH->s.cv.sW[0] = (int16_t)htons(121);  // signed -180/+180
+    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     return(r);
 }
@@ -1727,22 +1710,21 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         CounterUp(&pCtrl->BGNET.ACP.EBS_SEL.Counter, t);
     }
 
-    
+    // here we will output our DATA commands, simulating the WIND and QUAD nodes.
+    // note: using the routine 'register_DATA_frame' these DATA commands will appear as 'Received', altough
+    // they are effectively 'Transmitted'. I do not see the need to change that. 
     if (g_serial_mode == BGN_SERIAL_MODE_RW) {
 #define BGNET_ENABLE_QUAD_TX
 #ifdef BGNET_ENABLE_QUAD_TX
 
         size_t len_msg;
         int len_pl;
-        unsigned char payload[BGNET_FRAME_PAYLOAD_MAX], ucTO;
+        unsigned char payload[BGNET_FRAME_PAYLOAD_MAX];
         FRAME_H FTx, *pFTx;
         pFTx = &FTx;
 
-        ucTO = BGNET_TYPE_NETDEPTH;
-        ucTO = BGNET_TYPE_NETACP;
-
         len_pl = makeDEPTHresponse(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, ucTO, BGNET_CMD_01_DATA, payload, len_pl);
+        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
         register_DATA_frame(pCtrl, pFTx);
 
         // put it for transmission
@@ -1753,11 +1735,8 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
         CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
 
-        ucTO = BGNET_TYPE_NETSPEED;
-        ucTO = BGNET_TYPE_NETACP;
-
         len_pl = makeSPEEDresponse(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, ucTO, BGNET_CMD_01_DATA, payload, len_pl);
+        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
         register_DATA_frame(pCtrl, pFTx);
         
         // put it for transmission
@@ -1768,11 +1747,8 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
         CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
 
-        ucTO = BGNET_TYPE_NETWIND;
-        ucTO = BGNET_TYPE_NETACP;
-
         len_pl = makeWINDresponseLONG(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, ucTO, BGNET_CMD_01_DATA, payload, len_pl);
+        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETWIND, BGNET_CMD_01_DATA, payload, len_pl);
         register_DATA_frame(pCtrl, pFTx);
         
         // put it for transmission
@@ -2432,9 +2408,20 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                     if (bgnet_checksum_frame_check(pCtrl, pFRx) == BGNET_CHECKSUM_OK) {
                         switch(pFRx->CMD) {
                             case BGNET_CMD_01_DATA:
-                                // process DATA command (broadcast)
-                                decode_command_DATA(pCtrl, pFRx);
-                                //log_info("  Command %02X (with payload) DATA, %d channels", pFRx->CMD, n);
+                                // process DATA command (broadcast), but this might be more difficult than you think......
+                                // When we have 'active' nodes sending data, yes we most process incoming DATA commands. But who has 30 years old through-hull sensors
+                                // in their boat or wind sensors on their masts? i don't! But assuming some puts all their nodes into 'demo' mode might have some fun.
+                                // you will probably run this service in 'readonly' or 'passive' mode.
+                                // When we are in 'readwrite', all DATA commands are send by our goodselves. i do not want to put our data into a endless loop, so we skip
+                                // the all DATA commands.
+                                switch (g_serial_mode) {
+                                    case BGN_SERIAL_MODE_RW:
+                                        break;
+                                    default:
+                                        decode_command_DATA(pCtrl, pFRx);
+                                        //log_info("  Command %02X (with payload) DATA, %d channels", pFRx->CMD, n);
+                                        break;
+                                }  
                                 break;
                             case BGNET_CMD_02_LABEL:
                                 // process LABEL command (only at startup, only by DATA)

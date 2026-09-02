@@ -634,7 +634,7 @@ static char* html_device_top(char *Buffer) {
     const char *cDevTop =
         "<h3>NETWORK nodes</h3>"
         "<table>"
-        "<tr><th colspan='4'>Device</th><th colspan='5'>Rx (input FROM node)</th><th colspan='3'>Tx (output TO node)</th></tr>"
+        "<tr><th colspan='5'>Device</th><th colspan='5'>Rx (input FROM node)</th><th colspan='3'>Tx (output TO node)</th></tr>"
         "<tr><th>Node</th><th>Type</th><th>Enabled</th><th colspan='2'>PowerUp</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>CS Err/Head</th><th>CS Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
     strcpy(Buffer, cDevTop);
     return(Buffer);

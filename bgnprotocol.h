@@ -813,7 +813,7 @@ typedef struct {
             BGNET_ALARM  DA_ALARM; // Deep Alarm Control Block
             NMEA2K_VALUE DA_M;     // Deep Alarm limit (meter, absolute)
             NMEA2K_VALUE DA_STAT;  // Deep Alarm ON/OFF
-            BGNET_ALARM  WA_ALARM; // Watch Alarm Control Block
+            BGNET_ALARM  AA_ALARM; // Anchor Alarm Control Block
             NMEA2K_VALUE ASA_M;    // Anchor Shallow Alarm limit (meter, relative to the depth at the moment of setting)
             NMEA2K_VALUE ADA_M;    // Anchor Deep Alarm limit (meter, relative to the depth at the moment of setting)
             NMEA2K_VALUE AMA_M;    // Anchor Measured depth at the moment of setting
