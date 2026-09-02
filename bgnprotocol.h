@@ -386,25 +386,24 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
                                            // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
                                            // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
-    #define BGN_AP_MODE1_MASK_STATE 0x01   // DATA1 - 0 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO)
-    #define BGN_AP_MODE1_STBY       0x00   //         1 seems unused
-    #define BGN_AP_MODE1_AUTO       0x01   //         2 makes "MEM 000" displayed, PILOT sends command: 00 50 02 CB E3 1E A6 E6, expects MEM value back. When pressed OFF
-    #define BGN_AP_MODE1_MASK_INIT  0x04   //           goes into STBY, but you are unable to go back into AUTO.
-    #define BGN_AP_MODE1_EXPERIM    0x00   //           Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
-                                           //         3 ??, PILOT sends command: 00 50 02 CB E3 0A A7 F9, expects some value back. When press OFF, goes into STBY
-                                           //           but you are unable to go back into AUTO
-                                           //         4 seems unused
-                                           //         5 DISPLAY, SETUP and SPEED buttons seems deactivated
-                                           //         6 seems unused
-                                           //         7 seems unused
+    #define BGN_AP_MODE1_MASK_STATE 0x01   // DATA1 - 0   STATE, engaged/not enganged STATE (0=STBY, 1=AUTO)
+    #define BGN_AP_MODE1_STBY       0x00   //         1   seems unused
+    #define BGN_AP_MODE1_AUTO       0x01   //         2   makes "MEM 000" displayed, PILOT sends command: 00 50 02 CB E3 1E A6 E6, expects MEM value back. When pressed OFF
+    #define BGN_AP_MODE1_MEM        0x04   //             goes into STBY, but you are unable to go back into AUTO.
+    #define BGN_AP_MODE1_LOCK1      0x08   //             Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
+    #define BGN_AP_MODE1_VANE       0x10   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
+    #define BGN_AP_MODE1_LOCK2      0x20   //           
+                                           //         4   enables VANE mode
+                                           //         5   DISPLAY, SPEED, SPEED, LIGHTS buttons seems deactivated
+                                           //         6   seems unused
+                                            //        7   seems unused
     #define BGN_AP_MODE2_MASK_MODE  0x07   // DATA2 - 0-2 MODE (1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
-    #define BGN_AP_MODE2_COMP       0x01   //         3 seems unused                     note: if there is no WIND signal, you can not select VANE mode
-    #define BGN_AP_MODE2_NAV        0x03   //         4 PILOT SETUP option appears: "WIND A/T", behaviour unknown
-    #define BGN_AP_MODE2_VANE       0x04   //         5 makeds "MEM 000" displayed, but no command observed
+    #define BGN_AP_MODE2_COMP       0x01   //         3   seems unused                     note: if there is no WIND signal, you can not select VANE mode
+    #define BGN_AP_MODE2_NAV        0x03   //         4   PILOT SETUP option appears: "WIND A/T", behaviour unknown
+    #define BGN_AP_MODE2_VANE       0x04   //         5   makes "MEM 000" displayed, but no command observed
     #define BGN_AP_MODE2_JOYSTICK   0x06   //         6-7 seems unused
-    #define BGN_AP_MODE2_MEM        0x20    //      8 unknown, 9 displays "MEM 000" in the screen
+    #define BGN_AP_MODE2_MEM        0x20   // 
 
-    #define BGN_AP_MODE2_EXPERIM    0x00   // used for experiments
 #define BGNET_CHN_BA_UNKNOWN          0xBA
 #define BGNET_CHN_BB_LATITUDE         0xBB( | (hex2bin(ap_mode->valuestring[1] & 0x0F));
 #define BGNET_CHN_BC_LONGITUDE        0xBC

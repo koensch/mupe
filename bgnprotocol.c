@@ -330,11 +330,11 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         CounterInit(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
 
         // initialize AutoPilot to STBY/COMP; joystick OFF
-        pCtrl->BGNET.ACP.STATE.value.nByte = (BGN_AP_MODE1_AUTO | BGN_AP_MODE1_EXPERIM); // set the define if you want to experiment with some other bits
+        pCtrl->BGNET.ACP.STATE.value.nByte = (BGN_AP_MODE1_STBY | BGN_AP_MODE1_VANE);
         pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.STATE.Counter, t);
 
-        pCtrl->BGNET.ACP.MODE.value.nByte = (BGN_AP_MODE2_COMP | BGN_AP_MODE2_EXPERIM); // set the define if you want to experiment with some other bits
+        pCtrl->BGNET.ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
         pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.MODE.Counter, t);
 
