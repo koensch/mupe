@@ -69,8 +69,8 @@ BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 //       messages, the sender(s) alread did the scaling for us.
 BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     //Index                      Label              FMT         From             Freq  Phase   CMD02          CMD_06  Import/Export enable  Import From          Export To            PGN SK
-    {BGNET_CHN_00_NODERESET,     "SPEED/SETUP/ACAL/DAT",      BGN_FMT_08, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_01_UNKNOWN,       "SPEED/SETUP/ACAL/REQ",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_00_NODERESET,     "SPEED/ACAL/DAT",  BGN_FMT_08, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_01_UNKNOWN,       "SPEED/ACAL/REQ",  0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 02",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 03",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 04",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -149,14 +149,14 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {BGNET_CHN_4D_AWINDSPEEDKT,  "AWS",             BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_4E_AWSRAW,        "AWS RAW",         BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 4F",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_50_AWS,           "AWS",             BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "AWS KT",      BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 130306,  ""},\
+    {BGNET_CHN_50_AWS,           "AWS",             BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "AWS   KT",      BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 130306,  ""},\
     {BGNET_CHN_51_AWA,           "AWA",             BGN_FMT_01, BGNET_TYPE_NETWIND, 0,     0,     0,  "{     AWA|AWA}",  BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 130306,  ""},\
     {BGNET_CHN_52_AWARAW,        "AWA RAW",         BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_53_TARGET_TWA,    "TWA TARGET",      BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 54",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_55_TWS,           "TWS",             BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 56",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_57_TWS,           "TWS",             BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "TWS KT",      BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 130306,  ""},\
+    {BGNET_CHN_57_TWS,           "TWS",             BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "TWS   KT",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 130306,  ""},\
     {0,                          "UNKNOWN 58",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_59_TWA,           "TWA",             BGN_FMT_01, BGNET_TYPE_NETWIND, 0,     0,     0,  "{     TWA|TWA}",  BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 130306,  ""},\
     {0,                          "UNKNOWN 5A",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -187,7 +187,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN 73",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 74",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_75_TIMER,         "TIMER",           BGN_FMT_03, BGNET_TYPE_NETQUAD, 0,     0,     0,  "TIMER",       BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_76_AP_WA_ALARM,   "WA MIN",          BGN_FMT_18, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_76_AP_WA_ALARM,   "WA ALARM",        BGN_FMT_18, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 77",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 78",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 79",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -196,9 +196,9 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN 7C",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 7D",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 7E",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_7F_VMG,           "VMG",             BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "VMG KT",      BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_7F_VMG,           "VMG",             BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "VMG   KT",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 80",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_81_DRD,           "DR DISTANCE",     BGN_FMT_08, BGNET_TYPE_NETQUAD, 0,     0,     0,  "DR D NM",     BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_81_DRD,           "DR DISTANCE",     BGN_FMT_08, BGNET_TYPE_NETQUAD, 0,     0,     0,  "DR D  NM",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 82",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 83",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 84",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -244,7 +244,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN AC",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN AD",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN AE",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_AF_AP_OC_ALARM,   "OC DEG",          BGN_FMT_18, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_AF_AP_OC_ALARM,   "OC ALARM",        BGN_FMT_18, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B0",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B1",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B2",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -265,7 +265,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {BGNET_CHN_C1_DEPTHRAW,      "DEPTH M (RAW)",   BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 128267,  ""},\
     {BGNET_CHN_C2_DEPTHFT,       "DEPTH FT",        BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_C3_DEPTHFM,       "DEPTH FM",        BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_C4_DEPTH,         "DEPTH",           BGN_FMT_01, BGNET_TYPE_NETQUAD, 0,     0,     0,  "DEPTH M",     BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_C4_DEPTH,         "DEPTH",           BGN_FMT_01, BGNET_TYPE_NETQUAD, 0,     0,     0,  "DEPTH  M",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN C5",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN C6",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN C7",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -274,13 +274,13 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN CA",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN CB",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN CC",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_CD_STORLOG,       "STORED LOG NM",   BGN_FMT_42, BGNET_TYPE_NETQUAD, 0,     0,     0,  "LOG NM",      BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_CD_STORLOG,       "STORED LOG NM",   BGN_FMT_42, BGNET_TYPE_NETQUAD, 0,     0,     0,  "LOG   NM",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN CE",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_CF_TRIPLOG,       "TRIP LOG NM",     BGN_FMT_48, BGNET_TYPE_NETQUAD, 0,     0,     0,  "TRIP NM",     BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_CF_TRIPLOG,       "TRIP LOG NM",     BGN_FMT_48, BGNET_TYPE_NETQUAD, 0,     0,     0,  "TRIP  NM",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN D0",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN D1",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN D2",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_D3_DRC,           "DR COURSE",       BGN_FMT_01, BGNET_TYPE_NETQUAD, 0,     0,     0,  "DR C %M",     BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_D3_DRC,           "DR COURSE",       BGN_FMT_01, BGNET_TYPE_NETQUAD, 0,     0,     0,  "DR C  %M",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN D4",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN D5",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN D6",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -321,9 +321,9 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN F9",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN FA",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_FB_WPID,          "NMEA/RMB/WPID",   BGN_FMT_0A, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_FC_SHALLOWALARM,  "SHALLOW ALARM",   BGN_FMT_04, BGNET_TYPE_NETACP,  0,     0,     0,  "SHA A M",     BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_FD_DEEPALARM,     "DEEP ALARM",      BGN_FMT_04, BGNET_TYPE_NETACP,  0,     0,     0,  "DEP A M",     BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_FE_ANCHORALARM,   "ANCHOR ALARM",    BGN_FMT_04, BGNET_TYPE_NETQUAD, 0,     0,     0,  "ANC A M",     BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_FC_SHALLOWALARM,  "SHALLOW ALARM",   BGN_FMT_04, BGNET_TYPE_NETACP,  0,     0,     0,  "SHA A  M",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_FD_DEEPALARM,     "DEEP ALARM",      BGN_FMT_04, BGNET_TYPE_NETACP,  0,     0,     0,  "DEP A  M",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_FE_ANCHORALARM,   "ANCHOR ALARM",    BGN_FMT_04, BGNET_TYPE_NETQUAD, 0,     0,     0,  "ANC A  M",    BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_FF_DEPTH_CAL,     "DEPTH CAL",       BGN_FMT_01, BGNET_TYPE_NETQUAD, 0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""}\
 };
 

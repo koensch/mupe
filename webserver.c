@@ -530,13 +530,18 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         // convert the received ascii/hex bytes as a binary frame, check the validity (do not support subframes)
         r = ascii2frame(&FRx, frame->valuestring, NULL);
         if (r > 0) {
-            // convert received frame into a transmit frame with calculated checksums
+            // convert received frame FRx into a transmit frame FTx with calculated checksums
             len_msg = bgnet_encode_frame(&FTx, FRx.TO, FRx.FROM, FRx.CMD, FRx.payload, FRx.PL);
             // register command send
             memcpy(pCtrl->CMD[FTx.CMD].Tx.ucFrame, &FTx, len_msg);
             CounterUp(&pCtrl->CMD[FTx.CMD].CounterTx, t);
             memcpy(pCtrl->DEV[FTx.FROM].Tx.ucFrame, &FTx, len_msg);
             CounterUp(&pCtrl->DEV[FTx.FROM].CounterTx, t);
+            switch (FTx.CMD) {
+                case BGNET_CMD_01_DATA:
+                    register_DATA_frame(pCtrl, &FTx);
+                    break;
+            }
             // put it for transmission
             // we are already locked  pthread_mutex_lock(&g_data_mutex);
             memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &FTx, len_msg); // put output message in write buffer
@@ -735,9 +740,9 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "External switch [0=OFF, 1=ON]", pCtrl->BGNET.ACP.Joystick.Counter.iCounter, t-pCtrl->BGNET.ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Joystick.source), pCtrl->BGNET.ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP STATE", "Autopilot Engaged/AUTO/1 or Not Engaged/STBY/0", pCtrl->BGNET.ACP.STATE.Counter.iCounter, t-pCtrl->BGNET.ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.STATE.source), pCtrl->BGNET.ACP.STATE.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP STATE", "Autopilot Engaged/AUTO/0x01 or Not Engaged/STBY/0x00", pCtrl->BGNET.ACP.STATE.Counter.iCounter, t-pCtrl->BGNET.ACP.STATE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.STATE.source), pCtrl->BGNET.ACP.STATE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "Autopilot Mode [1=COMPass, 3=NAVigation, 4=VANE/WIND]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "Autopilot Mode [0x01=COMPass, 0x03=NAVigation, 0x04=VANE]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Heading", "Compass reading (from Flux-Gate) [0-359 DegM]", pCtrl->BGNET.ACP.Heading.Counter.iCounter, t-pCtrl->BGNET.ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Heading.source), pCtrl->BGNET.ACP.Heading.value.nLong);
     strcat(Buffer, cLine);
@@ -823,24 +828,26 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED/SETUP/DMP", "Speed Damping [sec]", pCtrl->BGNET.SPEED.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.DMP.source), pCtrl->BGNET.SPEED.SETUP.DMP.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED/SETUP/CAL", "Speed Calibration (manual)", pCtrl->BGNET.SPEED.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.CAL.source), pCtrl->BGNET.SPEED.SETUP.CAL.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED/SETUP/CAL", "Speed Calibration Offset", pCtrl->BGNET.SPEED.SETUP.CAL_OFFSET.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.CAL_OFFSET.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.CAL_OFFSET.source), pCtrl->BGNET.SPEED.SETUP.CAL_OFFSET.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED/SETUP/AUTOCAL", "Speed Calibration (automatic procedure)", pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.AUTOCAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.AUTOCAL.source), pCtrl->BGNET.SPEED.SETUP.AUTOCAL.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED/SETUP/CAL", "Speed Calibration Factor", pCtrl->BGNET.SPEED.SETUP.CAL_FACTOR.Counter.iCounter, t-pCtrl->BGNET.SPEED.SETUP.CAL_FACTOR.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.SETUP.CAL_FACTOR.source), pCtrl->BGNET.SPEED.SETUP.CAL_FACTOR.value.dValue);
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/VTG/COG", "Course Over Ground, usually from positioning device [0-359 DegT]", pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.COG.source), pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/VTG/SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/VTG/SOG", "Speed Over Ground, usually from positioning device [KT]", pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/VTG", "SOG selected (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.source), pCtrl->BGNET.PILOT.NMEA.VTG.SOG_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/VTG", "VTG present (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.source), pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/XTE", "Cross Track Error, <0= Port, >0= Starboard [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/NMEA/RMB/WP", "WayPoint ID (max length: NMEA=11, BGNET=4)", pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/NMEA/RMB/WP", "Destination WayPoint (max 11 or 4/BGNET)", pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/WPD", "WayPoint Distance [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/RMB/WPB", "WayPoint Bearing [0-359 DegM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/RMB/WPB", "WayPoint Bearing [0-359 DegT]", pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/RMB", "RMB present (1= received/available, 0= not received/not available)", pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.source), pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte);
     strcat(Buffer, cLine);
 
     // ==== DEPTH
@@ -1032,7 +1039,7 @@ static char* html_channel_row(char *Buffer, BGNET_CTRL *pCtrl) {
     const char *cDevRow01 = "<td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>%s</td>";
     const char *cDevRow02 = "<td>%d</td><td>%d</td><td>%s</td><td>%s</td>";
     const char *cDevRow06 = "<td>%d</td><td>%d</td><td>%s</td>";
-    const char *cDevRow00 = "<td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>0x%02X</td><td>0x%02X</td><td>0x%s</td>";
+    const char *cDevRow00 = "<td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td><td>0x%02X</td><td>0x%02X</td><td>%s</td>";
 
     const char *cDevRow01E = "<td></td><td></td><td></td><td></td><td></td>";
     const char *cDevRow02E = "<td></td><td></td><td></td><td></td>";

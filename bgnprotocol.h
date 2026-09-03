@@ -190,7 +190,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                              //In demo mode the follwing (simulated) data is send:
                                              //  WIND:  4E(AWINDSPEEDRAW),50(AWINDSPEEDKT),51(AWINDANGLE),52(TWINDANGLERAW),8D(BATTVOLTS)
                                              //  PILOT: 0B(RUDDER),41(BOATSPEEDKT),49(HEADING),51(AWINDANGLE)
-                                             //         (when AUTO) 53(TARGET TWA),A6 (COURSETARGET),A7 (AP WP BEARING),B5 (AP MODE)
+                                             //         (when AUTO) 53(TARGET TWA),A6 (CTS)),A7 (AP WP BEARING),B5 (AP MODE)
                                              //  QUAD:  20(SEATEMP),31(ECHOSND),41(STW),42(STWRAW),64(SPEEDAVG),65(SPEEDMAX),75(TIMER),
                                              //         81(DRDIST),C4(DEPTH),CD(STORLOG),CF(TRIPLOG),D3(DRCOURSE),FC(SHALLOWALM),FD(DEPTHALM),FE(ANCHORALM)
                                              //valid characters: 0-9, A-Z, and symbols (-/.,%). % is represented as "degree"
@@ -365,11 +365,20 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_8A_UNKNOWN          0x8A
 #define BGNET_CHN_8D_BATTERY          0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
                                            // displayed by DATA (if 'OPTIONS' button is pressed)
-#define BGNET_CHN_98_NMEA_ACTIVE      0x98 // When a PILOT/NMEA/APB message is received this channel is observed with FMT_00 and
-                                           // and only 2 bytes, no data. This message is send every 2 seconds as long as a NMEA message
-                                           // was observed. after 60 second after the last NMEA message, the channel is no longer transmitted
+#define BGNET_CHN_98_NMEA_ACTIVE      0x98 // When a PILOT/NMEA/APB message is received this channel is transmitted via a DATA/0x01 command with FMT_00 and
+                                           // and only 2 bytes, no data. I believe that FMT_00 means "channel without data".
+                                           // When the PILOT receives navigation data via the NMEA it will transmit this message every 2 seconds as long as a NMEA message
+                                           // was observed. Only after 60 seconds of no NMEA data this message stops. The presence of CHN_98 means "navigation data present".
+                                           // NETWORK supports 2 PILOT with their NMEA connection to a 'navigation source'.
+                                           // If PILOT detects a 0x98 message from a other pilot (then itself), it 'splits' the NAV mode into NAV1 and NAV2. NAV1 is it own
+                                           // NMEA input source and NAV2 it 'the other' NMEA input source (channels send via DATA/0x01 commands).
+                                           // and NAV2 is 'the other' source.
+                                           // When there are 2 NAV's, PILOT displays the nav data from the NMEA as NAV1, and the received (via the NETWORK) as NAV2. It appears
+                                           // as if it disinghuis the NAV channels by it's FROM network address, but i am not sure.
+                                           // If you have 1 PILOT with NMEA connection, that PILOT send that nav data via DATA/0x01 commands, but it does not react on (injected)
+                                           // DATA/0x01 commands. When PILOT sees 2 NAV connections. (via the nETWORK) but no longer transmits it  data after 60 second after the last NMEA message, the channel is no longer transmitted
                                            // it seems this is some kind of 'nmea communication active' signal.
-                                           // it is observed with APB, RMB, XTE messages, possibly others too, but not for VTG
+                                           // it is observed with APB, RMB, XTE messages, possibly others too, but not fDATA/0x01 or VTG
 #define BGNET_CHN_9A_HEADINGNEXTTACK  0x9A
 #define BGNET_CHN_9B_FOREAFTTRIM      0x9B
 #define BGNET_CHN_9C_MASTANGLE        0x9C
@@ -388,13 +397,13 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                            // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
     #define BGN_AP_MODE1_MASK_STATE 0x01   // DATA1 - 0   STATE, engaged/not enganged STATE (0=STBY, 1=AUTO)
     #define BGN_AP_MODE1_STBY       0x00   //         1   seems unused
-    #define BGN_AP_MODE1_AUTO       0x01   //         2   makes "MEM 000" displayed, PILOT sends command: 00 50 02 CB E3 1E A6 E6, expects MEM value back. When pressed OFF
-    #define BGN_AP_MODE1_MEM        0x04   //             goes into STBY, but you are unable to go back into AUTO.
+    #define BGN_AP_MODE1_AUTO       0x01   //         2   makes "MEM 000" displayed (when in COMP mode), Locks AUTO key (OFF key is operational)
+    #define BGN_AP_MODE1_MEM        0x04   //             
     #define BGN_AP_MODE1_LOCK1      0x08   //             Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
     #define BGN_AP_MODE1_VANE       0x10   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
     #define BGN_AP_MODE1_LOCK2      0x20   //           
                                            //         4   enables VANE mode
-                                           //         5   DISPLAY, SPEED, SPEED, LIGHTS buttons seems deactivated
+                                           //         5   DISPLAY, SPEED, SETUP buttons are deactivated
                                            //         6   seems unused
                                             //        7   seems unused
     #define BGN_AP_MODE2_MASK_MODE  0x07   // DATA2 - 0-2 MODE (1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
@@ -759,15 +768,16 @@ typedef struct {
         } SPEED;
         struct {
             struct {
-                NMEA2K_VALUE COG;
-                NMEA2K_VALUE SOG;
-                NMEA2K_VALUE SOG_SEL;   // when VTG messages are being received, SOG is present/available
+                NMEA2K_VALUE COG;       // Course Over Ground, VTG#1 DegT]
+                NMEA2K_VALUE SOG;       // Speed Over Ground, VTG#5 [KT]
+                NMEA2K_VALUE VTG_SEL;   // when VTG messages are being received, SOG is present/available
             } VTG;
             struct {
-                NMEA2K_VALUE XTE;   // Cross Track Error RMB#2
-                NMEA2K_VALUE WPID;  // TO WaypointID RMB#4
-                NMEA2K_VALUE WPD;   // Waypoint Distance RMB#10
-                NMEA2K_VALUE WPB;   // Waypoint Bearing RMB#11
+                NMEA2K_VALUE XTE;       // Cross Track Error, RMB#2 [NM]
+                NMEA2K_VALUE WPID;      // TO WaypointID, RMB#4 [ASCII text, 11 characters + NULL]
+                NMEA2K_VALUE WPD;       // Waypoint Distance, RMB#10 [NM]
+                NMEA2K_VALUE WPB;       // Waypoint Bearing, RMB#11 [DegT]
+                NMEA2K_VALUE RMB_SEL;   // when CHN_98 is received, navigation data is present/available
             } RMB;
         } NMEA;
         struct {
@@ -794,10 +804,12 @@ typedef struct {
         NMEA2K_VALUE SpeedAVG;     // AVG speed (since DRD reset)
         NMEA2K_VALUE TIMER;        // Timer (no yet implemented, but lives here)
         struct {
-            NMEA2K_VALUE DMP;      // QUAD/SPEED/SETUP/#1/DMP, response time of speed value
-            //                     // QUAD/SPEED/SETUP/#2 causes the units to change (with revised LABEL/0x02 CMD)
-            NMEA2K_VALUE CAL;      // QUAD/SPEED/SETUP/#3, #4 CALibration, boatspeed adjustment by speed (#3) or by distance (#4)
-            NMEA2K_VALUE AUTOCAL;  // QUAD/SPEED/SETUP/#5/AUTOCAL, 0=Off, 1=On
+            NMEA2K_VALUE DMP;           // QUAD/SPEED/SETUP/#1/DMP, response time of speed value
+            //                          // QUAD/SPEED/SETUP/#2 causes the units to change (with revised LABEL/0x02 CMD)
+#define BGNET_SPEED_CAL_OFFSET  0.0
+#define BGNET_SPEED_CAL_FACTOR  1.0
+            NMEA2K_VALUE CAL_OFFSET;    // QUAD/SPEED/SETUP/#3, #4, #5 Speed calibration
+            NMEA2K_VALUE CAL_FACTOR;    // QUAD/SPEED/SETUP/#3, #4, #5 Speed calibration
             //                     // QUAD/SPEED/SETUP/#6 is the DRD-RESET, no value set, just resetting the DRD (and speed AVG/MAX)
         } SETUP;
     } SPEED;

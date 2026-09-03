@@ -332,7 +332,7 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.nLong = DTOIROUND(sog * 1.94384 *10); // convert m/s to KT
+                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = sog * 1.94384 * 10; // convert m/s to KT
                 pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_NMEA;
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
