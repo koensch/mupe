@@ -44,8 +44,11 @@
 #define BGNET_ASC_D                     0x44
 #define BGNET_ASC_E                     0x45
 #define BGNET_ASC_F                     0x46
+#define BGNET_ASC_M                     0x4D
 #define BGNET_ASC_N                     0x4E
 #define BGNET_ASC_O                     0x4F
+#define BGNET_ASC_P                     0x50
+#define BGNET_ASC_W                     0x57
 #define BGNET_ASC_X                     0x58
 #define BGNET_ASC_a                     0x61
 #define BGNET_ASC_b                     0x62

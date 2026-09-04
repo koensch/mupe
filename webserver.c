@@ -290,8 +290,9 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // network
     cJSON *lights    = cJSON_GetObjectItem(root, "lights");    // set lights (0,3,2 or 1)
     cJSON *frame     = cJSON_GetObjectItem(root, "frame");     // transmits a self-created frame on the network
+    cJSON *nav       = cJSON_GetObjectItem(root, "nav");       // enable/disable NAV message (from PILOT NMEA input)
 
-    pthread_mutex_lock(&g_data_mutex);
+    pthread_mutex_lock(&g_data_mutex); 
 
     // position information, usually from GPS
     if (latitude) {
@@ -549,6 +550,17 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
             // we are already locked  pthread_mutex_unlock(&g_data_mutex);
         }
     }
+    // curl --data "{\"nav\":\"50\"}" http://localhost:8080/api/update
+    // curl --data "{\"nav\":\"00\"}" http://localhost:8080/api/update
+    // enable (50-5F) the transmission of navigation channels with the source address of the PILOT
+    // disable the transmission by entering and other number than a valid PILOT addres
+    if (nav) {
+        if (strlen(nav->valuestring) == 2) {
+            pCtrl->BGNET.PILOT.ucNAV_SIM = ((hex2bin(nav->valuestring[0]) & 0x0F) << 4) | (hex2bin(nav->valuestring[1]) & 0x0F);
+        } else {
+            pCtrl->BGNET.PILOT.ucNAV_SIM = 0x00;
+        }
+    }
 
     pthread_mutex_unlock(&g_data_mutex);
 
@@ -562,12 +574,19 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
     const char *cHead =
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
+        "<!DOCTYPE html>\r\n"
         "<html>\r\n"
-        "<head>"
-            "<meta name='format-detection' content='telephone=no'>"
-            "<style>body, table, td {font-family: Verdana; font-size: 14px;}\r\nh3 {margin-left: 20px;}\r\ntable {border-collapse: collapse; width: 95%; margin: 5px auto;}\r\nth, td {border:1px solid #ccc; padding: 5px; text-align: left;}</style>"
-            "<title>%s</title>"
-            "<link rel='shortcut icon' href='#' />"
+        "<head>\r\n"
+            "<meta name=\"format-detection\" content=\"telephone=no\" >\r\n"
+            "<style>\r\n"
+            "body, table, td {font-family: Verdana; font-size: 14px; border: 0px}\r\n"
+            "h3 {margin-left: 20px;}\r\n"
+            "table {border-collapse: collapse; width: 95%; margin: 5px auto;}\r\n"
+            "th, td {border:1px solid #ccc; padding: 5px; text-align: left;}\r\n"
+            ".no-tel-detect {pointer-events: none; text-decoration: none; color: inherit;}\r\n"
+            "</style>\r\n"
+            "<title>%s</title>\r\n"
+            "<link rel='shortcut icon' href='#' />\r\n"
             "</head>\r\n"
         "<body>\r\n";
     snprintf(Buffer, MaxBuf, cHead, ApplicationName);
@@ -583,8 +602,8 @@ static char* html_tail(char *Buffer, size_t MaxBuf) {
 
 static char* html_title(char *Buffer, size_t MaxBuf) {
     const char *cTitle =
-        "<table border='0px';><tr><th><a href='http://localhost:8080/'>Home</a></th><th><a href='http://localhost:8080/bgnet/'>Statistics Report</a></th><th>%s</th</tr></table>"
-        "<h1>%s</h1>";
+        "<table><tr><th><a href='http://localhost:8080/'>Home</a></th><th><a href='http://localhost:8080/bgnet/'>Statistics Report</a></th><th>%s</th></tr></table>"
+        "<h1>%s</h1>\r\n";
     char asciibuffer[256];
     time_t t;
     struct tm* tm_info;
@@ -605,7 +624,7 @@ static char* html_help(char *Buffer, size_t MaxBuf, int iPort) {
         "<li>POST /api/update</li>"
         "</ul>"
         "<p>WebSocket: ws://host:%d/ws</p>"
-        "<p>for configuration parameters check file 'config.json'</p>";
+        "<p>for configuration parameters check file 'config.json'</p>\r\n";
     snprintf(Buffer, MaxBuf, cHelp, iPort);
     return(Buffer);
 }
@@ -616,14 +635,14 @@ static char* html_interface_top(char *Buffer) {
         "<h3>Serial Interface</h3>"
         "<table>"
         "<tr><th colspan='3'>Communication Device</th><th colspan='2'>Service</th><th colspan='2'>Emulator</th></tr>"
-        "<tr><th>Port</th><th>Interface</th><th>Communication Parameters</th><th>Mode</th><th>Watchdog</th><th>Node</th><th>Type</th></tr>";
+        "<tr><th>Port</th><th>Interface</th><th>Communication Parameters</th><th>Mode</th><th>Watchdog</th><th>Node</th><th>Type</th></tr>\r\n";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
     const char *cInfRow =
-        "<tr><td>%s</td><td>RS232 (inverted Rx/Tx)</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>";
+        "<tr><td>%s</td><td>RS232 (inverted Rx/Tx)</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>\r\n";
     snprintf(cLine, sizeof(cLine), cInfRow,
                                             pCtrl->pCfg->serial_port,
                                             pCtrl->pCfg->baudrate,
@@ -640,7 +659,7 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
 }
 static char* html_interface_end(char *Buffer) {
     const char *cInfEnd =
-        "</table>";
+        "</table>\r\n";
     strcpy(Buffer, cInfEnd);
     return(Buffer);
 }
@@ -650,7 +669,7 @@ static char* html_device_top(char *Buffer) {
         "<h3>NETWORK nodes</h3>"
         "<table>"
         "<tr><th colspan='5'>Device</th><th colspan='5'>Rx (input FROM node)</th><th colspan='3'>Tx (output TO node)</th></tr>"
-        "<tr><th>Node</th><th>Type</th><th>Enabled</th><th colspan='2'>PowerUp</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>CS Err/Head</th><th>CS Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
+        "<tr><th>Node</th><th>Type</th><th>Enabled</th><th colspan='2'>PowerUp</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>CS Err/Head</th><th>CS Err/Frame</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>\r\n";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -660,7 +679,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     time_t t;
     char cLine[512], asciibufRx[BGN_CMD_ASCII], asciibufTx[BGN_CMD_ASCII];
     const char *cDevRow =
-        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+        "<tr %s><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s</td></tr>\r\n";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -693,7 +712,7 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
 }
 static char* html_device_end(char *Buffer) {
     const char *cDevEnd =
-        "</table>";
+        "</table>\r\n";
     strcpy(Buffer, cDevEnd);
     return(Buffer);
 }
@@ -703,7 +722,7 @@ static char* html_ACP_top(char *Buffer) {
         "<h3>ACP status</h3>"
         "<table>"
         "<tr><th rowspan='2'>Parameter</th><th rowspan='2'>Nomenclature</th><th colspan='4'>Display</th></tr>"
-        "<tr><th>Count</th><th>Sec</th><th>Source</th><th>Value</th></tr>";
+        "<tr><th>Count</th><th>Sec</th><th>Source</th><th>Value</th></tr>\r\n";
     strcpy(Buffer, cACPTop);
     return(Buffer);
 }
@@ -714,10 +733,10 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     struct tm * ptmInfo;
     char asciibuffer[256];
     // some variables have different datatypes, so we use different format specifiers
-    const char *cACPRowSSDSS = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>";
-    const char *cACPRowSSDSD = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td></tr>";
-    const char *cACPRowSSDSX = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td></tr>";
-    const char *cACPRowSSDSF = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>";
+    const char *cACPRowSSDSS = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>\r\n";
+    const char *cACPRowSSDSD = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td></tr>\r\n";
+    const char *cACPRowSSDSX = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>0x%02X</td></tr>\r\n";
+    const char *cACPRowSSDSF = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>\r\n";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -839,7 +858,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/VTG", "VTG present (1= received/available, 0= not received/MANual speed selected)", pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.source), pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/XTE", "Cross Track Error, <0= Port, >0= Starboard [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/XTE", "Cross Track Error, XTE< =Port(negative), XTE> =Starboard (positive) [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/NMEA/RMB/WP", "Destination WayPoint (max 11 or 4/BGNET)", pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString);
     strcat(Buffer, cLine);
@@ -848,6 +867,8 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/RMB/WPB", "WayPoint Bearing [0-359 DegT]", pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/NMEA/RMB", "RMB present (1= received/available, 0= not received/not available)", pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.source), pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "PILOT/NMEA/NAV", "Navigation Source Selector (NAV1/NAV2)", pCtrl->BGNET.PILOT.NAV_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.NAV_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NAV_SEL.source), pCtrl->BGNET.PILOT.NAV_SEL.value.nByte);
     strcat(Buffer, cLine);
 
     // ==== DEPTH
@@ -900,7 +921,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 }
 static char* html_ACP_end(char *Buffer) { 
     const char *cACPEnd =
-        "</table>";
+        "</table>\r\n";
     strcpy(Buffer, cACPEnd);
     return(Buffer);
 }
@@ -908,9 +929,9 @@ static char* html_ACP_end(char *Buffer) {
 static char* html_NMEA_top(char *Buffer) {
     const char *cNMEATop =
         "<h3>SignalK/NMEA variables</h3>"
-        "<table>"
-        "<tr><th rowspan='2'>Parameter</th><th rowspan='2'>Nomenclature</th><th colspan='4'>Display</th></tr>"
-        "<tr><th>Count</th><th>Sec</th><th>Source</th><th>Value</th></tr>";
+        "<table>\r\n"
+        "<tr><th rowspan='2'>Parameter</th><th rowspan='2'>Nomenclature</th><th colspan='4'>Display</th></tr>\r\n"
+        "<tr><th>Count</th><th>Sec</th><th>Source</th><th>Value</th></tr>\r\n";
     strcpy(Buffer, cNMEATop);
     return(Buffer);
 }
@@ -919,7 +940,7 @@ static char* html_NMEA_row(char *Buffer) {
     char cSource[32];
 
     time_t t;
-    const char *cNMEARow = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>";
+    const char *cNMEARow = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>\r\n";
  
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -953,17 +974,17 @@ static char* html_NMEA_row(char *Buffer) {
 }
 static char* html_NMEA_end(char *Buffer) { 
     const char *cNMEAEnd =
-        "</table>";
+        "</table>\r\n";
     strcpy(Buffer, cNMEAEnd);
     return(Buffer);
 }
 
 static char* html_command_top(char *Buffer) {
     const char *cDevTop =
-        "<h3>Commands</h3>"
-        "<table>"
-        "<tr><th colspan='2'>Command</th><th colspan='3'>Rx (ACP input FROM node)</th><th colspan='3'>Tx (ACP output TO node)</th></tr>"
-        "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>";
+        "<h3>Commands</h3>\r\n"
+        "<table>\r\n"
+        "<tr><th colspan='2'>Command</th><th colspan='3'>Rx (ACP input FROM node)</th><th colspan='3'>Tx (ACP output TO node)</th></tr>\r\n"
+        "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>\r\n";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -972,7 +993,7 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
     time_t t;
     char cLine[512], asciibufRx[BGN_CMD_ASCII*2], asciibufTx[BGN_CMD_ASCII*4], asciibufCMD[BGNET_CMD_LABEL_MAX];
     const char *cDevRow =
-        "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>";
+        "<tr><td>0x%02X</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td></tr>\r\n";
 
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -1000,7 +1021,7 @@ static char* html_command_row(char *Buffer, BGNET_CTRL *pCtrl) {
 }
 static char* html_command_end(char *Buffer) {
     const char *cDevTop =
-        "</table>";
+        "</table>\r\n";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
@@ -1008,20 +1029,20 @@ static char* html_command_end(char *Buffer) {
 static char* html_channel_top(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[1024], asciibuf01[24], asciibuf02[24], asciibuf06[24];
     const char *cChnTop =
-        "\r<h3>Channel Information</h3>"
-        "\r<table>"
+        "<h3>Channel Information</h3>\r\n"
+        "<table>\r\n"
         "<tr><th colspan='3'>Channel</th>"
             "<th colspan='5'>Command 0x01/%s [Tx/Rx]</th>"
             "<th colspan='4'>Command 0x02/%s [Rx]</th>"
             "<th colspan='3'>Command 0x06/%s [Rx]</th>"
             "<th colspan='7'>Various Commands/BUTTONS, ALARMS, RESETS [Tx/Rx]</th>"
-            "</tr>"
+            "</tr>\r\n"
         "<tr><th>ID</th><th>Label</th><th>Source</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Node</th><th>Display</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>Label</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th>"
             "<th>Count</th><th>Sec</th><th>LastRaw</th><th>TO</th><th>FROM</th><th>CMD</th><th>Display</th>"
-            "</tr>";
+            "</tr>\r\n";
     snprintf(cLine, sizeof(cLine), cChnTop, strCommandLabel(pCtrl, asciibuf01, BGNET_CMD_01_DATA), strCommandLabel(pCtrl, asciibuf02, BGNET_CMD_02_LABEL), strCommandLabel(pCtrl, asciibuf06, BGNET_CMD_06_SUBSCRIBE));
     strcpy(Buffer, cLine);
     return(Buffer);

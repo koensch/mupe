@@ -596,17 +596,17 @@ BGNET_FMTDT FMTDT[16] = {       {0x00, 2, "0 bytes, odd one (found on PILOT/NMEA
                                 {0x02, 6, "4 bytes, unsigned 32bit register (used by STOREDLOG)"}, \
                                 {0x03, 5, "3 bytes, timer value (HH,MM,SS, displayed as 'H:MM:SS')"}, \
                                 {0x04, 6, "4 bytes, text (00+3 bytes, like ' T ',' F ','OFF','ON ','---')"}, \
-                                {0x05,-1, ""}, \
-                                {0x06,-1, ""}, \
+                                {0x05,-1, "not used"}, \
+                                {0x06,-1, "not used"}, \
                                 {0x07, 0, "variable, string (ascii + 1 null-byte)"}, \
                                 {0x08, 4, "2 bytes, unsigned 16bit register"}, \
-                                {0x09,-1, ""}, \
+                                {0x09,-1, "not used"}, \
                                 {0x0A, 6, "used by WP ID (4 ascii)"}, \
-                                {0x0B,-1, ""}, \
+                                {0x0B,-1, "not used"}, \
                                 {0x0C, 5, "3 bytes text (like 'INV')"}, \
                                 {0x0D, 6, "used to store ANC alarm level with 2 values"}, \
-                                {0x0E,-1, ""}, \
-                                {0x0F,-1, ""}
+                                {0x0E,-1, "not used"}, \
+                                {0x0F,-1, "not used"}
                             };
 
 // if you screwed up you can disable one (or more) threads so you can get a clue in what subsystem

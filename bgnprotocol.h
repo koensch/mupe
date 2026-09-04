@@ -742,6 +742,8 @@ typedef struct {
     // parameters, usually hosted by PILOT
     struct {
         NMEA2K_VALUE WA;            // Watch Alarm Counter
+        unsigned char ucNAV_SIM;    // NAV data simulation (enabled/disabled via api)
+        NMEA2K_VALUE NAV_SEL;       // NAV source selector (address of PILOT to use)
         struct {
             // PILOT/SETUP parameters
             NMEA2K_VALUE SPD;     // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
