@@ -331,7 +331,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_51_AWA              0x51 // displayed by WIND (the dial always displays the APP wind angle)
                                            // displayed by PILOT (when in VANE mode)
 #define BGNET_CHN_52_AWARAW           0x52 // signal from the direction sensor, prior correction, calibration or alignment
-#define BGNET_CHN_53_TARGET_TWA       0x53 // send by PILOT upon change/button pressed, Target True Wind Angle, fmt=0x01
+#define BGNET_CHN_53_TARGET_AWA       0x53 // send by PILOT upon change/button pressed, Target Appearent Wind Angle, fmt=0x01; displayed on PILOT in AUTO/VANE mode
 #define BGNET_CHN_55_TWS              0x55 // in KT
 #define BGNET_CHN_56_TWS              0x56 // in M/S
 #define BGNET_CHN_57_TWS              0x57
@@ -395,17 +395,15 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
                                            // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
                                            // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
-    #define BGN_AP_MODE1_MASK_STATE 0x01   // DATA1 - 0   STATE, engaged/not enganged STATE (0=STBY, 1=AUTO)
-    #define BGN_AP_MODE1_STBY       0x00   //         1   seems unused
-    #define BGN_AP_MODE1_AUTO       0x01   //         2   makes "MEM 000" displayed (when in COMP mode), Locks AUTO key (OFF key is operational)
-    #define BGN_AP_MODE1_MEM        0x04   //             
-    #define BGN_AP_MODE1_LOCK1      0x08   //             Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
-    #define BGN_AP_MODE1_VANE       0x10   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
-    #define BGN_AP_MODE1_LOCK2      0x20   //           
-                                           //         4   enables VANE mode
-                                           //         5   DISPLAY, SPEED, SETUP buttons are deactivated
-                                           //         6   seems unused
-                                            //        7   seems unused
+    #define BGN_AP_MODE1_MASK_STATE 0x03   // DATA1 - 0-1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO/COMPASS, note: 2= AUTO/WIND is not a thing)
+    #define BGN_AP_MODE1_STBY       0x00   //         2   makes "MEM 000" displayed (when in COMP mode), Locks AUTO key (OFF key is operational)
+    #define BGN_AP_MODE1_AUTO       0x01   //             Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
+    //#define BGN_AP_MODE1_AWIND      0x02   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
+    #define BGN_AP_MODE1_MEM        0x04   //         4   enables VANE mode    
+    #define BGN_AP_MODE1_LOCK1      0x08   //         5   DISPLAY, SPEED, SETUP buttons are deactivated    
+    #define BGN_AP_MODE1_VANE       0x10   //         6   seems unused
+    #define BGN_AP_MODE1_LOCK2      0x20   //         7   seems unused 
+                                           //        
     #define BGN_AP_MODE2_MASK_MODE  0x07   // DATA2 - 0-2 MODE (1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
     #define BGN_AP_MODE2_COMP       0x01   //         3   seems unused                     note: if there is no WIND signal, you can not select VANE mode
     #define BGN_AP_MODE2_NAV        0x03   //         4   PILOT SETUP option appears: "WIND A/T", behaviour unknown
@@ -414,7 +412,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGN_AP_MODE2_MEM        0x20   // 
 
 #define BGNET_CHN_BA_UNKNOWN          0xBA
-#define BGNET_CHN_BB_LATITUDE         0xBB( | (hex2bin(ap_mode->valuestring[1] & 0x0F));
+#define BGNET_CHN_BB_LATITUDE         0xBB
 #define BGNET_CHN_BC_LONGITUDE        0xBC
 #define BGNET_CHN_C1_DEPTHRAW         0xC1 // i assume that this is the RAW depth value, but i am not sure
 #define BGNET_CHN_C2_DEPTHFT          0xC2
@@ -510,7 +508,7 @@ union CH {
 #pragma pack()
 
 // divisor may be used to scale the value to more digits
-#define BGN_FMT_00      0x00        // No data
+#define BGN_FMT_00      0x00        // No data (channel size is only 2 bytes)
 #define BGN_FMT_01      0x01        // 16 bit signed register, is used for a value that falls in range -255/+255 (rudder position, wind angle, temperature)
                                     // optionally scaled down to 25.5, 2.55, 0.255 using the divisor
 #define BGN_FMT_81      0x81        // used by 0xEE, XTE (fixed divisor 100x, signed, +/-, range 0-9.99)
@@ -732,7 +730,8 @@ typedef struct {
         NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
         NMEA2K_VALUE EBS;           // Effective Boat Speed, result of speed selection, used as initializer for SpeedMAX and SpeedAVG
         NMEA2K_VALUE EBS_SEL;       // Effective Boat Speed, selector
-        NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot)
+        NMEA2K_VALUE TARGET_AWA;    // Target AWA (Setpoint for AutoPilot in VANE mode)
+        NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot in COMP/NAV mode)
         NMEA2K_VALUE CRS;           // Course Preset (Setpoint for AutoPilot)
         NMEA2K_VALUE MEM;           // Course Memory (previous CTS)
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   

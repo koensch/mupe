@@ -16,6 +16,10 @@
 #define ITOD(i)                         ((double)i)
 #define BGNET_PI                        3.14159
 #define BGNET_MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define BGNET_MAX(a, b) (((a) > (b)) ? (a) : (b))
+//#define BGNET_REMAINDER(a, b) ((a) % (b))
+// WRAP and increment around a range. a= value, b= increment, c= range 
+#define BGNET_INCREMENTWRAP(a, b, c, d) ( (a) + (b) + ((d)-(c)) ) % ( (d)-(c) )
 #define BGNET_TIME_FMT                 "%Y-%m-%d %H:%M:%S" 
 
 
@@ -135,11 +139,11 @@ typedef struct {
     NMEA2K_VALUE aws;
     NMEA2K_VALUE airtemp;
     NMEA2K_VALUE baro;
+    NMEA2K_VALUE vmg;
 } NMEA2K_WIND;
 typedef struct {
     NMEA2K_VALUE cts;
     NMEA2K_VALUE triplog;
-    NMEA2K_VALUE vmg;
 } NMEA2K_PILOT;
 typedef struct {
     NMEA2K_POSITION pos;

@@ -60,10 +60,10 @@ void app_state_init(void)
     NMEAinit(&g_n2kdata.wind.aws, t);
     NMEAinit(&g_n2kdata.wind.airtemp, t);
     NMEAinit(&g_n2kdata.wind.baro, t);
+    NMEAinit(&g_n2kdata.wind.vmg, t);
 
     NMEAinit(&g_n2kdata.pilot.cts, t);
     NMEAinit(&g_n2kdata.pilot.triplog, t);
-    NMEAinit(&g_n2kdata.pilot.vmg, t);
 }
 
 void app_state_shutdown(void)
