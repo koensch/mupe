@@ -407,10 +407,12 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.SPEED.SLW.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SPEED.SLW.Counter, t);
 
-        // other parameters
+        // NETWORK parameters
         pCtrl->BGNET.NETWORK.BackLight.value.nByte = 0; // backlight (0=OFF, 3-1=ON)
         pCtrl->BGNET.NETWORK.BackLight.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.NETWORK.BackLight.Counter, t);
+
+        CounterInit(&pCtrl->BGNET.NETWORK.AlarmReset, t);
 
         pCtrl->BGNET.ACP.TARGET_AWA.value.nLong = -97; // Target AWA, range -180/+180)
         pCtrl->BGNET.ACP.TARGET_AWA.source = BGN_SOURCE_ACP;
@@ -514,6 +516,22 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.EBS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.EBS.Counter, t);
 
+        // Alarms
+
+        pCtrl->BGNET.PILOT.ALARM.WA.ucCHN = BGNET_CHN_76_AP_WA_ALARM;
+        CounterInit(&pCtrl->BGNET.PILOT.ALARM.WA.Counter, t);
+        CounterInit(&pCtrl->BGNET.PILOT.ALARM.WA.Flasher1, t);
+        CounterInit(&pCtrl->BGNET.PILOT.ALARM.WA.Flasher2, t);
+        strcpy(pCtrl->BGNET.PILOT.ALARM.WA.AlarmText0, "WATCH   ");
+        strcpy(pCtrl->BGNET.PILOT.ALARM.WA.AlarmText1, "ALARM   ");
+
+        pCtrl->BGNET.PILOT.ALARM.OC.ucCHN = BGNET_CHN_AF_AP_OC_ALARM;
+        CounterInit(&pCtrl->BGNET.PILOT.ALARM.OC.Counter, t);
+        CounterInit(&pCtrl->BGNET.PILOT.ALARM.OC.Flasher1, t);
+        CounterInit(&pCtrl->BGNET.PILOT.ALARM.OC.Flasher2, t);
+        strcpy(pCtrl->BGNET.PILOT.ALARM.OC.AlarmText0, "  OFF   ");
+        strcpy(pCtrl->BGNET.PILOT.ALARM.OC.AlarmText1, "COURSE  ");
+
         // initialize key counters (we need them to detect double-key presses and simultaneous key presses)
 
         CounterInit(&pCtrl->BGNET.PILOT.KEY.AUTO, t);
@@ -597,26 +615,26 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter, t);
 
-        pCtrl->BGNET.DEPTH.SETUP.SA_ALARM.ucCHN = BGNET_CHN_C4_DEPTH;
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.SA_ALARM.Counter, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.SA_ALARM.Flasher1, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.SA_ALARM.Flasher2, t);
-        strcpy(pCtrl->BGNET.DEPTH.SETUP.SA_ALARM.AlarmText0, "SHALLOW");
-        strcpy(pCtrl->BGNET.DEPTH.SETUP.SA_ALARM.AlarmText0, "ALARM");
+        pCtrl->BGNET.DEPTH.ALARM.SHAL.ucCHN = BGNET_CHN_FC_SHALLOWALARM;
+        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Counter, t);
+        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Flasher1, t);
+        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Flasher2, t);
+        strcpy(pCtrl->BGNET.DEPTH.ALARM.SHAL.AlarmText0, "SHALLOW ");
+        strcpy(pCtrl->BGNET.DEPTH.ALARM.SHAL.AlarmText1, "ALARM   ");
 
-        pCtrl->BGNET.DEPTH.SETUP.DA_ALARM.ucCHN = BGNET_CHN_C4_DEPTH;
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.DA_ALARM.Counter, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.DA_ALARM.Flasher1, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.DA_ALARM.Flasher2, t);
-        strcpy(pCtrl->BGNET.DEPTH.SETUP.DA_ALARM.AlarmText0, "DEEP");
-        strcpy(pCtrl->BGNET.DEPTH.SETUP.DA_ALARM.AlarmText0, "ALARM");
+        pCtrl->BGNET.DEPTH.ALARM.DEEP.ucCHN = BGNET_CHN_FD_DEEPALARM;
+        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Counter, t);
+        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Flasher1, t);
+        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Flasher2, t);
+        strcpy(pCtrl->BGNET.DEPTH.ALARM.DEEP.AlarmText0, "DEEP    ");
+        strcpy(pCtrl->BGNET.DEPTH.ALARM.DEEP.AlarmText1, "ALARM   ");
 
-        pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.ucCHN = BGNET_CHN_C4_DEPTH;
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Counter, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Flasher1, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Flasher2, t);
-        strcpy(pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.AlarmText0, "ANCHOR");
-        strcpy(pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.AlarmText0, "ALARM");
+        pCtrl->BGNET.DEPTH.ALARM.ANCH.ucCHN = BGNET_CHN_FE_ANCHORALARM;
+        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Counter, t);
+        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher1, t);
+        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher2, t);
+        strcpy(pCtrl->BGNET.DEPTH.ALARM.ANCH.AlarmText0, "ANCHOR  ");
+        strcpy(pCtrl->BGNET.DEPTH.ALARM.ANCH.AlarmText1, "ALARM   ");
 
 //====== WIND
 
@@ -1327,14 +1345,60 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
         r = r + bgnet_sizeof_channel(pCtrl, puCH);
     } else {
         // show alternating the SHALOW or DEEP setting from the alarm
-        CounterUp(&pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Flasher2, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-        if ((pCtrl->BGNET.DEPTH.SETUP.AA_ALARM.Flasher2.iCounter%2) == 0) {
+        CounterUp(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher2, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+        if ((pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher2.iCounter % 2) == 0) {
             // Shallow Alarm (measured level - shallow limit), minimum depth
             r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue - pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue, 0);
         } else {
             // Deep Alarm (measured level + deep limit), maximum depth
             r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue + pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.dValue, 0);
         }
+    }
+
+    if (pCtrl->BGNET.DEPTH.ALARM.SHAL.ucSTATE == 0) {
+        // no alarm
+    } else {
+        c = pCtrl->BGNET.DEPTH.ALARM.SHAL.ucCHN;
+        puCH = (union CH *)&(payload[r]);
+        puCH->s.CH = c;
+        puCH->s.FMT = (BGN_FMT_07 | pCtrl->BGNET.DEPTH.ALARM.SHAL.ucBEEP);
+        if ((pCtrl->BGNET.DEPTH.ALARM.SHAL.Flasher1.iCounter % 2) == 0) {
+            strcpy((char *)puCH->s.cv.sB, pCtrl->BGNET.DEPTH.ALARM.SHAL.AlarmText0);
+        } else {
+            strcpy((char *)puCH->s.cv.sB, pCtrl->BGNET.DEPTH.ALARM.SHAL.AlarmText1);
+        }
+        CounterUp(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Flasher1, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+        r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    }
+    if (pCtrl->BGNET.DEPTH.ALARM.DEEP.ucSTATE == 0) {
+        // no alarm
+    } else {
+        c = pCtrl->BGNET.DEPTH.ALARM.DEEP.ucCHN;
+        puCH = (union CH *)&(payload[r]);
+        puCH->s.CH = c;
+        puCH->s.FMT = (BGN_FMT_07 | pCtrl->BGNET.DEPTH.ALARM.DEEP.ucBEEP);
+        if ((pCtrl->BGNET.DEPTH.ALARM.DEEP.Flasher1.iCounter % 2) == 0) {
+            strcpy((char *)puCH->s.cv.uB, pCtrl->BGNET.DEPTH.ALARM.DEEP.AlarmText0);
+        } else {
+            strcpy((char *)puCH->s.cv.uB, pCtrl->BGNET.DEPTH.ALARM.DEEP.AlarmText1);
+        }
+        CounterUp(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Flasher1, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+        r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    }
+    if (pCtrl->BGNET.DEPTH.ALARM.ANCH.ucSTATE == 0) {
+        // no alarm
+    } else {
+        c = pCtrl->BGNET.DEPTH.ALARM.ANCH.ucCHN;
+        puCH = (union CH *)&(payload[r]);
+        puCH->s.CH = c;
+        puCH->s.FMT = (BGN_FMT_07 | pCtrl->BGNET.DEPTH.ALARM.ANCH.ucBEEP);
+        if ((pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher1.iCounter % 2) == 0) {
+            strcpy((char *)puCH->s.cv.uB, pCtrl->BGNET.DEPTH.ALARM.ANCH.AlarmText0);
+        } else {
+            strcpy((char *)puCH->s.cv.uB, pCtrl->BGNET.DEPTH.ALARM.ANCH.AlarmText1);
+        }
+        CounterUp(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher1, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+        r = r + bgnet_sizeof_channel(pCtrl, puCH);
     }
 
     // the next values are always present 
@@ -1363,14 +1427,7 @@ int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0, c;
     union CH *puCH;
 
-//#define WINDSIM
-#ifdef WINDSIM
-    // make the WIND dial into some kind of seconds clock
-    pCtrl->BGNET.WIND.AWA.value.nLong = (((pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp & 0x003F) * 360) / 64) - 180; // get value 0-4095
-    pCtrl->BGNET.WIND.AWA.source = BGN_SOURCE_ACP;
-    CounterUp(&pCtrl->BGNET.WIND.AWA.Counter, pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp);
-#endif
-
+    // AWSRAW is read from the sensor and calibrated via WIND/SETUP parameter
     c = BGNET_CHN_4E_AWSRAW;
     puCH = (union CH *)&(payload[r]);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.AWS.value.dValue + 0.43, 0);
@@ -1386,6 +1443,7 @@ int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.WIND.AWA.value.nLong);  // signed -180/+180
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
+    // AWARAW is read from the sensor and calibrated via WIND/SETUP parameter
     c = BGNET_CHN_52_AWARAW; // 0/360 degrees
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
@@ -1413,20 +1471,9 @@ int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.WIND.TWA.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    // is calculated by WIND (using speed data from SPEED or QUAD), displayed by DATA
-
     c = BGNET_CHN_7F_VMG;
     puCH = (union CH *)&(payload[r]);
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.VMG.value.dValue, 0);
-
-    // TARGET TWA is set PILOT in VANE mode
-
-    //c = BGNET_CHN_53_TARGET_TWA; // -180/+180 degrees, shown on PILOT (when in VANE mode)
-    //puCH = (union CH *)&(payload[r]);
-    //puCH->s.CH = c;
-    //puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    //puCH->s.cv.sW[0] = (int16_t)htons(121);  // signed -180/+180
-    //r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     return(r);
 }
@@ -1459,7 +1506,7 @@ int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
             switch (pCtrl->BGNET.ACP.MODE.value.nByte & BGN_AP_MODE2_MASK_MODE) {
                 case BGN_AP_MODE2_VANE:
                     // VANE mode => show heading
-                    c = BGNET_CHN_A6_AP_CTS;
+                    c = BGNET_CHN_A6_AP_TARGET;
                     puCH = (union CH *)&(payload[r]);
                     puCH->s.CH = c;
                     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -1468,7 +1515,7 @@ int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
                     break;
                 default:
                     // COMPASS and NAV mode => show CTS
-                    c = BGNET_CHN_A6_AP_CTS;
+                    c = BGNET_CHN_A6_AP_TARGET;
                     puCH = (union CH *)&(payload[r]);
                     puCH->s.CH = c;
                     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -1638,7 +1685,7 @@ int makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     int r = 0,c;
     union CH *puCH;
 
-    c = BGNET_CHN_A6_AP_CTS; // RESP selector
+    c = BGNET_CHN_A6_AP_TARGET; // RESP selector
     puCH = (union CH *)&(payload[r]);
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
@@ -2040,7 +2087,7 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                         // is already ON
                     }
                     break;
-                case BGNET_CHN_A6_AP_CTS:
+                case BGNET_CHN_A6_AP_TARGET:
                     pCtrl->BGNET.ACP.CTS.value.nLong = ntohs(pCH->s.cv.uW[0]);
                     pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
@@ -2609,8 +2656,77 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 }
 #endif
                                 break;
-                            case BGNET_CMD_E7_ALARM_ACK:
-                                // an alarm ACK was received, just register the received frame, no action
+                            case BGNET_CMD_E7_ALARM_SILENCE:
+                                // an ALARM SILENCE was received. Note that a ALARM SILENCE can be send from every node (that has alarm capabilities). Like the others
+                                // CMD-DAT/REQ we must send a CMD-ACK, but we do not split by node type, so we handle the ALARM SILENCE here.
+                                // usually we receive: 30 D4 02 E7 13 41 C4 A5 (where C4 is the alarm channel)
+                                // we reply with: D4 30 01 FD FE 41 69 (returning the ACKSEQ number)
+                                // keep track of the SILENCE commands processed
+                                CounterUp(&pCtrl->BGNET.NETWORK.AlarmReset, t);
+                                // setup the pointer to our received CMD-REQ or CMD-DAT command
+                                pCHRx = (union CH *)(&pFRx->payload[1]);
+                                //log_debug("ALARM SILENCE from 0x%02X for alarm channel 0x%02X", pFRx->FROM, pCHRx->s.CH);
+                                // note: we only clear the beeping bit; we do (and can not) take the alarm cause out
+                                switch (pCHRx->s.CH) {
+                                    case BGNET_CHN_76_AP_WA_ALARM:
+                                        pCtrl->BGNET.PILOT.ALARM.WA.ucBEEP = 0;
+                                        break;
+                                    case BGNET_CHN_AF_AP_OC_ALARM:
+                                        pCtrl->BGNET.PILOT.ALARM.OC.ucBEEP = 0;
+                                        break;
+                                    case BGNET_CHN_FC_SHALLOWALARM:
+                                        pCtrl->BGNET.DEPTH.ALARM.SHAL.ucBEEP = 0;
+                                        break;
+                                    case BGNET_CHN_FD_DEEPALARM:
+                                        pCtrl->BGNET.DEPTH.ALARM.DEEP.ucBEEP = 0;
+                                        break;
+                                    case BGNET_CHN_FE_ANCHORALARM:
+                                        pCtrl->BGNET.DEPTH.ALARM.ANCH.ucBEEP = 0;
+                                        break;
+                                }
+
+                                if (pFRx->TO == BGNET_TYPE_ALL) {
+                                    // never send a reply to a broadcast
+                                } else {
+                                    // make the CMD-ACK for the ALARMSILENCE command we received
+                                    payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                    len_pl = 1;
+                                    pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                    // send reply where it came from (FROM) with the originator who that node think we are (TO), except if that was a broadcast
+                                    len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, pFRx->TO, BGNET_CMD_ACK, payload, len_pl);
+
+                                    memcpy(pCtrl->CMD[BGNET_CMD_ACK].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->CMD[BGNET_CMD_ACK].CounterTx, t);
+                                    memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                    TxSize = TxSize + len_msg;
+
+                                    // experiment koen
+
+                                    // broadcast a SILENCE command to all
+                                    payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                    payload[1] = pFRx->payload[1];
+                                    len_pl = 2;
+                                    pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                    // send reply where it came from (FROM) with the originator who that node think we are (TO), except if that was a broadcast
+                                    len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETPILOT, BGNET_CMD_E7_ALARM_SILENCE, payload, len_pl);
+
+                                    memcpy(pCtrl->CMD[BGNET_CMD_E7_ALARM_SILENCE].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->CMD[BGNET_CMD_E7_ALARM_SILENCE].CounterTx, t);
+                                    memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                    TxSize = TxSize + len_msg;
+
+                                    // put it for transmission
+                                    pthread_mutex_lock(&g_data_mutex);
+                                    memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+                                    g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                    pthread_mutex_unlock(&g_data_mutex);
+                                }
+
+                                break;
+                            case BGNET_CMD_ACK:
+                                // sometimes we receive a ACK to a CMD we have send. We ignore it.
                                 break;
                             default:
                                 // Some commands are part of a CMD-REQ/CDM-DAT/CMD-ACK handshake. All next commands require a CMD-ACK response
@@ -3245,7 +3361,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                             case BGNET_CMD_B1_PILOT_DELTADAT:
                                                 // 1 of the 4 +/- keys was pressed, 5 bytes payload: 0-ACKSEQ, 1=0xA6/CHID, 2=0x01/FMT, 3/4=signed 16bits inc/decr value
                                                 switch(pCHRx->s.CH) {
-                                                    case BGNET_CHN_A6_AP_CTS:
+                                                    case BGNET_CHN_A6_AP_TARGET:
                                                         iValue = decode_channel_numeric(pCHRx);
                                                         switch (iValue) {
                                                             case -10:
@@ -3270,7 +3386,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         // there is some delay in the update. It works, but i find it annoying
                                                         // Upside is that in case there are multiple PILOT, the DATA/0x01 (broadcast), also updates others
                                                         pCHTx = (union CH *)&payload[0];
-                                                        pCHTx->s.CH = BGNET_CHN_A6_AP_CTS;
+                                                        pCHTx->s.CH = BGNET_CHN_A6_AP_TARGET;
                                                         pCHTx->s.FMT = BGN_FMT_08;
                                                         pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
                                                         len_pl = 4;
@@ -3287,7 +3403,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 break;
                                             case BGNET_CMD_CB_QUAD_RESET:
                                                 switch (pCHRx->s.CH) {
-                                                    case BGNET_CHN_A6_AP_CTS:
+                                                    case BGNET_CHN_A6_AP_TARGET:
                                                         // happens when PILOT wants the stored CTS from the ACP. I do not know
                                                         // what command to use, so i do not do anything. At least is makes the PILOT
                                                         // to receive the CMDACK, preventing an error beep
@@ -3408,10 +3524,10 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 // in SETUP, the RESPONSE parameter is configured, 2 bytes payload.
                                                 // 0=ACKSEQ, 1=0xA6
                                                 switch(pCHRx->s.CH) {
-                                                    case BGNET_CHN_A6_AP_CTS:
+                                                    case BGNET_CHN_A6_AP_TARGET:
                                                         // create command with current RESP SELECT
                                                         payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                        payload[1] = BGNET_CHN_A6_AP_CTS;
+                                                        payload[1] = BGNET_CHN_A6_AP_TARGET;
                                                         payload[2] = BGN_FMT_01;
                                                         payload[3] = 0;
                                                         payload[4] = pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte;
@@ -3521,7 +3637,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         pCtrl->BGNET.ACP.TARGET_AWA.source = BGN_SOURCE_BGNET;
                                                         CounterUp(&pCtrl->BGNET.ACP.TARGET_AWA.Counter, t);
                                                         break;
-                                                    case BGNET_CHN_A6_AP_CTS:
+                                                    case BGNET_CHN_A6_AP_TARGET:
                                                         // the PILOT was put into AUTO with a pre-stored course CRS
                                                         // update CRS variable (no CHN)
                                                         pCtrl->BGNET.ACP.CRS.value.nLong = ntohs(pCHRx->s.cv.uW[0]);
@@ -3637,7 +3753,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 // Note: MANUAL speed selection can be set at 3 bands (SLW, MED, FST) via the PILOT/SPEED key
                                                 switch(pCHRx->s.CH) {
                                                     // MODE SELECT (COMP/NAV/VANE)
-                                                    case BGNET_CHN_A6_AP_CTS:
+                                                    case BGNET_CHN_A6_AP_TARGET:
                                                         // update the channel value
                                                         pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                         pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
@@ -3737,13 +3853,12 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
                                                         CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
                                                         // increment/decrement TARGET AWA
+                                                        // <10/<1 = steer boat to PORT. We receive a positive value (10,1); we need to add the positive numebr
+                                                        // 10>/1> = steer boat to STARBOARD. We receive a negative value (-10,-1); we need to add the negative number
+                                                        // we need a different MAX/MIN limit (no wrap-around)
                                                         if (pCtrl->BGNET.ACP.TARGET_AWA.value.nLong < 0) {
-                                                            // negative AWA = wind from PORT side
-                                                            // <10 and <1 keys give positive value, turn boat into the wind, decrease target AWA (add positive value)
                                                             pCtrl->BGNET.ACP.TARGET_AWA.value.nLong = BGNET_MAX(pCtrl->BGNET.ACP.TARGET_AWA.value.nLong + (int16_t)ntohs(pCHRx->s.cv.uW[0]), -180);
                                                         } else {
-                                                            // positive AWA = wind from STARBOARD side
-                                                            // 10> and 1> keys give negative value, turn boat into the wind, decrease target AWA (add negative value)
                                                             pCtrl->BGNET.ACP.TARGET_AWA.value.nLong = BGNET_MIN(pCtrl->BGNET.ACP.TARGET_AWA.value.nLong + (int16_t)ntohs(pCHRx->s.cv.uW[0]), +180);
                                                         }
                                                         pCtrl->BGNET.ACP.TARGET_AWA.source = BGN_SOURCE_BGNET;
@@ -3764,7 +3879,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         break;
                                                     // in SETUP, the RESPONSE parameter is configured, 5 bytes payload.
                                                     // 0=ACKSEQ, 1=0xA6/AP_CTARGET, 2=FMT_01, 3=0, 4= new RESP selector
-                                                    case BGNET_CHN_A6_AP_CTS:
+                                                    case BGNET_CHN_A6_AP_TARGET:
                                                         // update the channel value
                                                         pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                         pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
@@ -3795,10 +3910,10 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
                                                         CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
                                                         // get the new NAV SELECT from the channel
-                                                        pCtrl->BGNET.PILOT.NAV_SEL.value.nByte = pCHRx->s.cv.uB[1];
+                                                        pCtrl->BGNET.PILOT.NAV_SEL.value.nByte = pCHRx->s.cv.uB[1]; // this is address of the PILOT using NMEA/NAV data (when there are multiple NAV inputs)
                                                         pCtrl->BGNET.PILOT.NAV_SEL.source = BGN_SOURCE_BGNET;
                                                         CounterUp(&pCtrl->BGNET.PILOT.NAV_SEL.Counter, t);
-                                                        break;                                                       
+                                                        break;
                                                     case BGNET_CHN_EB_SOG:
                                                         // broadcast by PILOT to FF, 3 bytes payload, unknown purpose. Is send when a MANual speed is selected
                                                         // FF 50 03 D5 D9 B5 EB 0F FB
@@ -3881,7 +3996,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                     // the <10, >10, <1, >1 key was pressed, 2 bytes payload (at the same time also B1 with +/- 10/1)
                                                     // 0=ACKSEQ, 1=0xA6
                                                     // AT THE SAME TIME also a CMD_B1/A6 command is send with the actual value (-10,+10,-1 or +1)
-                                                    case BGNET_CHN_A6_AP_CTS:
+                                                    case BGNET_CHN_A6_AP_TARGET:
                                                         CounterUp(&pCtrl->BGNET.PILOT.KEY.COURSE, t);
                                                         // create command with current CTS value, but i do not know what command to use for REPLY
                                                         break;

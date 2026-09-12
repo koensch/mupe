@@ -238,8 +238,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CMD_DD_QUAD_SHAREQ        0xDD // 2 bytes payload (00 C4), C4=DEPTH
 #define BGNET_CMD_DE_PILOT_WAREQ        0xDE // 2 bytes payload (00 76), 76=WA ALARM, command send to ACP during SETUP
 #define BGNET_CMD_DF_PILOT_OCREQ        0xDF // 2 bytes payload (00 AF), AF=OC ALARM, command send to ACP during SETUP
-#define BGNET_CMD_E7_ALARM_ACK          0xE7 // 2 bytes payload (00 xx), is send by the node where the alarm was acknowdldged. Alarm initiating node
-                                             // responds wit a CMD-ACK
+#define BGNET_CMD_E7_ALARM_SILENCE      0xE7 // 2 bytes payload (00 xx), is send by the node where the alarm was acknowledged, where XX is the alarm channel. Is send TO
+                                             //   the node that initiated the alarm. responds wit a CMD-ACK: example: 30 30 02 E7 B7 00 FC AE
 #define BGNET_CMD_E9_QUAD_ACAL_DAT      0xE9 // 5 bytes payload (00, 00 88 00 00) being the AUTOCAL value,CHID 0x00 is weird
 #define BGNET_CMD_EA_QUAD_ACAL_REQ      0xEA // 2 bytes payload (2C 01), requesting the AUTOCAL value
 #define BGNET_CMD_ACK                   0xFD // 1 byte payload (ACK sequence)
@@ -254,7 +254,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGNET_FMT_DIVPAD_DIV    0xC0     // bits 7,6      - Divisor
     #define BGNET_FMT_DIVPAD_PAD    0x30     // bits 5,4      - Padding
     #define BGNET_FMT_DT            0x0F     // bits 3,2,1,0  - DataType
-    #define BGNET_FMT_ALARM         0x10     // bit 4         - Alarmbit
+    #define BGNET_FMT_ALARMBEEP     0x10     // bit 4         - Alarmbit
                                              // a 'alarm-capable-originating' node (like QUAD) will beep when it receives the alarmbit,
                                              // also if that channel does not have alarm capabilities (settable alarm limits)
 
@@ -386,8 +386,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_9E_PITCHRATE        0x9E
 #define BGNET_CHN_A2_UNKNOWN          0xA2
 #define BGNET_CHN_A4_BOOMPOS          0xA4
-#define BGNET_CHN_A6_AP_CTS           0xA6 // Course To Steer send by PILOT upon change/button pressed, Target Course (in AUTO or memory when STBY), fmt=0x08
-                                           // seems to be used to communicate multiple type of values/status from ACP to PILOT
+#define BGNET_CHN_A6_AP_TARGET        0xA6 // Target in AUTO (COMP/NAV= CTS, VANE= Headeing)
 #define BGNET_CHN_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
 #define BGNET_CHN_AF_AP_OC_ALARM      0xAF
 #define BGNET_CHN_B3_COMPASSCAL       0xB3
@@ -395,20 +394,20 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
                                            // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
                                            // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
-    #define BGN_AP_MODE1_MASK_STATE 0x03   // DATA1 - 0-1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO/COMPASS, note: 2= AUTO/WIND is not a thing)
-    #define BGN_AP_MODE1_STBY       0x00   //         2   makes "MEM 000" displayed (when in COMP mode), Locks AUTO key (OFF key is operational)
+    #define BGN_AP_MODE1_MASK_STATE 0x03   // DATA1 - 0-1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO, 2=not used, 3=not used), bit 1 seems unused
+    #define BGN_AP_MODE1_STBY       0x00   //         2   makes "MEM 000" displayed (when in COMP mode), locks AUTO key (OFF key is operational)
     #define BGN_AP_MODE1_AUTO       0x01   //             Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
-    //#define BGN_AP_MODE1_AWIND      0x02   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
-    #define BGN_AP_MODE1_MEM        0x04   //         4   enables VANE mode    
-    #define BGN_AP_MODE1_LOCK1      0x08   //         5   DISPLAY, SPEED, SETUP buttons are deactivated    
-    #define BGN_AP_MODE1_VANE       0x10   //         6   seems unused
-    #define BGN_AP_MODE1_LOCK2      0x20   //         7   seems unused 
+    #define BGN_AP_MODE1_MEM        0x04   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
+    #define BGN_AP_MODE1_LOCK1      0x08   //         4   enables VANE mode    
+    #define BGN_AP_MODE1_VANE       0x10   //         5   DISPLAY, SPEED, SETUP buttons are deactivated    
+    #define BGN_AP_MODE1_LOCK2      0x20   //         6   not used
+                                           //         7   not used 
                                            //        
     #define BGN_AP_MODE2_MASK_MODE  0x07   // DATA2 - 0-2 MODE (1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
-    #define BGN_AP_MODE2_COMP       0x01   //         3   seems unused                     note: if there is no WIND signal, you can not select VANE mode
+    #define BGN_AP_MODE2_COMP       0x01   //         3   not used                     note: if there is no WIND signal, you can not select VANE mode
     #define BGN_AP_MODE2_NAV        0x03   //         4   PILOT SETUP option appears: "WIND A/T", behaviour unknown
     #define BGN_AP_MODE2_VANE       0x04   //         5   makes "MEM 000" displayed, but no command observed
-    #define BGN_AP_MODE2_JOYSTICK   0x06   //         6-7 seems unused
+    #define BGN_AP_MODE2_JOYSTICK   0x06   //         6-7 not used
     #define BGN_AP_MODE2_MEM        0x20   // 
 
 #define BGNET_CHN_BA_UNKNOWN          0xBA
@@ -683,9 +682,11 @@ typedef struct {
 // Alarm Definition Table
 typedef struct {
     unsigned char ucCHN;    // channel number (that will carry the alarmbit)
+    unsigned char ucSTATE;  // alarm state (0=off, 1=on)
+    unsigned char ucBEEP;   // beep state (0=off)
     BGNET_COUNT Counter;    // alarm counter
-    BGNET_COUNT Flasher1;   // used to flash alarm text
-    BGNET_COUNT Flasher2;   // used to flash display (only used for WAtch Alarm)
+    BGNET_COUNT Flasher1;   // used to flash/rotate alarm text
+    BGNET_COUNT Flasher2;   // used to flash display (only used for ANC alarm to display alternating SHA/DEP values)
     char AlarmText0[12];
     char AlarmText1[12];
 } BGNET_ALARM;
@@ -717,6 +718,7 @@ typedef struct {
     struct {
     // parameters, usually from the network (any device)
         NMEA2K_VALUE BackLight;     // 0=Off, 3-1=ON
+        BGNET_COUNT AlarmReset;     // counting the ALARM RESET
     } NETWORK;
     // parameters, usually hosted by ACP. How do we know what paramaters are hosted by what nodes? Some seem logical, others not.
     // if we look the the command 0x06 that the DATA uses to register it's values, you see that it adresses the ACP/PILOT/QUAD/WIND node
@@ -755,6 +757,10 @@ typedef struct {
             NMEA2K_VALUE DMP;     // Compass heading display damping (1-99 sec, defaut =4)
             NMEA2K_VALUE FR;      // Fault Reporting ON/OFF
         } SETUP;
+        struct {
+            BGNET_ALARM  WA; // WAtch Alarm
+            BGNET_ALARM  OC; // Off-Course Alarm
+        } ALARM;
     // PILOT/SPEED/SETUP - Manual speed selection
 #define BGNET_SPD_TRA           0
 #define BGNET_SPD_MAN_FST       1
@@ -821,18 +827,20 @@ typedef struct {
         NMEA2K_VALUE ANC_ALARM;
         struct {
             NMEA2K_VALUE CAL;      // CALibration: 0= No Calibration, <0= offset to keel (>depth under keel), >0= offset to watersurface (>waterdepth)
-            BGNET_ALARM  SA_ALARM; // Shallow Alarm Control Block
             NMEA2K_VALUE SA_M;     // Shallow Alarm limit (meter, absolute)
             NMEA2K_VALUE SA_STAT;  // Shallow Alarm ON/OFF
-            BGNET_ALARM  DA_ALARM; // Deep Alarm Control Block
             NMEA2K_VALUE DA_M;     // Deep Alarm limit (meter, absolute)
             NMEA2K_VALUE DA_STAT;  // Deep Alarm ON/OFF
-            BGNET_ALARM  AA_ALARM; // Anchor Alarm Control Block
             NMEA2K_VALUE ASA_M;    // Anchor Shallow Alarm limit (meter, relative to the depth at the moment of setting)
             NMEA2K_VALUE ADA_M;    // Anchor Deep Alarm limit (meter, relative to the depth at the moment of setting)
             NMEA2K_VALUE AMA_M;    // Anchor Measured depth at the moment of setting
             NMEA2K_VALUE AA_STAT;  // Anchor Alarm ON/OFF
         } SETUP;
+        struct {
+            BGNET_ALARM  SHAL; // Shallow Alarm Control Block
+            BGNET_ALARM  DEEP; // Deep Alarm Control Block
+            BGNET_ALARM  ANCH; // Anchor Alarm Control Block
+        } ALARM;
     } DEPTH;
     struct {
         NMEA2K_VALUE AWS;

@@ -181,23 +181,24 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
         if ((deviation_raw == 0x7FFF) | (variation_raw == 0x7FFF)) {
             // no data do not update
         } else {
-            deviation = deviation_raw * 1e-4; /* device by 1000 to get rads */
-            variation = variation_raw * 1e-4; /* device by 1000 to get rads */
+            deviation = deviation_raw * 1e-4; /* devide by 1000 to get rads */
+            variation = variation_raw * 1e-4; /* devide by 1000 to get rads */
             pthread_mutex_lock(&g_data_mutex);
             g_n2kdata.boat.headingT.value.dValue = (heading + deviation + variation); // True (with compensation)
             g_n2kdata.boat.headingT.source = BGN_SOURCE_NMEA;
             CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
             pthread_mutex_unlock(&g_data_mutex);
+        }
 
-            switch(pCtrl->BGNET.ACP.Heading.source) {
-                case BGN_SOURCE_NONE:
-                case BGN_SOURCE_ACP:
-                case BGN_SOURCE_NMEA:
-                    pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
-                    pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_NMEA;
-                    CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-                    break;
-            }
+        // heading is DegM
+        switch(pCtrl->BGNET.ACP.Heading.source) {
+            case BGN_SOURCE_NONE:
+            case BGN_SOURCE_ACP:
+            case BGN_SOURCE_NMEA:
+                pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
+                pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                break;
         }
     }
     log_debug("N2K 127250: Heading= %d, Deviation= %d, Variation= %d", DTOIROUND(heading * 180/M_PI), DTOIROUND(deviation * 180/M_PI), DTOIROUND(variation * 180/M_PI));
@@ -228,7 +229,7 @@ static void parse_pgn_128259(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.SPEED.STW.value.dValue = (stw * 1.94384449 * 10); // convert m/s to KT*10
+                pCtrl->BGNET.SPEED.STW.value.dValue = ((stw / 1.94384449) * 10.0); // convert m/s to KT*10
                 pCtrl->BGNET.SPEED.STW.source = BGN_SOURCE_NMEA;
                 CounterUp(&pCtrl->BGNET.SPEED.STW.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
@@ -332,7 +333,7 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = sog * 1.94384 * 10; // convert m/s to KT
+                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = ((sog / 1.94384) * 10.0); // convert m/s to KT
                 pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_NMEA;
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
