@@ -172,7 +172,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_TYPE_NETPILOT             0x50 // confirmed
 #define BGNET_TYPE_NETDEPTH             0x10 //?
 #define BGNET_TYPE_NETSPEED             0x40 //?
-#define BGNET_TYPE_NETDATA              0x60 // confirmed
+#define BGNET_TYPE_NETDATA              0xD0 // confirmed, sometimes 0x60, sometimes 0xD4
 #define BGNET_TYPE_NETWIND              0x70 // confirmed
 #define BGNET_TYPE_ALL                  0xFF // used for broadcast (to ALL)
 
@@ -546,7 +546,7 @@ typedef struct {
 } BGNET_FMTDT;
 
 // 16 NETWORK devices exist, the first one (index=0) is used for devices we are unable to identify
-#define BGNET_TYPE_MAX            17
+#define BGNET_TYPE_MAX            (16+1)
 // Device Definition Table
 typedef struct {
     char sProdName[BGNET_CMD_LABEL_MAX];
@@ -684,9 +684,9 @@ typedef struct {
     unsigned char ucCHN;    // channel number (that will carry the alarmbit)
     unsigned char ucSTATE;  // alarm state (0=off, 1=on)
     unsigned char ucBEEP;   // beep state (0=off)
+    unsigned char ucRESET;  // reset requested (1= send null string, 0= null string was send)
     BGNET_COUNT Counter;    // alarm counter
-    BGNET_COUNT Flasher1;   // used to flash/rotate alarm text
-    BGNET_COUNT Flasher2;   // used to flash display (only used for ANC alarm to display alternating SHA/DEP values)
+    BGNET_COUNT Flasher;    // used to flash/rotate alarm text
     char AlarmText0[12];
     char AlarmText1[12];
 } BGNET_ALARM;
@@ -834,6 +834,7 @@ typedef struct {
             NMEA2K_VALUE ASA_M;    // Anchor Shallow Alarm limit (meter, relative to the depth at the moment of setting)
             NMEA2K_VALUE ADA_M;    // Anchor Deep Alarm limit (meter, relative to the depth at the moment of setting)
             NMEA2K_VALUE AMA_M;    // Anchor Measured depth at the moment of setting
+            BGNET_COUNT AA_TOGGLE; // used to toggle display between Shallow and Deep limit
             NMEA2K_VALUE AA_STAT;  // Anchor Alarm ON/OFF
         } SETUP;
         struct {
@@ -900,9 +901,9 @@ size_t bgnet_sizeof_frame(FRAME_H *);
 char* strCommandLabel(BGNET_CTRL *, char *, unsigned char);
 char* strChannelLabel(BGNET_CTRL *, char *, unsigned char);
 size_t bgnet_encode_frame(FRAME_H *, unsigned char, unsigned char, unsigned char, unsigned char *, unsigned char);
-int makeRESPresponse(BGNET_CTRL *, unsigned char *);
-int makeWAresponse(BGNET_CTRL *, unsigned char *);
-int makeOCresponse(BGNET_CTRL *, unsigned char *);
+size_t makeRESPresponse(BGNET_CTRL *, unsigned char *);
+size_t makeWAresponse(BGNET_CTRL *, unsigned char *);
+size_t makeOCresponse(BGNET_CTRL *, unsigned char *);
 size_t register_DATA_frame(BGNET_CTRL *, FRAME_H *);
 uint16_t EffectiveBoatSpeed(BGNET_CTRL *, NMEA2K_VALUE *);
 time_t tTimerCalc(BGNET_CTRL *, unsigned char *, unsigned char *, unsigned char *);
@@ -924,11 +925,17 @@ char* CommandToAscii(char*, size_t, FRAME_H*);
 #define BYTE2ASCII_NOTHEX   -2
 #define BYTE2ASCII_NONE     0   // undefined string
 #define BYTE2ASCII_PLAIN    2   // continous string:        00010203 .... FEFF  -> 1 byte takes 2 characters
-#define BYTE2ASCII_SPACED   3   // space between bytes:     00 01 02 03 .... FE FF -> 1 bytes take 3 characters
-#define BYTE2ASCII_HEXED    5   // every byte preceeded by  0x00 0x01 0x02 0x03 .... 0xFE 0xFF -> 1 bytes take 5 characters
+#define BYTE2ASCII_SPACED   3   // space between bytes:     00 01 02 03 .... FE FF -> 1 bytes takes 3 characters
+#define BYTE2ASCII_HEXED    5   // every byte preceeded by  0x00 0x01 0x02 0x03 .... 0xFE 0xFF -> 1 bytes takes 5 characters
 char* byte2ascii(char*, size_t, unsigned char*, size_t, int);
 int16_t hex2bin(unsigned char);
 int16_t ascii2byte(unsigned char *, char *, size_t);
 int16_t ascii2frame(FRAME_H *, char *, size_t *);
 
-#endif
+void ALARM_Init(BGNET_ALARM *, unsigned char, char *, char *, time_t);
+void ALARM_On(BGNET_ALARM *, time_t);
+void ALARM_Edge(BGNET_ALARM *, unsigned char, time_t);
+void ALARM_Off(BGNET_ALARM *);
+size_t ALARM_CHN(BGNET_CTRL *, union CH *, BGNET_ALARM *, time_t);
+
+    #endif

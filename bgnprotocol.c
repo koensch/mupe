@@ -289,6 +289,76 @@ char *strTimerCalc(BGNET_CTRL *pCtrl, char *pBuf) {
     sprintf(pBuf, "%02d:%02d:%02d", ucHH, ucMM, ucSS);
     return(pBuf);
 }
+void ALARM_Init(BGNET_ALARM *pA, unsigned char ucCHN, char *pText0, char *pText1, time_t t) {
+    pA->ucCHN = ucCHN;
+    pA->ucSTATE = 0x00;
+    pA->ucBEEP = 0x00;
+    pA->ucRESET = 0x00;
+    CounterInit(&pA->Counter, t);
+    CounterInit(&pA->Flasher, t);
+    strcpy(pA->AlarmText0, pText0);
+    strcpy(pA->AlarmText1, pText1);
+}
+void ALARM_On(BGNET_ALARM *pA, time_t t) {
+    pA->ucSTATE = 1;
+    pA->ucBEEP = BGNET_FMT_ALARMBEEP;
+    pA->ucRESET = 1;
+    CounterUp(&pA->Counter, t);
+    CounterInit(&pA->Flasher, t);
+}
+// alarm on/of with edge detection, only handle changes
+void ALARM_Edge(BGNET_ALARM *pA, unsigned char ucSTATE, time_t t) {
+    if (pA->ucSTATE == 0) {
+        // current state is OFF
+        if (ucSTATE == 0) {
+            // new state is OFF => no action
+        } else {
+            // new state is ON => set alarm ON and set new state
+            pA->ucSTATE = ucSTATE;
+            ALARM_On(pA, t);
+        }
+    } else {
+        // current state is ON
+        if (ucSTATE == 0) {
+            // new state is OFF => alarm is cleared => no action (wait for SILENCE command)
+        } else {
+            // new state is ON => slarm is not yet cleared => no action
+        }
+    }
+}
+void ALARM_Off(BGNET_ALARM *pA) {
+    pA->ucSTATE = 0;
+    pA->ucBEEP = 0x00;
+    // do not clear ucRESET, this must be done after sending a NULL string
+}
+// work ALARM data into Channel structure
+size_t ALARM_CHN(BGNET_CTRL *pCtrl, union CH *puCH, BGNET_ALARM *pA, time_t t) {
+    size_t r = 0;
+    if (pA->ucSTATE == 0) {
+        if (pA->ucRESET == 0) {
+            // reset command was already send, do not send anything
+            r = 0;
+        } else {
+            pA->ucRESET = 0; // clear RESET flag
+            puCH->s.CH = pA->ucCHN;
+            puCH->s.FMT = BGN_FMT_07;
+            strcpy((char *)puCH->s.cv.sB, ""); // send null string
+            r = bgnet_sizeof_channel(pCtrl, puCH);
+        }
+    } else {
+        puCH->s.CH = pA->ucCHN;
+        puCH->s.FMT = (BGN_FMT_07 | pA->ucBEEP);
+        if ((pA->Flasher.iCounter % 2) == 0) {
+            strcpy((char *)puCH->s.cv.sB, pA->AlarmText0);
+        } else {
+            strcpy((char *)puCH->s.cv.sB, pA->AlarmText1);
+        }
+        CounterUp(&pA->Flasher, t);
+        r = bgnet_sizeof_channel(pCtrl, puCH);
+    }
+    return(r);    
+}
+
 // initialize our own internal structures
 void bgnet_initialize(BGNET_CTRL *pCtrl) {
     int i;
@@ -518,19 +588,8 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
 
         // Alarms
 
-        pCtrl->BGNET.PILOT.ALARM.WA.ucCHN = BGNET_CHN_76_AP_WA_ALARM;
-        CounterInit(&pCtrl->BGNET.PILOT.ALARM.WA.Counter, t);
-        CounterInit(&pCtrl->BGNET.PILOT.ALARM.WA.Flasher1, t);
-        CounterInit(&pCtrl->BGNET.PILOT.ALARM.WA.Flasher2, t);
-        strcpy(pCtrl->BGNET.PILOT.ALARM.WA.AlarmText0, "WATCH   ");
-        strcpy(pCtrl->BGNET.PILOT.ALARM.WA.AlarmText1, "ALARM   ");
-
-        pCtrl->BGNET.PILOT.ALARM.OC.ucCHN = BGNET_CHN_AF_AP_OC_ALARM;
-        CounterInit(&pCtrl->BGNET.PILOT.ALARM.OC.Counter, t);
-        CounterInit(&pCtrl->BGNET.PILOT.ALARM.OC.Flasher1, t);
-        CounterInit(&pCtrl->BGNET.PILOT.ALARM.OC.Flasher2, t);
-        strcpy(pCtrl->BGNET.PILOT.ALARM.OC.AlarmText0, "  OFF   ");
-        strcpy(pCtrl->BGNET.PILOT.ALARM.OC.AlarmText1, "COURSE  ");
+        ALARM_Init(&pCtrl->BGNET.PILOT.ALARM.WA, BGNET_CHN_76_AP_WA_ALARM, "WATCH   ", "ALARM   ", t);
+        ALARM_Init(&pCtrl->BGNET.PILOT.ALARM.OC, BGNET_CHN_AF_AP_OC_ALARM, "  OFF   ", "COURSE  ", t);
 
         // initialize key counters (we need them to detect double-key presses and simultaneous key presses)
 
@@ -554,7 +613,19 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         //            The measured boatspeed is adjusted with the calibration factor and displayed as STW (Speed Through Water)
         // SETUP/#4 = adjust measured speed against a know distance and time
         //            when selecting #4, the current boatspeed is displayed. After you calculate the boatspeed you increase/decrease
-        //            the displayed boatspeed. When you press ENTER, a calibration factor is calculated and stored.
+        //            the displayed boa structure
+        pCtrl->iNewCommand = BGN_NEW_RESET; // no new data available
+        for (i=0; i<BGNET_COMMAND_MAX; i++) {
+            pCtrl->CMD[i].iNewCommand = BGN_NEW_RESET;
+            CounterInit(&pCtrl->CMD[i].CounterRx, t);
+            memset(pCtrl->CMD[i].Rx.ucFrame, 0, BGN_FRAME_SIZE);
+            pCtrl->CMD[i].Rx.FH.CMD = BGNET_COMMAND_INIT;
+            CounterInit(&pCtrl->CMD[i].CounterTx, t);
+            memset(pCtrl->CMD[i].Tx.ucFrame, 0, BGN_FRAME_SIZE);
+            pCtrl->CMD[i].Tx.FH.CMD = BGNET_COMMAND_INIT;
+        }
+
+        // stage 5 - initialize channeltspeed. When you press ENTER, a calibration factor is calculated and stored.
         // SETUP/#5 = automatic calibration is effectively the same as #4, with the difference that the SPEED/QUAD node is doing
         //            the timekeeping.
         // All 3 calibration methods store their correction factor in the same variable
@@ -615,26 +686,13 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.DEPTH.SETUP.AA_STAT.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_STAT.Counter, t);
 
-        pCtrl->BGNET.DEPTH.ALARM.SHAL.ucCHN = BGNET_CHN_FC_SHALLOWALARM;
-        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Counter, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Flasher1, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Flasher2, t);
-        strcpy(pCtrl->BGNET.DEPTH.ALARM.SHAL.AlarmText0, "SHALLOW ");
-        strcpy(pCtrl->BGNET.DEPTH.ALARM.SHAL.AlarmText1, "ALARM   ");
+        CounterInit(&pCtrl->BGNET.DEPTH.SETUP.AA_TOGGLE, t);
 
-        pCtrl->BGNET.DEPTH.ALARM.DEEP.ucCHN = BGNET_CHN_FD_DEEPALARM;
-        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Counter, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Flasher1, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Flasher2, t);
-        strcpy(pCtrl->BGNET.DEPTH.ALARM.DEEP.AlarmText0, "DEEP    ");
-        strcpy(pCtrl->BGNET.DEPTH.ALARM.DEEP.AlarmText1, "ALARM   ");
+        //DEPTH ALARMS
 
-        pCtrl->BGNET.DEPTH.ALARM.ANCH.ucCHN = BGNET_CHN_FE_ANCHORALARM;
-        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Counter, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher1, t);
-        CounterInit(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher2, t);
-        strcpy(pCtrl->BGNET.DEPTH.ALARM.ANCH.AlarmText0, "ANCHOR  ");
-        strcpy(pCtrl->BGNET.DEPTH.ALARM.ANCH.AlarmText1, "ALARM   ");
+        ALARM_Init(&pCtrl->BGNET.DEPTH.ALARM.SHAL, BGNET_CHN_FC_SHALLOWALARM, "SHALLOW ", "ALARM   ", t);
+        ALARM_Init(&pCtrl->BGNET.DEPTH.ALARM.DEEP, BGNET_CHN_FD_DEEPALARM,    "DEEP    ", "ALARM   ", t);
+        ALARM_Init(&pCtrl->BGNET.DEPTH.ALARM.ANCH, BGNET_CHN_FE_ANCHORALARM,  "ANCHOR  ", "ALARM   ", t);
 
 //====== WIND
 
@@ -1225,59 +1283,60 @@ size_t sendSPEEDSETUP(BGNET_CTRL *pCtrl, unsigned char ucTO, unsigned char ucFRO
 }
 
 // this one usually sends 8 channels
-int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0, c;
+size_t makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0;
+    unsigned char c;
     union CH *puCH;
 
-    c = BGNET_CHN_41_STW;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_41_STW;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.SETUP.CAL_OFFSET.value.dValue + pCtrl->BGNET.SPEED.STW.value.dValue * pCtrl->BGNET.SPEED.SETUP.CAL_FACTOR.value.dValue, 0);
 
-    c = BGNET_CHN_42_STWRAW;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_42_STWRAW;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.STW.value.dValue, 0);
 
     // the next 3 values are 'rotated' by the QUAD: CD every other time, 64/65 every 4'th time
     // but that is too complex at this moment. Later i will build a rotating scheme.
 
-    c = BGNET_CHN_CD_STORLOG;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_CD_STORLOG;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uL[0] = htonl(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_64_SPEEDAVG;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_64_SPEEDAVG;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.SpeedAVG.value.dValue, 0);
 
-    c = BGNET_CHN_65_SPEEDMAX;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_65_SPEEDMAX;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.SpeedMAX.value.dValue, 0);
 
     // the next values are always present 
 
-    c = BGNET_CHN_81_DRD;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_81_DRD;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.DRD.value.dValue, 0);
  
-    c = BGNET_CHN_CF_TRIPLOG;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_CF_TRIPLOG;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.TripLogNM.value.dValue, 0);
 
-    c = BGNET_CHN_D3_DRC;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_D3_DRC;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.SPEED.DRC.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_20_SEATEMPQ;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_20_SEATEMPQ;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.Temperature.value.dValue, 0);
 
-    c = BGNET_CHN_75_TIMER;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_75_TIMER;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     tTimerCalc(pCtrl, &puCH->s.cv.uB[0], &puCH->s.cv.uB[1], &puCH->s.cv.uB[2]); // HH:MM:SS
@@ -1286,12 +1345,13 @@ int makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     return(r);
 }
 // this one usually sends 4 channels
-int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0, c;
+size_t makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0, x;
+    unsigned char c;
     union CH *puCH;
 
-    c = BGNET_CHN_31_ECHO_SNR;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_31_ECHO_SNR;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uC[0] = BGNET_ASC_NULL; 
@@ -1303,116 +1363,86 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     // the next 3 values are 'rotated' by the QUAD: FE every other time, FC/FD every 4'th time
     // but that is too complex at this moment. Later i will build a rotating scheme.
 
-    c = BGNET_CHN_FC_SHALLOWALARM;
     puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    if (pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte == 0) {
-        puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-        puCH->s.cv.uC[0] = BGNET_ASC_NULL; 
-        puCH->s.cv.uC[1] = BGNET_ASC_O; 
-        puCH->s.cv.uC[2] = BGNET_ASC_F; 
-        puCH->s.cv.uC[3] = BGNET_ASC_F;
-        r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    x = ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.DEPTH.ALARM.SHAL, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+    if (x == 0) {
+        c = BGNET_CHN_FC_SHALLOWALARM;
+        puCH->s.CH = c;
+        if (pCtrl->BGNET.DEPTH.SETUP.SA_STAT.value.nByte == 0) {
+            puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+            puCH->s.cv.uC[0] = BGNET_ASC_NULL; 
+            puCH->s.cv.uC[1] = BGNET_ASC_O; 
+            puCH->s.cv.uC[2] = BGNET_ASC_F; 
+            puCH->s.cv.uC[3] = BGNET_ASC_F;
+            r = r + bgnet_sizeof_channel(pCtrl, puCH);
+        } else {
+            r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue, 0);
+        }
     } else {
-        r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue, 0);
+        // alarm data was worked into channel
+        r = r + x;
     }
 
-    c = BGNET_CHN_FD_DEEPALARM;
     puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    if (pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte == 0) {
-        puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-        puCH->s.cv.uC[0] = BGNET_ASC_NULL; 
-        puCH->s.cv.uC[1] = BGNET_ASC_O; 
-        puCH->s.cv.uC[2] = BGNET_ASC_F; 
-        puCH->s.cv.uC[3] = BGNET_ASC_F;
-        r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    x = ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.DEPTH.ALARM.DEEP, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+    if (x ==0) {
+        c = BGNET_CHN_FD_DEEPALARM;
+        puCH->s.CH = c;
+        if (pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte == 0) {
+            puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+            puCH->s.cv.uC[0] = BGNET_ASC_NULL; 
+            puCH->s.cv.uC[1] = BGNET_ASC_O; 
+            puCH->s.cv.uC[2] = BGNET_ASC_F; 
+            puCH->s.cv.uC[3] = BGNET_ASC_F;
+            r = r + bgnet_sizeof_channel(pCtrl, puCH);
+        } else {
+            r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.DA_M.value.dValue, 0);
+        }
     } else {
-        r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.DA_M.value.dValue, 0);
+        // alarm data was worked into channel
+        r = r + x;
     }
 
-    // with the ANCHOR alarm we have to rotate the 2 values, too complex at this stage; we just show ON
-    // also: remember that AA is RELATIVE to the depth at the moment of setting; show the effective depths
-    c = BGNET_CHN_FE_ANCHORALARM;
     puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    if (pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte == 0) {
-        puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-        puCH->s.cv.uC[0] = BGNET_ASC_NULL; // OFF
-        puCH->s.cv.uC[1] = BGNET_ASC_O; 
-        puCH->s.cv.uC[2] = BGNET_ASC_F; 
-        puCH->s.cv.uC[3] = BGNET_ASC_F;
-        r = r + bgnet_sizeof_channel(pCtrl, puCH);
-    } else {
-        // show alternating the SHALOW or DEEP setting from the alarm
-        CounterUp(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher2, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-        if ((pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher2.iCounter % 2) == 0) {
-            // Shallow Alarm (measured level - shallow limit), minimum depth
-            r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue - pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue, 0);
-        } else {
-            // Deep Alarm (measured level + deep limit), maximum depth
-            r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue + pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.dValue, 0);
-        }
-    }
-
-    if (pCtrl->BGNET.DEPTH.ALARM.SHAL.ucSTATE == 0) {
-        // no alarm
-    } else {
-        c = pCtrl->BGNET.DEPTH.ALARM.SHAL.ucCHN;
-        puCH = (union CH *)&(payload[r]);
+    x = ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.DEPTH.ALARM.ANCH, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+    if (x == 0) {
+        c = BGNET_CHN_FE_ANCHORALARM;
         puCH->s.CH = c;
-        puCH->s.FMT = (BGN_FMT_07 | pCtrl->BGNET.DEPTH.ALARM.SHAL.ucBEEP);
-        if ((pCtrl->BGNET.DEPTH.ALARM.SHAL.Flasher1.iCounter % 2) == 0) {
-            strcpy((char *)puCH->s.cv.sB, pCtrl->BGNET.DEPTH.ALARM.SHAL.AlarmText0);
+        if (pCtrl->BGNET.DEPTH.SETUP.AA_STAT.value.nByte == 0) {
+            puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+            puCH->s.cv.uC[0] = BGNET_ASC_NULL; // OFF
+            puCH->s.cv.uC[1] = BGNET_ASC_O; 
+            puCH->s.cv.uC[2] = BGNET_ASC_F; 
+            puCH->s.cv.uC[3] = BGNET_ASC_F;
+            r = r + bgnet_sizeof_channel(pCtrl, puCH);
         } else {
-            strcpy((char *)puCH->s.cv.sB, pCtrl->BGNET.DEPTH.ALARM.SHAL.AlarmText1);
+            // show alternating the SHALOW or DEEP settings from the alarm SETUP
+            CounterUp(&pCtrl->BGNET.DEPTH.SETUP.AA_TOGGLE, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+            if ((pCtrl->BGNET.DEPTH.SETUP.AA_TOGGLE.iCounter % 2) == 0) {
+                // Shallow Alarm (measured level - shallow limit), minimum depth
+                r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue - pCtrl->BGNET.DEPTH.SETUP.ASA_M.value.dValue, 0);
+            } else {
+                // Deep Alarm (measured level + deep limit), maximum depth
+                r = r + encode_channel_double(pCtrl, puCH, c, BGN_FMT_01, pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue + pCtrl->BGNET.DEPTH.SETUP.ADA_M.value.dValue, 0);
+            }
         }
-        CounterUp(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Flasher1, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-        r = r + bgnet_sizeof_channel(pCtrl, puCH);
-    }
-    if (pCtrl->BGNET.DEPTH.ALARM.DEEP.ucSTATE == 0) {
-        // no alarm
     } else {
-        c = pCtrl->BGNET.DEPTH.ALARM.DEEP.ucCHN;
-        puCH = (union CH *)&(payload[r]);
-        puCH->s.CH = c;
-        puCH->s.FMT = (BGN_FMT_07 | pCtrl->BGNET.DEPTH.ALARM.DEEP.ucBEEP);
-        if ((pCtrl->BGNET.DEPTH.ALARM.DEEP.Flasher1.iCounter % 2) == 0) {
-            strcpy((char *)puCH->s.cv.uB, pCtrl->BGNET.DEPTH.ALARM.DEEP.AlarmText0);
-        } else {
-            strcpy((char *)puCH->s.cv.uB, pCtrl->BGNET.DEPTH.ALARM.DEEP.AlarmText1);
-        }
-        CounterUp(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Flasher1, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-        r = r + bgnet_sizeof_channel(pCtrl, puCH);
-    }
-    if (pCtrl->BGNET.DEPTH.ALARM.ANCH.ucSTATE == 0) {
-        // no alarm
-    } else {
-        c = pCtrl->BGNET.DEPTH.ALARM.ANCH.ucCHN;
-        puCH = (union CH *)&(payload[r]);
-        puCH->s.CH = c;
-        puCH->s.FMT = (BGN_FMT_07 | pCtrl->BGNET.DEPTH.ALARM.ANCH.ucBEEP);
-        if ((pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher1.iCounter % 2) == 0) {
-            strcpy((char *)puCH->s.cv.uB, pCtrl->BGNET.DEPTH.ALARM.ANCH.AlarmText0);
-        } else {
-            strcpy((char *)puCH->s.cv.uB, pCtrl->BGNET.DEPTH.ALARM.ANCH.AlarmText1);
-        }
-        CounterUp(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher1, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-        r = r + bgnet_sizeof_channel(pCtrl, puCH);
+        // alarm data was worked into channel
+        r = r + x;
     }
 
     // the next values are always present 
 
-    c = BGNET_CHN_FF_DEPTH_CAL;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_FF_DEPTH_CAL;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue, 0);
 
-    c = BGNET_CHN_C4_DEPTH;  // displayed on QUAD
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_C4_DEPTH;  // displayed on QUAD
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue, 0);
 
-    c = BGNET_CHN_C1_DEPTHRAW;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_C1_DEPTHRAW;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue, 0);
 
     return(r);
@@ -1423,36 +1453,37 @@ int makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
 // the SHORT one is broadcasting only the channels needed by other WIND (repeater) nodes
 // short: FF 70 0C 01 84 4E 88 00 00 51 01 00 96 52 08 00 00 92
 // we always send the LONG frame
-int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0, c;
+size_t makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0;
+    unsigned char c;
     union CH *puCH;
 
     // AWSRAW is read from the sensor and calibrated via WIND/SETUP parameter
-    c = BGNET_CHN_4E_AWSRAW;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_4E_AWSRAW;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.AWS.value.dValue + 0.43, 0);
 
-    c = BGNET_CHN_50_AWS;  // shown on DATA and WIND
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_50_AWS;  // shown on DATA and WIND
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.AWS.value.dValue, 0);
 
-    c = BGNET_CHN_51_AWA; // -180/+180 degrees shown on WIND DIAL
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_51_AWA; // -180/+180 degrees shown on WIND DIAL
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.WIND.AWA.value.nLong);  // signed -180/+180
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     // AWARAW is read from the sensor and calibrated via WIND/SETUP parameter
-    c = BGNET_CHN_52_AWARAW; // 0/360 degrees
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_52_AWARAW; // 0/360 degrees
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.WIND.AWA.value.nLong + 180 - 3);  // unsigned 0/+360
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_8D_BATTERY;  // shown on WIND (small LCD, button <VOLTS>)
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_8D_BATTERY;  // shown on WIND (small LCD, button <VOLTS>)
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(DTOIROUND(pCtrl->BGNET.WIND.BATTERY.value.nLong)); // Volts x 10
@@ -1460,19 +1491,19 @@ int makeWINDresponseLONG(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
     // TWA, TWS and VMG are calculated by WIND, provided the WIND node receives STW from SPEED or QUAD
 
-    c = BGNET_CHN_57_TWS; // shown on DATA and WIND
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_57_TWS; // shown on DATA and WIND
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.TWS.value.dValue, 0);
 
-    c = BGNET_CHN_59_TWA;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_59_TWA;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.WIND.TWA.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_7F_VMG;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_7F_VMG;
     r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.WIND.VMG.value.dValue, 0);
 
     return(r);
@@ -1488,12 +1519,13 @@ unsigned char getAP_MODE(BGNET_CTRL *pCtrl) {
     return(r);
 }
 
-int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0,c;
+size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0;
+    unsigned char c;
     union CH *puCH;
 
-    c = BGNET_CHN_B5_AP_STATUS;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_B5_AP_STATUS;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uB[0] = pCtrl->BGNET.ACP.STATE.value.nByte; // AUTO/STBY
@@ -1506,8 +1538,8 @@ int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
             switch (pCtrl->BGNET.ACP.MODE.value.nByte & BGN_AP_MODE2_MASK_MODE) {
                 case BGN_AP_MODE2_VANE:
                     // VANE mode => show heading
-                    c = BGNET_CHN_A6_AP_TARGET;
                     puCH = (union CH *)&(payload[r]);
+                    c = BGNET_CHN_A6_AP_TARGET;
                     puCH->s.CH = c;
                     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
                     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
@@ -1515,8 +1547,8 @@ int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
                     break;
                 default:
                     // COMPASS and NAV mode => show CTS
-                    c = BGNET_CHN_A6_AP_TARGET;
                     puCH = (union CH *)&(payload[r]);
+                    c = BGNET_CHN_A6_AP_TARGET;
                     puCH->s.CH = c;
                     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
                     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
@@ -1524,8 +1556,8 @@ int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
                     break;
             }
 
-            c = BGNET_CHN_53_TARGET_AWA;
             puCH = (union CH *)&(payload[r]);
+            c = BGNET_CHN_53_TARGET_AWA;
             puCH->s.CH = c;
             puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
             puCH->s.cv.sW[0] = (int16_t)htons(pCtrl->BGNET.ACP.TARGET_AWA.value.nLong); // range -180/+180
@@ -1539,22 +1571,23 @@ int makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
 // this response is meant to give the PILOT node sufficient information
 // to display. Keep this small with frequent update 
-int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0,c;
+size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0;
+    unsigned char c;
     union CH *puCH;
 
     r = makeACPresponseSTATUSONLY(pCtrl, payload);
 
-    c = BGNET_CHN_0B_RUDDER;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_0B_RUDDER;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     // when in STBY, the display shows the HEADING (compass reading)
-    c = BGNET_CHN_49_HEADING;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_49_HEADING;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
@@ -1563,8 +1596,23 @@ int makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     return(r);
 }
 
-int makePILOTresponseNAV(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0,c;
+// handle WA and OC alarm 
+size_t makeACPresponseALARM(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0;
+    union CH *puCH;
+
+    puCH = (union CH *)&(payload[r]);
+    r = r + ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.PILOT.ALARM.WA, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+
+    puCH = (union CH *)&(payload[r]);
+    r = r + ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.PILOT.ALARM.OC, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+
+    return(r);
+}
+
+size_t makePILOTresponseNAV(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0;
+    unsigned char c;
     union CH *puCH;
 
     // Appearently, PILOT transmits 0xFB/WPID when received navigation input via NMEA and also includes the WPID.
@@ -1584,8 +1632,9 @@ int makePILOTresponseNAV(BGNET_CTRL *pCtrl, unsigned char *payload) {
     //
     // i will put in some more efforts to emulate a 2nd PILOT on the network and hopefully make PILOT accept waypoint information
     // via the NETWORK.
-    c = BGNET_CHN_FB_WPID;
+
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_FB_WPID;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.FMT = BGN_FMT_0A;
@@ -1624,22 +1673,22 @@ int makePILOTresponseNAV(BGNET_CTRL *pCtrl, unsigned char *payload) {
     }
     r = r + bgnet_sizeof_channel(pCtrl, puCH);    
 
-    c = BGNET_CHN_DE_WPB;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_DE_WPB;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_E8_WPD;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_E8_WPD;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(DTOIROUND(pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue * 100.0));
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    c = BGNET_CHN_EE_XTE;
     puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_EE_XTE;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     // always shows 2 digits <1.23 or >1.23. any value > 9.99 is shown as 9.99
@@ -1681,8 +1730,9 @@ union CH *encode_value_ascii(union CH *pCH, unsigned char ucCH, unsigned char uc
     return(pCH);
 }
 
-int makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0,c;
+size_t makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0;
+    unsigned char c;
     union CH *puCH;
 
     c = BGNET_CHN_A6_AP_TARGET; // RESP selector
@@ -1693,36 +1743,6 @@ int makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte;
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    return (r);
-}
-int makeWAresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0,c;
-    union CH *puCH;
-    c = BGNET_CHN_76_AP_WA_ALARM; // WA limit (minutes) and ON/OFF status
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    if (pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte == 0) {
-        puCH->s.FMT = BGN_FMT_08 ;
-    } else {
-        puCH->s.FMT = BGN_FMT_18 ;
-    }
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-    return (r);
-}
-int makeOCresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    int r = 0,c;
-    union CH *puCH;
-    c = BGNET_CHN_AF_AP_OC_ALARM; // OC limit (degress) amd ON/OFF status
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    if (pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte == 0) {
-        puCH->s.FMT = BGN_FMT_08 ;
-    } else {
-        puCH->s.FMT = BGN_FMT_18 ;
-    }
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
     return (r);
 }
 
@@ -1816,7 +1836,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
 #ifdef BGNET_ENABLE_QUAD_TX
 
         size_t len_msg;
-        int len_pl;
+        size_t len_pl;
         unsigned char payload[BGNET_FRAME_PAYLOAD_MAX];
         FRAME_H FTx, *pFTx;
         pFTx = &FTx;
@@ -1847,6 +1867,20 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
         CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
 #endif
+
+        len_pl = makeACPresponseALARM(pCtrl, payload);
+        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+        register_DATA_frame(pCtrl, pFTx);        
+        // put it for transmission
+        memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+        r = r + len_msg; // increment byte counter in TX buffer
+
+        // update statistics
+        memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+        memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
+        CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
+
 #define BGNET_ENABLE_WIND_TX
 #ifdef BGNET_ENABLE_WIND_TX
 
@@ -2702,7 +2736,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     TxSize = TxSize + len_msg;
 
                                     // experiment koen
-
+#ifdef EXPERIMENT
                                     // broadcast a SILENCE command to all
                                     payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
                                     payload[1] = pFRx->payload[1];
@@ -2716,6 +2750,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
                                     CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                     TxSize = TxSize + len_msg;
+#endif
 
                                     // put it for transmission
                                     pthread_mutex_lock(&g_data_mutex);

@@ -27,7 +27,7 @@ void handle_sigint(int sig) {
 
 // please consider this as 'constant'; do not write into this structure.
 // Use is as some kind of bookkeeping table. We only 'enable' the devices we have tested.
-// if we do a lookup and there is no match, we return 0 and pick the first one (the ACP)
+// if we do a lookup and there is no match, we return 0 and pick the first one, index 0 (a dummy record)
 BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 // ProdName     Model       ModelNr       SerialNr       Version Enable DeviceType
 {"??????",      "??????",   "??????",     "??????",      "????", 0,     0xFF},\
@@ -36,7 +36,7 @@ BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 {"NET SPEED",   "NET-SPDU", "610-00-020", "NSPDG485015", "0000", 0,     BGNET_TYPE_NETSPEED},\
 {"NET WIND",    "NET-WDDU", "611-00-007", "NWINB06505",  "0000", 1,     BGNET_TYPE_NETWIND},\
 {"NET GPSplus", "NET-GPDU", "615-00-021", "",            "0000", 0,     BGNET_TYPE_NETACP},\
-{"NET LORAN",   "NET-LORAN","",           "",                    "0000", 0,     BGNET_TYPE_NETACP},\
+{"NET LORAN",   "NET-LORAN","",           "",            "0000", 0,     BGNET_TYPE_NETACP},\
 {"NET CHART",   "NET-CHART","",           "CHT350327",   "0000", 0,     BGNET_TYPE_NETACP},\
 {"NET COMPASS", "NET-CPDU", "545-00-031", "",            "0000", 0,     BGNET_TYPE_NETACP},\
 {"NET TACK",    "NET-TADU", "610-00-086", "",            "0000", 0,     BGNET_TYPE_NETACP},\

@@ -294,7 +294,6 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // alarms
     cJSON *alarmon  = cJSON_GetObjectItem(root, "alarmon");    // set the alarm (WA, OC, SHAL, DEEP, ANCH)
     cJSON *alarmoff = cJSON_GetObjectItem(root, "alarmoff");   // reset alarm (WA, OC, SHAL, DEEP, ANCH)
-    cJSON *silence  = cJSON_GetObjectItem(root, "silence");    // silence the alarm (WA, OC, SHAL, DEEP, ANCH)
 
     pthread_mutex_lock(&g_data_mutex); 
 
@@ -577,66 +576,37 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
 
     // ALARMS
 
-    // curl --data "{\"alarmon\":\"WA\"}" http://localhost:8080/api/update
-    // curl --data "{\"alarmoff\":\"WA\"}" http://localhost:8080/api/update
-    // curl --data "{\"silence\":\"WA\"}" http://localhost:8080/api/update
-    // set/reset/silence the alarm: WA (Watch Alarm), OC (Off-Course), SHAL (Shallow Alarm), DEEP (Deep Alarm), ANCH (Anchor Alarm))
+    // curl --data "{\"alarmon\":\"DEEP\"}" http://localhost:8080/api/update
+    // curl --data "{\"alarmoff\":\"DEEP\"}" http://localhost:8080/api/update
+    // set/reset the alarm: WA (Watch Alarm), OC (Off-Course), SHAL (Shallow Alarm), DEEP (Deep Alarm), ANCH (Anchor Alarm))
     // note: the nodes have a different behaviour:
     //  DATA = beeping stops when BEEP bit is off (when alarm channel is still transmitted), but alarm text is no longer displayed
     //  QUAD = as DATA, but does not display alarm text
     //  PILOT = beeping continues as long as alarm channel is transmitted, also when the BEEP bit is off
     if (alarmon) {
         if (strcmp(alarmon->valuestring, "WA") == 0) {
-            pCtrl->BGNET.PILOT.ALARM.WA.ucSTATE = 1;
-            //pCtrl->BGNET.PILOT.ALARM.WA.ucBEEP = BGNET_FMT_ALARMBEEP;
-            CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA.Counter, t);
-            CounterInit(&pCtrl->BGNET.PILOT.ALARM.WA.Flasher1, t);
+            ALARM_On(&pCtrl->BGNET.PILOT.ALARM.WA, t);
         } else if ((strcmp(alarmon->valuestring, "OC") == 0)) {
-            pCtrl->BGNET.PILOT.ALARM.OC.ucSTATE = 1;
-            //pCtrl->BGNET.PILOT.ALARM.OC.ucBEEP = BGNET_FMT_ALARMBEEP;
-            CounterUp(&pCtrl->BGNET.PILOT.ALARM.OC.Counter, t);
-            CounterInit(&pCtrl->BGNET.PILOT.ALARM.OC.Flasher1, t);
+            ALARM_On(&pCtrl->BGNET.PILOT.ALARM.OC, t);
         } else if ((strcmp(alarmon->valuestring, "SHAL") == 0)) {
-            pCtrl->BGNET.DEPTH.ALARM.SHAL.ucSTATE = 1;
-            //pCtrl->BGNET.DEPTH.ALARM.SHAL.ucBEEP = BGNET_FMT_ALARMBEEP;
-            CounterUp(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Counter, t);
-            CounterInit(&pCtrl->BGNET.DEPTH.ALARM.SHAL.Flasher1, t);
+            ALARM_On(&pCtrl->BGNET.DEPTH.ALARM.SHAL, t);
         } else if ((strcmp(alarmon->valuestring, "DEEP") == 0)) {
-            pCtrl->BGNET.DEPTH.ALARM.DEEP.ucSTATE = 1;
-            //pCtrl->BGNET.DEPTH.ALARM.DEEP.ucBEEP = BGNET_FMT_ALARMBEEP;
-            CounterUp(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Counter, t);
-            CounterInit(&pCtrl->BGNET.DEPTH.ALARM.DEEP.Flasher1, t);
+            ALARM_On(&pCtrl->BGNET.DEPTH.ALARM.DEEP, t);
         } else if ((strcmp(alarmon->valuestring, "ANCH") == 0)) {
-            pCtrl->BGNET.DEPTH.ALARM.ANCH.ucSTATE = 1;
-            //pCtrl->BGNET.DEPTH.ALARM.ANCH.ucBEEP = BGNET_FMT_ALARMBEEP;
-            CounterUp(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Counter, t);
-            CounterInit(&pCtrl->BGNET.DEPTH.ALARM.ANCH.Flasher1, t);
+            ALARM_On(&pCtrl->BGNET.DEPTH.ALARM.ANCH, t);
         }
     }
     if (alarmoff) {
         if (strcmp(alarmoff->valuestring, "WA") == 0) {
-            pCtrl->BGNET.PILOT.ALARM.WA.ucSTATE = 0;
+            ALARM_Off(&pCtrl->BGNET.PILOT.ALARM.WA);
         } else if ((strcmp(alarmoff->valuestring, "OC") == 0)) {
-            pCtrl->BGNET.PILOT.ALARM.OC.ucSTATE = 0;
+            ALARM_Off(&pCtrl->BGNET.PILOT.ALARM.OC);
         } else if ((strcmp(alarmoff->valuestring, "SHAL") == 0)) {
-            pCtrl->BGNET.DEPTH.ALARM.SHAL.ucSTATE = 0;
+            ALARM_Off(&pCtrl->BGNET.DEPTH.ALARM.SHAL);
         } else if ((strcmp(alarmoff->valuestring, "DEEP") == 0)) {
-            pCtrl->BGNET.DEPTH.ALARM.DEEP.ucSTATE = 0;
+            ALARM_Off(&pCtrl->BGNET.DEPTH.ALARM.DEEP);
         } else if ((strcmp(alarmoff->valuestring, "ANCH") == 0)) {
-            pCtrl->BGNET.DEPTH.ALARM.ANCH.ucSTATE = 0;
-        }
-    }
-    if (silence) {
-        if (strcmp(silence->valuestring, "WA") == 0) {
-            pCtrl->BGNET.PILOT.ALARM.WA.ucBEEP = 0;
-        } else if ((strcmp(silence->valuestring, "OC") == 0)) {
-            pCtrl->BGNET.PILOT.ALARM.OC.ucBEEP = 0;
-        } else if ((strcmp(silence->valuestring, "SHAL") == 0)) {
-            pCtrl->BGNET.DEPTH.ALARM.SHAL.ucBEEP = 0;
-        } else if ((strcmp(silence->valuestring, "DEEP") == 0)) {
-            pCtrl->BGNET.DEPTH.ALARM.DEEP.ucBEEP = 0;
-        } else if ((strcmp(silence->valuestring, "ANCH") == 0)) {
-            pCtrl->BGNET.DEPTH.ALARM.ANCH.ucBEEP = 0;
+            ALARM_Off(&pCtrl->BGNET.DEPTH.ALARM.ANCH);
         }
     }
 
