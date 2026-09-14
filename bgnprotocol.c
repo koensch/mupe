@@ -339,14 +339,18 @@ size_t ALARM_CHN(BGNET_CTRL *pCtrl, union CH *puCH, BGNET_ALARM *pA, time_t t) {
             // reset command was already send, do not send anything
             r = 0;
         } else {
+            // to clear the alarm from the PILOT we need to send a non-ALARM channel value. I have tried several combinations and 
+            // i think that sending this makes it work; i do not know how the real system handles this
             pA->ucRESET = 0; // clear RESET flag
             puCH->s.CH = pA->ucCHN;
-            puCH->s.FMT = BGN_FMT_07;
-            strcpy((char *)puCH->s.cv.sB, ""); // send null string
+            puCH->s.FMT = BGN_FMT_01;
+            puCH->s.cv.uW[0] = htons(1);
             r = bgnet_sizeof_channel(pCtrl, puCH);
         }
     } else {
         puCH->s.CH = pA->ucCHN;
+        // PILOT does not need the BEEP bit, but others (DATA, QUAD) require it. PILOT starts to beep as soon as it receives a FMT_07 channel
+        // i think that FMT_07 is specifically meant for ALARM messages
         puCH->s.FMT = (BGN_FMT_07 | pA->ucBEEP);
         if ((pA->Flasher.iCounter % 2) == 0) {
             strcpy((char *)puCH->s.cv.sB, pA->AlarmText0);
@@ -589,6 +593,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         // Alarms
 
         ALARM_Init(&pCtrl->BGNET.PILOT.ALARM.WA, BGNET_CHN_76_AP_WA_ALARM, "WATCH   ", "ALARM   ", t);
+        CounterInit(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
         ALARM_Init(&pCtrl->BGNET.PILOT.ALARM.OC, BGNET_CHN_AF_AP_OC_ALARM, "  OFF   ", "COURSE  ", t);
 
         // initialize key counters (we need them to detect double-key presses and simultaneous key presses)
@@ -1601,8 +1606,22 @@ size_t makeACPresponseALARM(BGNET_CTRL *pCtrl, unsigned char *payload) {
     size_t r = 0;
     union CH *puCH;
 
-    puCH = (union CH *)&(payload[r]);
-    r = r + ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.PILOT.ALARM.WA, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+    if (pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte == 0) {
+        // alarm is not enabled
+    } else {
+        // alarm is enabled
+        if (pCtrl->BGNET.PILOT.ALARM.WA.ucSTATE == 0) {
+            // alarm is enabled, but not (yet) fired, check inactivity time
+            if ((pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.tTimestamp) > (pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong * 60)) {
+                // set time expired, fire alarm
+                ALARM_On(&pCtrl->BGNET.PILOT.ALARM.WA, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                // alarm is active now, send it
+            }
+        }
+        puCH = (union CH *)&(payload[r]);
+        r = r + ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.PILOT.ALARM.WA, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+    }
+
 
     puCH = (union CH *)&(payload[r]);
     r = r + ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.PILOT.ALARM.OC, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
@@ -2643,6 +2662,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 pCtrl->BGNET.NETWORK.BackLight.value.nByte = pFRx->payload[0]; // first byte is the LIGHTS state
                                 pCtrl->BGNET.NETWORK.BackLight.source = BGN_SOURCE_BGNET;
                                 CounterUp(&pCtrl->BGNET.NETWORK.BackLight.Counter, t);
+                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
 
 //#define BGNET_ENABLE_RESET_LOG
 #ifdef BGNET_ENABLE_RESET_LOG
@@ -2697,16 +2717,18 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 // we reply with: D4 30 01 FD FE 41 69 (returning the ACKSEQ number)
                                 // keep track of the SILENCE commands processed
                                 CounterUp(&pCtrl->BGNET.NETWORK.AlarmReset, t);
+                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
                                 // setup the pointer to our received CMD-REQ or CMD-DAT command
                                 pCHRx = (union CH *)(&pFRx->payload[1]);
                                 //log_debug("ALARM SILENCE from 0x%02X for alarm channel 0x%02X", pFRx->FROM, pCHRx->s.CH);
                                 // note: we only clear the beeping bit; we do (and can not) take the alarm cause out
                                 switch (pCHRx->s.CH) {
                                     case BGNET_CHN_76_AP_WA_ALARM:
-                                        pCtrl->BGNET.PILOT.ALARM.WA.ucBEEP = 0;
+                                        // when we press a KEY to silence the alarm, the 'activity timer' gets reset in the process, removing also the alarm trigger
+                                        ALARM_Off(&pCtrl->BGNET.PILOT.ALARM.WA);
                                         break;
                                     case BGNET_CHN_AF_AP_OC_ALARM:
-                                        pCtrl->BGNET.PILOT.ALARM.OC.ucBEEP = 0;
+                                        ALARM_Off(&pCtrl->BGNET.PILOT.ALARM.OC);
                                         break;
                                     case BGNET_CHN_FC_SHALLOWALARM:
                                         pCtrl->BGNET.DEPTH.ALARM.SHAL.ucBEEP = 0;
@@ -2769,6 +2791,9 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 // holy shit.... CMD/CHN is not unique within the network. The same combination can be found on PILOT and QUAD
                                 // with different behaviour. I think a first make a new GIT commit before i screw up
                                 // we switch for the DEVICE TYPE (not the actual FROM address)
+
+                                // all these commands require user input. We increment our WA activity counter
+                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
 
                                 // setup the pointer to our received CMD-REQ or CMD-DAT command
                                 pCHRx = (union CH *)(&pFRx->payload[1]);
@@ -3362,13 +3387,18 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         if (pCHTx->s.FMT == pCHRx->s.FMT) {
                                                             // no change
                                                         } else {
-                                                           if (pCHRx->s.FMT == BGN_FMT_08) {
-                                                                pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 0;
-                                                            } else {
-                                                                pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 1;
+                                                            switch (pCHRx->s.FMT) {
+                                                                case BGN_FMT_08:
+                                                                    pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 0;
+                                                                    pCtrl->BGNET.PILOT.SETUP.WA_STAT.source = BGN_SOURCE_BGNET;
+                                                                    CounterUp(&pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter, t);
+                                                                    break;
+                                                                case BGN_FMT_18:
+                                                                    pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 1;
+                                                                    pCtrl->BGNET.PILOT.SETUP.WA_STAT.source = BGN_SOURCE_BGNET;
+                                                                    CounterUp(&pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter, t);
+                                                                    break;
                                                             }
-                                                            pCtrl->BGNET.PILOT.SETUP.WA_STAT.source = BGN_SOURCE_BGNET;
-                                                            CounterUp(&pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter, t);
                                                         }
                                                         if (pCHTx->s.cv.uW[0] == pCHRx->s.cv.uW[0]) {
                                                             // no change
@@ -3401,15 +3431,19 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         switch (iValue) {
                                                             case -10:
                                                                 CounterUp(&pCtrl->BGNET.PILOT.KEY.P10, t);
+                                                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
                                                                 break;
                                                             case -1:
                                                                 CounterUp(&pCtrl->BGNET.PILOT.KEY.P1, t);
+                                                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
                                                                 break;
                                                             case +10:
                                                                 CounterUp(&pCtrl->BGNET.PILOT.KEY.S10, t);
+                                                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
                                                                 break;
                                                             case +1:
                                                                 CounterUp(&pCtrl->BGNET.PILOT.KEY.S1, t);
+                                                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
                                                                 break;
                                                         }
                                                         pCtrl->BGNET.ACP.CTS.value.nLong = BGNET_INCREMENTWRAP(pCtrl->BGNET.ACP.CTS.value.nLong, iValue, 0, +360);
@@ -3717,6 +3751,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 // AUTO key was pressed
                                                                 // note: this command is not send of we are already in AUTO, consequently our current state is STBY
                                                                 CounterUp(&pCtrl->BGNET.PILOT.KEY.AUTO, t);  // increment key counter
+                                                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
                                                                 // it is safe to assume that our current state is STBY. We are dealing with a transition from STBY to AUTO
                                                                 // we do something depending on our current MODE
                                                                 switch (pCtrl->BGNET.ACP.MODE.value.nByte & BGN_AP_MODE2_MASK_MODE) {
@@ -3740,6 +3775,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                             default:
                                                                 // OFF key was pressed
                                                                 CounterUp(&pCtrl->BGNET.PILOT.KEY.OFF, t); 
+                                                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
                                                                 // check joystick state. Turn it OFF when it's ON
                                                                 if (pCtrl->BGNET.ACP.Joystick.value.nByte == BGN_JOYSTICK_OFF) {
                                                                     // joystick is OFF, check if we have to go from AUTO to STBY
@@ -4033,6 +4069,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                     // AT THE SAME TIME also a CMD_B1/A6 command is send with the actual value (-10,+10,-1 or +1)
                                                     case BGNET_CHN_A6_AP_TARGET:
                                                         CounterUp(&pCtrl->BGNET.PILOT.KEY.COURSE, t);
+                                                        CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
                                                         // create command with current CTS value, but i do not know what command to use for REPLY
                                                         break;
                                                     // when a new set of navigation data is received via the NMEA port, the message "NXT xxx"
@@ -4073,9 +4110,9 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         pCHTx = (union CH *)&payload[1];
                                                         pCHTx->s.CH = BGNET_CHN_76_AP_WA_ALARM;
                                                         if (pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte == 0) {
-                                                            pCHTx->s.FMT = BGN_FMT_08;
+                                                            pCHTx->s.FMT = BGN_FMT_08; // WA off
                                                         } else {
-                                                            pCHTx->s.FMT = BGN_FMT_18;
+                                                            pCHTx->s.FMT = BGN_FMT_18; // WA on
                                                         }
                                                         pCHTx->s.cv.uW[0] = htons(pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
                                                         len_pl = 5;

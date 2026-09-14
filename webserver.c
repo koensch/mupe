@@ -292,8 +292,10 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *frame     = cJSON_GetObjectItem(root, "frame");     // transmits a self-created frame on the network
     cJSON *nav       = cJSON_GetObjectItem(root, "nav");       // enable/disable NAV message (from PILOT NMEA input)
     // alarms
-    cJSON *alarmon  = cJSON_GetObjectItem(root, "alarmon");    // set the alarm (WA, OC, SHAL, DEEP, ANCH)
-    cJSON *alarmoff = cJSON_GetObjectItem(root, "alarmoff");   // reset alarm (WA, OC, SHAL, DEEP, ANCH)
+    cJSON *alarmon   = cJSON_GetObjectItem(root, "alarmon");    // set the alarm (WA, OC, SHAL, DEEP, ANCH)
+    cJSON *alarmoff  = cJSON_GetObjectItem(root, "alarmoff");   // reset alarm (WA, OC, SHAL, DEEP, ANCH)
+    cJSON *wa        = cJSON_GetObjectItem(root, "wa");         // enable WA alarm
+    cJSON *oc        = cJSON_GetObjectItem(root, "oc");         // enable OC alarm
 
     pthread_mutex_lock(&g_data_mutex); 
 
@@ -609,6 +611,38 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
             ALARM_Off(&pCtrl->BGNET.DEPTH.ALARM.ANCH);
         }
     }
+    // curl --data "{\"wa\":\"on\"}" http://localhost:8080/api/update
+    if (wa) {
+        if (strcmp(wa->valuestring, "on") == 0) {
+            pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 1;
+        } else if ((strcmp(wa->valuestring, "off") == 0)) {
+            pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 0;
+        } else {
+            r = wa->valueint;
+            if (r < 1) {
+                pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 0;
+            } else if (r < 360) {
+                pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 1;
+                pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong = r;
+            }
+        }
+    }
+    // curl --data "{\"wa\":\"on\"}" http://localhost:8080/api/update
+    if (oc) {
+        if (strcmp(oc->valuestring, "on") == 0) {
+            pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte = 1;
+        } else if ((strcmp(oc->valuestring, "off") == 0)) {
+            pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte = 0;
+        } else {
+            r = oc->valueint;
+            if (r < 1) {
+                pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte = 0;
+            } else if (r < 99) {
+                pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte = 1;
+                pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong = r;
+            }
+        }
+    }
 
     pthread_mutex_unlock(&g_data_mutex);
 
@@ -821,7 +855,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: TARGET AWA", "Target AWA, autopilot setpoint in VANE mode [-180/+180 Deg]", pCtrl->BGNET.ACP.TARGET_AWA.Counter.iCounter, t-pCtrl->BGNET.ACP.TARGET_AWA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.TARGET_AWA.source), pCtrl->BGNET.ACP.TARGET_AWA.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CTS", "Course To Steer, autopilot setpoint [0-359 DegM]", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CTS", "Course To Steer, autopilot setpoint in COMP/NAV mode[0-359 DegM]", pCtrl->BGNET.ACP.CTS.Counter.iCounter, t-pCtrl->BGNET.ACP.CTS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CTS.source), pCtrl->BGNET.ACP.CTS.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CRS", "Course Preset [0-359 DegM]", pCtrl->BGNET.ACP.CRS.Counter.iCounter, t-pCtrl->BGNET.ACP.CRS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CRS.source), pCtrl->BGNET.ACP.CRS.value.nLong);
     strcat(Buffer, cLine);
@@ -857,6 +891,8 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm interval [1-360 Minutes]", pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_MIN.source), pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/SETUP/WA", "Watch Alarm inactivity timer", pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.iCounter, t-pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm level [1-99 Deg]", pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_DEG.source), pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
     strcat(Buffer, cLine);

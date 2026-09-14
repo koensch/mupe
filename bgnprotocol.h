@@ -758,8 +758,9 @@ typedef struct {
             NMEA2K_VALUE FR;      // Fault Reporting ON/OFF
         } SETUP;
         struct {
-            BGNET_ALARM  WA; // WAtch Alarm
-            BGNET_ALARM  OC; // Off-Course Alarm
+            BGNET_ALARM WA; // WAtch Alarm
+            BGNET_COUNT WA_ACTIVITY; // used to track KEY activity
+            BGNET_ALARM OC; // Off-Course Alarm
         } ALARM;
     // PILOT/SPEED/SETUP - Manual speed selection
 #define BGNET_SPD_TRA           0
