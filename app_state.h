@@ -96,11 +96,12 @@ extern int  g_serial_mode;
 #define BGN_SOURCE_ACP      6
 #define BGN_SOURCE_BLANK    7
 
+#define BGNET_SAFECOPY_MAX  12
 union VALUE {
     double dValue;      // used for floating point values
     uint8_t nByte;      // state/byte (unsigned)
     int64_t nLong;      // long integer value (signed)
-    char cString[12];   // character string
+    char cString[BGNET_SAFECOPY_MAX];   // character string (use bgn_safecopy to copy)
     time_t tTime;       // time format
 };
 

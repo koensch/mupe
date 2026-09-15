@@ -478,7 +478,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 // channel with variable length. To be on the safe side, we use a maximum size of 16.
 union CV {
     uint8_t uB[12];     // binary data (status, pattern, mask)
-    char uC[12];        // ASCII characters (like alarm text)
+    char uC[BGNET_SAFECOPY_MAX];        // ASCII characters (like alarm text)
     int8_t sB[12];      // signed bytes (byte values with +/- range like depth)
     uint16_t uW[6];     // unsigned 16-bit register
     int16_t sW[6];      // signed 16-bit registers
@@ -681,14 +681,15 @@ typedef struct {
 
 // Alarm Definition Table
 typedef struct {
-    unsigned char ucCHN;    // channel number (that will carry the alarmbit)
-    unsigned char ucSTATE;  // alarm state (0=off, 1=on)
-    unsigned char ucBEEP;   // beep state (0=off)
-    unsigned char ucRESET;  // reset requested (1= send null string, 0= null string was send)
-    BGNET_COUNT Counter;    // alarm counter
-    BGNET_COUNT Flasher;    // used to flash/rotate alarm text
-    char AlarmText0[12];
-    char AlarmText1[12];
+    unsigned char ucCHN;     // channel number (that will carry the alarmbit)
+    unsigned char ucSTATE;   // alarm state (0=off, 1=on)
+    unsigned char ucCONFIRM; // confirm state (0=off, 1=on)
+    unsigned char ucBEEP;    // beep state (0=off)
+    unsigned char ucCANCEL;  // cancel request (1= send 'cancel' channel, 0= 'cancel channel' was send)
+    BGNET_COUNT Counter;     // alarm counter
+    BGNET_COUNT Flasher;     // used to flash/rotate alarm text
+    char AlarmText0[BGNET_SAFECOPY_MAX];    // in practice, the alarm texts are 8 characters. This is the maximum that fits in the schreen.
+    char AlarmText1[BGNET_SAFECOPY_MAX];    // in our channel value we have max 12 characters available (including the NULL terminator) (use bgn_safecopy to copy)
 } BGNET_ALARM;
 
 typedef struct {
@@ -734,6 +735,7 @@ typedef struct {
         NMEA2K_VALUE EBS_SEL;       // Effective Boat Speed, selector
         NMEA2K_VALUE TARGET_AWA;    // Target AWA (Setpoint for AutoPilot in VANE mode)
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot in COMP/NAV mode)
+        NMEA2K_VALUE OCE;           // OffCourse Error
         NMEA2K_VALUE CRS;           // Course Preset (Setpoint for AutoPilot)
         NMEA2K_VALUE MEM;           // Course Memory (previous CTS)
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
@@ -747,20 +749,21 @@ typedef struct {
         NMEA2K_VALUE NAV_SEL;       // NAV source selector (address of PILOT to use)
         struct {
             // PILOT/SETUP parameters
-            NMEA2K_VALUE SPD;     // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
-            NMEA2K_VALUE RESP;    // Steering response (Normal/Downwind/Eco)
-            NMEA2K_VALUE WIND_SEL;              NMEA2K_VALUE WA_MIN;  // Watch Alarm (minutes)
-            NMEA2K_VALUE WA_STAT; // Watch Alarm (status on/off)
-            NMEA2K_VALUE OC_DEG;  // OffCourse Alarm (degrees)
-            NMEA2K_VALUE OC_STAT; // OffCourse Alarm (status on/off)
-            NMEA2K_VALUE JSM;     // Joystick Steering Mode (Normal or Proportional)
-            NMEA2K_VALUE DMP;     // Compass heading display damping (1-99 sec, defaut =4)
-            NMEA2K_VALUE FR;      // Fault Reporting ON/OFF
+            NMEA2K_VALUE SPD;           // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
+            NMEA2K_VALUE RESP;          // Steering response (Normal/Downwind/Eco)
+            NMEA2K_VALUE WIND_SEL;
+            NMEA2K_VALUE WA_MIN;        // Watch Alarm (minutes)
+            NMEA2K_VALUE WA_STAT;       // Watch Alarm (status on/off)
+            NMEA2K_VALUE OC_DEG;        // OffCourse Alarm (degrees)
+            NMEA2K_VALUE OC_STAT;       // OffCourse Alarm (status on/off)
+            NMEA2K_VALUE JSM;           // Joystick Steering Mode (Normal or Proportional)
+            NMEA2K_VALUE DMP;           // Compass heading display damping (1-99 sec, defaut =4)
+            NMEA2K_VALUE FR;            // Fault Reporting ON/OFF
         } SETUP;
         struct {
-            BGNET_ALARM WA; // WAtch Alarm
-            BGNET_COUNT WA_ACTIVITY; // used to track KEY activity
-            BGNET_ALARM OC; // Off-Course Alarm
+            BGNET_ALARM WA;             // WA Alarm control block
+            BGNET_COUNT WA_ACTIVITY;    // Used to track KEY activity, when WA is enabled and this timer was not reset (within the WA limit), the WA alarm is fired
+            BGNET_ALARM OC;             // OC Alarm control block
         } ALARM;
     // PILOT/SPEED/SETUP - Manual speed selection
 #define BGNET_SPD_TRA           0

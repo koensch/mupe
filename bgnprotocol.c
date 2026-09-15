@@ -214,10 +214,10 @@ int bgnet_deviceindex(BGNET_CTRL *pCtrl, unsigned char ucDevAddr) {
     }
     return(r);
 }
-// safe copy WayPointID, size=12, last usable index=11
-void safecopyWPID(NMEA2K_VALUE *pV, char *pString) {
-    strncpy(pV->value.cString, pString, sizeof(pV->value.cString)-1);
-    pV->value.cString[sizeof(pV->value.cString)-1] = BGNET_ASC_NULL;
+// safe copy WayPointID and alarm texts with a maximum array size of 12, last usable index=11
+void bgnet_safecopy(char *pOut, char *pIn) {
+    strncpy(pOut, pIn, (BGNET_SAFECOPY_MAX-1));
+    pOut[(BGNET_SAFECOPY_MAX-1)] = BGNET_ASC_NULL;
     return;
 }
 // initialize a counter
@@ -291,23 +291,25 @@ char *strTimerCalc(BGNET_CTRL *pCtrl, char *pBuf) {
 }
 void ALARM_Init(BGNET_ALARM *pA, unsigned char ucCHN, char *pText0, char *pText1, time_t t) {
     pA->ucCHN = ucCHN;
-    pA->ucSTATE = 0x00;
+    pA->ucSTATE = 0;
+    pA->ucCONFIRM = 0;
     pA->ucBEEP = 0x00;
-    pA->ucRESET = 0x00;
+    pA->ucCANCEL = 0;
     CounterInit(&pA->Counter, t);
     CounterInit(&pA->Flasher, t);
-    strcpy(pA->AlarmText0, pText0);
-    strcpy(pA->AlarmText1, pText1);
+    bgnet_safecopy(pA->AlarmText0, pText0);
+    bgnet_safecopy(pA->AlarmText1, pText1);
 }
 void ALARM_On(BGNET_ALARM *pA, time_t t) {
     pA->ucSTATE = 1;
     pA->ucBEEP = BGNET_FMT_ALARMBEEP;
-    pA->ucRESET = 1;
+    pA->ucCANCEL = 1;
     CounterUp(&pA->Counter, t);
     CounterInit(&pA->Flasher, t);
 }
 // alarm on/of with edge detection, only handle changes
 void ALARM_Edge(BGNET_ALARM *pA, unsigned char ucSTATE, time_t t) {
+    log_debug("existing state= %d, new state= %d", pA->ucSTATE, ucSTATE);
     if (pA->ucSTATE == 0) {
         // current state is OFF
         if (ucSTATE == 0) {
@@ -321,6 +323,7 @@ void ALARM_Edge(BGNET_ALARM *pA, unsigned char ucSTATE, time_t t) {
         // current state is ON
         if (ucSTATE == 0) {
             // new state is OFF => alarm is cleared => no action (wait for SILENCE command)
+            ALARM_Off(pA);
         } else {
             // new state is ON => slarm is not yet cleared => no action
         }
@@ -335,13 +338,13 @@ void ALARM_Off(BGNET_ALARM *pA) {
 size_t ALARM_CHN(BGNET_CTRL *pCtrl, union CH *puCH, BGNET_ALARM *pA, time_t t) {
     size_t r = 0;
     if (pA->ucSTATE == 0) {
-        if (pA->ucRESET == 0) {
+        if (pA->ucCANCEL == 0) {
             // reset command was already send, do not send anything
             r = 0;
         } else {
             // to clear the alarm from the PILOT we need to send a non-ALARM channel value. I have tried several combinations and 
             // i think that sending this makes it work; i do not know how the real system handles this
-            pA->ucRESET = 0; // clear RESET flag
+            pA->ucCANCEL = 0; // clear CANCEL flag
             puCH->s.CH = pA->ucCHN;
             puCH->s.FMT = BGN_FMT_01;
             puCH->s.cv.uW[0] = htons(1);
@@ -567,7 +570,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
 
-        safecopyWPID(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID, "M1234567890"); // safecopy WPID (maximum 11 characters + 1 nullbyte)
+        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString, "M1234567890");
         pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter, t);
 
@@ -595,6 +598,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         ALARM_Init(&pCtrl->BGNET.PILOT.ALARM.WA, BGNET_CHN_76_AP_WA_ALARM, "WATCH   ", "ALARM   ", t);
         CounterInit(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
         ALARM_Init(&pCtrl->BGNET.PILOT.ALARM.OC, BGNET_CHN_AF_AP_OC_ALARM, "  OFF   ", "COURSE  ", t);
+        pCtrl->BGNET.ACP.OCE.value.nLong = 0;
+        pCtrl->BGNET.ACP.OCE.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.OCE.Counter, t);
 
         // initialize key counters (we need them to detect double-key presses and simultaneous key presses)
 
@@ -1606,25 +1612,62 @@ size_t makeACPresponseALARM(BGNET_CTRL *pCtrl, unsigned char *payload) {
     size_t r = 0;
     union CH *puCH;
 
+    // WATCH alarm ======
+
+    // We have a ACTIVITY timer that is reset everytime some keys are pressed. When no key pressed, the difference between the current time and the time
+    // of the latest activity gets bigger.
+    // When the WATCH alarm is enabled and the time since the last key action is greater than the timer preset, the WA alarm is fired.
+    // When you press a key to silence the alarm, not only the WA alarm is silenced, but also the key resets the activity timer
+
     if (pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte == 0) {
-        // alarm is not enabled
+        // WA alarm is not enabled
     } else {
-        // alarm is enabled
+        // WA alarm is enabled
         if (pCtrl->BGNET.PILOT.ALARM.WA.ucSTATE == 0) {
             // alarm is enabled, but not (yet) fired, check inactivity time
-            if ((pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.tTimestamp) > (pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong * 60)) {
+            if (labs(pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.tTimestamp) > (pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong * 60)) {
                 // set time expired, fire alarm
                 ALARM_On(&pCtrl->BGNET.PILOT.ALARM.WA, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-                // alarm is active now, send it
             }
         }
         puCH = (union CH *)&(payload[r]);
         r = r + ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.PILOT.ALARM.WA, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
     }
 
+    // OFF-COURSE alarm
 
-    puCH = (union CH *)&(payload[r]);
-    r = r + ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.PILOT.ALARM.OC, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+    // The OC limits is entered via PILOT/SETUP as 'Deg' units. This means that the OC alarm is not a "OFF-COURSE" alarm, but a "HEADING" alarm. If there is a difference
+    // between the SET COURSE and the HEADING, the OC alarm might fire if te difference exceeds the OC limit.
+    // A OFF-COURSE alarm would be more logical to have when a threshold value for the XTE would be exceeded. But that seems not the case here. This is given away by the OC
+    // limit being set in 'Deg'.
+    // From the manual i do not read if this alarm is only applicable to the AUTO mode. If you steer by hand (STBY) you already know (i hope) when you have changed your
+    // heading. You must have a CST in AUTO (in COMP or NAV mode), but in STBY you also need the CTS to calculate the OC.
+    // Having the autopilot in VANE mode, might also be a good thing to have the OC alarm to minimize getting too far off your desired course when the wind is shifting.
+    // My interpretation is that OC alarm is both active in AUTO and STBY and in all 3 modes (COMP, NAV and VANE).
+
+    // When the alarm goes off, the alarm immediately kicks in again because the alarm condition has not disappeard. 
+
+    // calculate OffCourse Error
+    pCtrl->BGNET.ACP.OCE.value.nLong = labs(pCtrl->BGNET.ACP.Heading.value.nLong - pCtrl->BGNET.ACP.CTS.value.nLong);
+    pCtrl->BGNET.ACP.OCE.source = BGN_SOURCE_BGNET;
+    CounterUp(&pCtrl->BGNET.ACP.OCE.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+
+    if (pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte == 0) {
+        // OC alarm is not enabled
+    } else {
+        // OC alarm is enabled
+        ALARM_Edge(&pCtrl->BGNET.PILOT.ALARM.OC, (pCtrl->BGNET.ACP.OCE.value.nLong > pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong), pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+
+        //if (pCtrl->BGNET.PILOT.ALARM.OC.ucSTATE == 0) {
+        //    // alarm is enabled, but not (yet) fired, check Course and Heading
+        //    if (pCtrl->BGNET.ACP.OCE.value.nLong > pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong) {
+        //        // deviation greater than limit, fire alarm
+        //        ALARM_Edge(&pCtrl->BGNET.PILOT.ALARM.OC, 1, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+        //    }
+        //}
+        puCH = (union CH *)&(payload[r]);
+        r = r + ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.PILOT.ALARM.OC, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+    }
 
     return(r);
 }

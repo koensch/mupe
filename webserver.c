@@ -270,8 +270,8 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *depth     = cJSON_GetObjectItem(root, "depth");     // water depth below transducer [M]
     cJSON *seatemp   = cJSON_GetObjectItem(root, "seatemp");   // temperature of seawater [degree C]
     cJSON *rudder    = cJSON_GetObjectItem(root, "rudder");    // rudder angle sensor [radian], -Pi/+Pi (equals to -180/+180)
-    cJSON *headingM   = cJSON_GetObjectItem(root, "headingM");   // heading [degree] (0-359, magnetic)
-    cJSON *headingT   = cJSON_GetObjectItem(root, "headingT");   // heading [degree] (0-359, magnetic)
+    cJSON *headingM  = cJSON_GetObjectItem(root, "headingM");  // heading [degree] (0-359, magnetic)
+    cJSON *headingT  = cJSON_GetObjectItem(root, "headingT");  // heading [degree] (0-359, magnetic)
     // wind measured parameters
     cJSON *twa       = cJSON_GetObjectItem(root, "twa");       // True Wind Angle [degree] (-180/+180, derived from SOG, COG and AWA)
     cJSON *tws       = cJSON_GetObjectItem(root, "tws");       // True Wind Speed [M/S] (derived from SOG, COG and AWS)
@@ -427,6 +427,15 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         pCtrl->BGNET.WIND.AWA.value.nLong = DTOIROUND(awa->valuedouble);
         pCtrl->BGNET.WIND.AWA.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.WIND.AWA.Counter, t);
+    }
+    // curl --data "{\"headingM\":123.4}" http://localhost:8080/api/update
+    if (headingM) {
+        g_n2kdata.boat.headingM.value.dValue = headingM->valuedouble;
+        g_n2kdata.boat.headingM.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.headingM.Counter, t);
+        pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(headingM->valuedouble);
+        pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, t);
     }
 
     // PILOT control
@@ -892,11 +901,13 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/SETUP/WA", "Watch Alarm inactivity timer", pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.iCounter, t-pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/WA", "Watch Alarm activity timer", pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.iCounter, t-pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm level [1-99 Deg]", pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_DEG.source), pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_STAT.source), pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/OC", "Off-Course Error [Deg]", pCtrl->BGNET.ACP.OCE.Counter.iCounter, t-pCtrl->BGNET.ACP.OCE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.OCE.source), pCtrl->BGNET.ACP.OCE.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/DMP", "Compass Damping [1-99 sec, 4=default]", pCtrl->BGNET.PILOT.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.DMP.source), pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte);
     strcat(Buffer, cLine);
