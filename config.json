@@ -1,5 +1,5 @@
 {
-  "serial": {
+  "fastnet": {
     "comment": "protocol for B&G NETWORK series",
     "port": "/dev/ttyUSB0",
     "baudrate": 11008,
@@ -26,9 +26,10 @@
   },
   "webserver": {
     "comment": "webserver for status page",
-    "port": 8080
+    "port": 8080,
+    "autorefresh": 2
   },
-  "logging": {
+  "logger": {
     "file": "marine_gateway.log",
     "level": "debug"
   }

@@ -1,3 +1,4 @@
+# 2026-09-20 KS renamed serial.* fastnet.*
 CC      = gcc
 #CFLAGS  = -Wall -Wextra -std=c11 -pthread
 CFLAGS  = -Wall -Wextra -std=gnu99 -pthread 
@@ -9,7 +10,7 @@ SRC = main.c \
       config.c \
       logger.c \
       app_state.c \
-      serial.c \
+      fastnet.c \
       bgnprotocol.c \
       ethernet.c \
       timer.c \
@@ -19,7 +20,7 @@ SRC = main.c \
 H = config.h \
 	logger.h \
 	app_state.h \
-	serial.h \
+	fastnet.h \
 	bgnprotocol.h \
 	ethernet.h \
 	timer.h \
