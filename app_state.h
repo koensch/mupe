@@ -117,6 +117,10 @@ typedef struct {
     size_t source;
     union VALUE value;
 } NMEA2K_VALUE;
+
+typedef struct {
+    NMEA2K_VALUE log_level;
+} NMEA2K_CFG;
 typedef struct {
     NMEA2K_VALUE lat;
     NMEA2K_VALUE lon;
@@ -147,6 +151,7 @@ typedef struct {
     NMEA2K_VALUE triplog;
 } NMEA2K_PILOT;
 typedef struct {
+    NMEA2K_CFG cfg;
     NMEA2K_POSITION pos;
     NMEA2K_BOAT boat;
     NMEA2K_WIND wind;

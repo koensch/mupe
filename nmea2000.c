@@ -437,7 +437,7 @@ void *nmea2000_thread(void *arg)
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", &pCtrl->pCfg->can_interface[0]);
+    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", &pCtrl->pCfg->nmea2000.can_interface[0]);
     if (ioctl(s, SIOCGIFINDEX, &ifr) < 0) {
         log_error("CAN ioctl: %s", strerror(errno));
         close(s);
@@ -455,7 +455,7 @@ void *nmea2000_thread(void *arg)
         return NULL;
     }
 
-    log_info("CAN bus: listening on %s for NMEA2000 messages", &pCtrl->pCfg->can_interface[0]);
+    log_info("CAN bus: listening on %s for NMEA2000 messages", &pCtrl->pCfg->nmea2000.can_interface[0]);
 
     struct can_frame frame;
 

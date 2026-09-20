@@ -24,9 +24,9 @@ static int setup_tcp_socket(const Config *cfg, int *sockfd)
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port   = htons(cfg->remote_port);
+    addr.sin_port   = htons(cfg->ethernet.remote_port);
 
-    if (inet_pton(AF_INET, cfg->remote_ip, &addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, cfg->ethernet.remote_ip, &addr.sin_addr) <= 0) {
         log_error("inet_pton: %s", strerror(errno));
         close(*sockfd);
         return -1;
@@ -38,7 +38,7 @@ static int setup_tcp_socket(const Config *cfg, int *sockfd)
         return -1;
     }
 
-    log_info("Ethernet TCP connected to %s:%d", cfg->remote_ip, cfg->remote_port);
+    log_info("Ethernet TCP connected to %s:%d", cfg->ethernet.remote_ip, cfg->ethernet.remote_port);
     return 0;
 }
 
@@ -52,15 +52,15 @@ static int setup_udp_socket(const Config *cfg, int *sockfd, struct sockaddr_in *
 
     memset(remote, 0, sizeof(*remote));
     remote->sin_family = AF_INET;
-    remote->sin_port   = htons(cfg->remote_port);
+    remote->sin_port   = htons(cfg->ethernet.remote_port);
 
-    if (inet_pton(AF_INET, cfg->remote_ip, &remote->sin_addr) <= 0) {
+    if (inet_pton(AF_INET, cfg->ethernet.remote_ip, &remote->sin_addr) <= 0) {
         log_error("inet_pton: %s", strerror(errno));
         close(*sockfd);
         return -1;
     }
 
-    log_info("Ethernet UDP ready to %s:%d", cfg->remote_ip, cfg->remote_port);
+    log_info("Ethernet UDP ready to %s:%d", cfg->ethernet.remote_ip, cfg->ethernet.remote_port);
     return 0;
 }
 
@@ -119,10 +119,10 @@ void *ethernet_thread(void *arg)
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
     Config *cfg = pCtrl->pCfg;
 
-    log_info("Ethernet Device=%s Protocol=%s Remote=%s:%d LocalPort=%d (Signal K)",cfg->eth_device, cfg->protocol,cfg->remote_ip, cfg->remote_port, cfg->local_port);
+    log_info("Ethernet Device=%s Protocol=%s Remote=%s:%d LocalPort=%d (Signal K)",cfg->ethernet.eth_device, cfg->ethernet.protocol,cfg->ethernet.remote_ip, cfg->ethernet.remote_port, cfg->ethernet.local_port);
 
     int sockfd = -1;
-    int is_tcp = (strcmp(cfg->protocol, "tcp") == 0);
+    int is_tcp = (strcmp(cfg->ethernet.protocol, "tcp") == 0);
 
     struct sockaddr_in udp_remote;
     memset(&udp_remote, 0, sizeof(udp_remote));

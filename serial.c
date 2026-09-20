@@ -81,19 +81,19 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
     return 0;
 }
 
-void *serial_thread(void *arg)
+void *fastnet_thread(void *arg)
 {
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
 
-    log_info("Serial opening %s", pCtrl->pCfg->serial_port);
+    log_info("Serial opening %s", pCtrl->pCfg->fastnet.port);
 
-    int fd = open(pCtrl->pCfg->serial_port, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    int fd = open(pCtrl->pCfg->fastnet.port, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd < 0) {
         log_error("Serial: open(): %s", strerror(errno));
         return NULL;
     }
 
-    if (set_interface_attribs(fd, pCtrl->pCfg->baudrate, pCtrl->pCfg->databits,pCtrl->pCfg->stopbits, pCtrl->pCfg->parity, pCtrl->pCfg->mode) != 0) {
+    if (set_interface_attribs(fd, pCtrl->pCfg->fastnet.baudrate, pCtrl->pCfg->fastnet.databits,pCtrl->pCfg->fastnet.stopbits, pCtrl->pCfg->fastnet.parity, pCtrl->pCfg->fastnet.mode) != 0) {
         log_error("Serial: set_interface_attribs(): %s", strerror(errno));
         close(fd);
         return NULL;
@@ -101,10 +101,10 @@ void *serial_thread(void *arg)
 
     // we allow readonly or readwrite on this communication. This allows us to be a 'monitor-only' application
     // if you enter something wrong, you get RO mode
-    if (strcmp(pCtrl->pCfg->mode, "readwrite") == 0) {
+    if (strcmp(pCtrl->pCfg->fastnet.mode, "readwrite") == 0) {
         g_serial_mode = BGN_SERIAL_MODE_RW; // write actively
     } else {
-        if (strcmp(pCtrl->pCfg->mode, "passive") == 0) {
+        if (strcmp(pCtrl->pCfg->fastnet.mode, "passive") == 0) {
             g_serial_mode = BGN_SERIAL_MODE_PASSIVE; // only write when explicitly requested
         } else {
             g_serial_mode = BGN_SERIAL_MODE_RO; // do not write anything

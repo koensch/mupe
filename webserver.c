@@ -259,6 +259,9 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
 
     //log_debug("webserver: api_update: %s", body);
 
+    // System
+    cJSON *reset     = cJSON_GetObjectItem(root, "reset");     // performs a software reset of the service (clear & initilalize memory structures)
+    cJSON *log       = cJSON_GetObjectItem(root, "log");       // set log level (none, error, warn, info, debug)
     // GPS information
     cJSON *latitude  = cJSON_GetObjectItem(root, "latitude");  // lattitude +=North of equator, -=South of equator
     cJSON *longitude = cJSON_GetObjectItem(root, "longitude"); // longitude +=East of prime meridian, -=West of prime meridian
@@ -279,10 +282,10 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *aws       = cJSON_GetObjectItem(root, "aws");       // Appearent Wind Speed [M/S] (measured by masttop sensor)
     cJSON *airtemp   = cJSON_GetObjectItem(root, "airtemp");   // temperature of air [degree C]
     cJSON *baro      = cJSON_GetObjectItem(root, "baro");      // barometric airpressure [mbar]
+    cJSON *vmg       = cJSON_GetObjectItem(root, "vmg");       // Velocity Made Good, derived from wind angle and boatspeed
     // pilot/trip parameters
     cJSON *cts       = cJSON_GetObjectItem(root, "cts");       // Course To Steer (0-359, compass)
     cJSON *triplog   = cJSON_GetObjectItem(root, "triplog");   // triplog, distance covered [M]
-    cJSON *vmg       = cJSON_GetObjectItem(root, "vmg");       // Velocity Made Good, calculated from SOG and angle to the target
     // autopilot remote control
     cJSON *ap_state  = cJSON_GetObjectItem(root, "ap_state");  // "auto" or "off"
     cJSON *ap_mode   = cJSON_GetObjectItem(root, "ap_mode");   // "comp", "nav" or "vane"
@@ -292,14 +295,32 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *frame     = cJSON_GetObjectItem(root, "frame");     // transmits a self-created frame on the network
     cJSON *nav       = cJSON_GetObjectItem(root, "nav");       // enable/disable NAV message (from PILOT NMEA input)
     // alarms
-    cJSON *alarmon   = cJSON_GetObjectItem(root, "alarmon");    // set the alarm (WA, OC, SHAL, DEEP, ANCH)
-    cJSON *alarmoff  = cJSON_GetObjectItem(root, "alarmoff");   // reset alarm (WA, OC, SHAL, DEEP, ANCH)
-    cJSON *wa        = cJSON_GetObjectItem(root, "wa");         // enable WA alarm
-    cJSON *oc        = cJSON_GetObjectItem(root, "oc");         // enable OC alarm
+    cJSON *alarmon   = cJSON_GetObjectItem(root, "alarmon");    // set alarm ON (WA, OC, SHAL, DEEP, ANCH)
+    cJSON *alarmoff  = cJSON_GetObjectItem(root, "alarmoff");   // set alarm OFF (WA, OC, SHAL, DEEP, ANCH)
+    cJSON *wa        = cJSON_GetObjectItem(root, "wa");         // triggers WA alarm
+    cJSON *oc        = cJSON_GetObjectItem(root, "oc");         // triggers OC alarm
 
     pthread_mutex_lock(&g_data_mutex); 
+ 
+    // System
+
+    // curl --data "{\"reset\":\"IKnowWhatIDo\"}" http://localhost:8080/api/update
+    if (reset) {
+        if (strcmp(reset->valuestring, "IKnowWhatIDo") == 0) {
+            bgnet_initialize_reset(pCtrl);
+            log_info("Initialisation request via API");
+        }
+    }
+    // curl --data "{\"log\":\"error\"}" http://localhost:8080/api/update
+    if (log) {
+        g_n2kdata.cfg.log_level.value.nByte = logger_level(log->valuestring);
+        g_n2kdata.cfg.log_level.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.cfg.log_level.Counter, t);
+        log_info("LogLevel set to '%s' via API (%d)", log->valuestring, g_n2kdata.cfg.log_level.value.nByte);
+    }
 
     // position information, usually from GPS
+
     if (latitude) {
         g_n2kdata.pos.lat.value.dValue = latitude->valuedouble;
         g_n2kdata.pos.lat.source = BGN_SOURCE_API;
@@ -327,6 +348,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     }
 
     // boat information from instruments onboard
+
     if (stw) {
         g_n2kdata.boat.stw.value.dValue = stw->valuedouble;
         g_n2kdata.boat.stw.source = BGN_SOURCE_API;
@@ -347,10 +369,14 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.boat.rudder.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.rudder.Counter, t);
     }
+    // curl --data "{\"headingM\":123.4}" http://localhost:8080/api/update
     if (headingM) {
         g_n2kdata.boat.headingM.value.dValue = headingM->valuedouble;
         g_n2kdata.boat.headingM.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.headingM.Counter, t);
+        pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(headingM->valuedouble);
+        pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, t);
     }
     if (headingT) {
         g_n2kdata.boat.headingT.value.dValue = headingT->valuedouble;
@@ -359,6 +385,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     }
 
     // wind information from masttop sensor
+
     if (twa) {
         g_n2kdata.wind.twa.value.dValue = twa->valuedouble;
         g_n2kdata.wind.twa.source = BGN_SOURCE_API;
@@ -369,10 +396,14 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.wind.tws.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.tws.Counter, t);
     }
+    // curl --data "{\"awa\":123}" http://localhost:8080/api/update
     if (awa) {
         g_n2kdata.wind.awa.value.dValue = awa->valuedouble;
         g_n2kdata.wind.awa.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.awa.Counter, t);
+        pCtrl->BGNET.WIND.AWA.value.nLong = DTOIROUND(awa->valuedouble);
+        pCtrl->BGNET.WIND.AWA.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.WIND.AWA.Counter, t);
     }
     if (aws) {
         g_n2kdata.wind.aws.value.dValue = aws->valuedouble;
@@ -388,6 +419,15 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.wind.baro.value.dValue = baro->valuedouble;
         g_n2kdata.wind.baro.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.baro.Counter, t);
+    }
+    // curl --data "{\"vmg\":6.54}" http://localhost:8080/api/update
+    if (vmg) {
+        g_n2kdata.wind.vmg.value.dValue = vmg->valuedouble;
+        g_n2kdata.wind.vmg.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.wind.vmg.Counter, t);
+        pCtrl->BGNET.WIND.VMG.value.nLong = DTOIROUND(vmg->valuedouble);
+        pCtrl->BGNET.WIND.VMG.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.WIND.VMG.Counter, t);
     }
 
     // PILOT navigation information
@@ -409,33 +449,6 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         pCtrl->BGNET.SPEED.TripLogNM.value.dValue = triplog->valuedouble * BGNET_DIVISOR_TRIPLOG;
         pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
-    }
-    // curl --data "{\"vmg\":6.54}" http://localhost:8080/api/update
-    if (vmg) {
-        g_n2kdata.wind.vmg.value.dValue = vmg->valuedouble;
-        g_n2kdata.wind.vmg.source = BGN_SOURCE_API;
-        CounterUp(&g_n2kdata.wind.vmg.Counter, t);
-        pCtrl->BGNET.WIND.VMG.value.nLong = DTOIROUND(vmg->valuedouble);
-        pCtrl->BGNET.WIND.VMG.source = BGN_SOURCE_API;
-        CounterUp(&pCtrl->BGNET.WIND.VMG.Counter, t);
-    }
-    // curl --data "{\"awa\":123}" http://localhost:8080/api/update
-    if (awa) {
-        g_n2kdata.wind.awa.value.dValue = awa->valuedouble;
-        g_n2kdata.wind.awa.source = BGN_SOURCE_API;
-        CounterUp(&g_n2kdata.wind.awa.Counter, t);
-        pCtrl->BGNET.WIND.AWA.value.nLong = DTOIROUND(awa->valuedouble);
-        pCtrl->BGNET.WIND.AWA.source = BGN_SOURCE_API;
-        CounterUp(&pCtrl->BGNET.WIND.AWA.Counter, t);
-    }
-    // curl --data "{\"headingM\":123.4}" http://localhost:8080/api/update
-    if (headingM) {
-        g_n2kdata.boat.headingM.value.dValue = headingM->valuedouble;
-        g_n2kdata.boat.headingM.source = BGN_SOURCE_API;
-        CounterUp(&g_n2kdata.boat.headingM.Counter, t);
-        pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(headingM->valuedouble);
-        pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_API;
-        CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, t);
     }
 
     // PILOT control
@@ -538,8 +551,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
 
     // curl --data "{\"frame\":\"FF0001C9000300\"}" http://localhost:8080/api/update
     // transmits a self-created frame to the network. The frame's checksums are generated by the
-    // interface upon output. Just put a placeholder "00" there.
-    // The frame shall consist of a string containg a hex-formatted characters.
+    // interface upon output. Just put a placeholder "00" (or whatever) formatted characters.
     // This example sets the LIGHTS to 3. With this command you can allso make "specific lights" command
     // (switch on/off the lights on a specific node) which is not possible with the BGN 'LIGHTS' button.
 
@@ -549,7 +561,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // curl --data "{\"frame\":\"FF 70 00 0A 87\"}" http://localhost:8080/api/update
     // to simulate data from WIND:
     // curl --data "{\"frame\":\"FF 70 20 01 70 8D 48 00 78 50 88 04 05 4E 88 00 00 51 01 00 64 52 08 00 00 57 88 05 D7 59 01 00 89 7F 88 FD 59 9B\"}" http://localhost:8080/api/update
-    //
+    // The rest i will leave up to your imagination
     if (frame) {
         // convert the received ascii/hex bytes as a binary frame, check the validity (do not support subframes)
         r = ascii2frame(&FRx, frame->valuestring, NULL);
@@ -661,7 +673,8 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     send(client_fd, ok, strlen(ok), 0);
 }
 
-static char* html_head(char *Buffer, size_t MaxBuf) {
+static char* html_head(BGNET_CTRL *pCtrl, char *Buffer, size_t MaxBuf) {
+    char strMeta[128];
     const char *cHead =
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
@@ -669,6 +682,7 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
         "<html>\r\n"
         "<head>\r\n"
             "<meta name=\"format-detection\" content=\"telephone=no\" >\r\n"
+            "%s"
             "<style>\r\n"
             "body, table, td {font-family: Verdana; font-size: 14px; border: 0px}\r\n"
             "h3 {margin-left: 20px;}\r\n"
@@ -680,7 +694,17 @@ static char* html_head(char *Buffer, size_t MaxBuf) {
             "<link rel='shortcut icon' href='#' />\r\n"
             "</head>\r\n"
         "<body>\r\n";
-    snprintf(Buffer, MaxBuf, cHead, ApplicationName);
+    char *cMeta = "<meta http-equiv=\"refresh\" content=\"%d\">\r\n";
+
+    if (pCtrl->pCfg->webserver.web_autorefresh < 0) {
+        // option not enabled
+        strcpy(strMeta, "");
+    } else {
+        // option selected, add update frequency
+        snprintf(strMeta, sizeof(strMeta), cMeta, pCtrl->pCfg->webserver.web_autorefresh);
+    }
+
+    snprintf(Buffer, MaxBuf, cHead, strMeta, ApplicationName);
     return(Buffer);
 }
 
@@ -735,12 +759,12 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
     const char *cInfRow =
         "<tr><td>%s</td><td>RS232 (inverted Rx/Tx)</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>\r\n";
     snprintf(cLine, sizeof(cLine), cInfRow,
-                                            pCtrl->pCfg->serial_port,
-                                            pCtrl->pCfg->baudrate,
-                                            pCtrl->pCfg->parity,
-                                            pCtrl->pCfg->databits,
-                                            pCtrl->pCfg->stopbits,
-                                            pCtrl->pCfg->mode,
+                                            pCtrl->pCfg->fastnet.port,
+                                            pCtrl->pCfg->fastnet.baudrate,
+                                            pCtrl->pCfg->fastnet.parity,
+                                            pCtrl->pCfg->fastnet.databits,
+                                            pCtrl->pCfg->fastnet.stopbits,
+                                            pCtrl->pCfg->fastnet.mode,
                                             (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong>0?"<text style='color:green;'><b>OK</b></text>":"<text style='color:red;'><b>FLUNK</b></text>"),
                                             BGNET_TYPE_NETACP,
                                             pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_TYPE_NETACP)].sProdName
@@ -833,20 +857,24 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(Buffer, "");
     time(&t);
 
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "CFG: LogLevel", "LogLevel [0=None, 1=Error, 2=Warn, 3=Info, 4=Debug]", g_n2kdata.cfg.log_level.Counter.iCounter, t-g_n2kdata.cfg.log_level.Counter.tTimestamp, strSource(cSource, g_n2kdata.cfg.log_level.source), g_n2kdata.cfg.log_level.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "CFG: AutoRefresh", "Page Auto Refresh [-1=None, 0-30 seconds]", 0, 0, strSource(cSource, BGN_SOURCE_BLANK), pCtrl->pCfg->webserver.web_autorefresh);
+    strcat(Buffer, cLine);
 
     ptmInfo = localtime (&pCtrl->BGNET.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Running since", "Startup timestamp", 1, t-pCtrl->BGNET.tTimestamp, strSource(cSource, BGN_SOURCE_ACP), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Running since", "Startup timestamp (set once)", 1, t-pCtrl->BGNET.tTimestamp, strSource(cSource, BGN_SOURCE_ACP), asciibuffer);
     strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: System Time", "Computer Time ", pCtrl->BGNET.SERVICE.SystemTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.SystemTime.source), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: System Time", "Computer Time (set every scan)", pCtrl->BGNET.SERVICE.SystemTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.SystemTime.source), asciibuffer);
     strcat(Buffer, cLine);
-    ptmInfo = localtime (&pCtrl->BGNET.SERVICE.NetworkTime.value.tTime);
+    ptmInfo = localtime (&pCtrl->BGNET.SERVICE.NetworkTime.value.tTime); //
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Time received from external source (GPS/NMEA/API/SignalK)", pCtrl->BGNET.SERVICE.NetworkTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.NetworkTime.source), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Time received from external source (GPS/NMEA/API/SignalK, set when received)", pCtrl->BGNET.SERVICE.NetworkTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.NetworkTime.source), asciibuffer);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: WATCHDOG", "Countdown by timer, reset by PILOT HELLO", pCtrl->BGNET.SERVICE.PILOTWD.Counter.iCounter, t-pCtrl->BGNET.SERVICE.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.PILOTWD.source), pCtrl->BGNET.SERVICE.PILOTWD.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: WATCHDOG", "Countdown by timer, reset by PILOT 'HELLO' command", pCtrl->BGNET.SERVICE.PILOTWD.Counter.iCounter, t-pCtrl->BGNET.SERVICE.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.PILOTWD.source), pCtrl->BGNET.SERVICE.PILOTWD.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "External switch [0=OFF, 1=ON]", pCtrl->BGNET.ACP.Joystick.Counter.iCounter, t-pCtrl->BGNET.ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Joystick.source), pCtrl->BGNET.ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
@@ -1261,10 +1289,10 @@ static void handle_root_html(int client_fd, BGNET_CTRL *pCtrl)
 
     strcpy(htmlbuffer, ""); // initialize the empty buffer
 
-    strcat(htmlbuffer, html_head(workbuffer, sizeof(workbuffer)));
+    strcat(htmlbuffer, html_head(pCtrl, workbuffer, sizeof(workbuffer)));
     strcat(htmlbuffer, html_title(workbuffer, sizeof(workbuffer)));
 
-    strcat(htmlbuffer, html_help(workbuffer, sizeof(workbuffer), pCtrl->pCfg->web_port));
+    strcat(htmlbuffer, html_help(workbuffer, sizeof(workbuffer), pCtrl->pCfg->webserver.web_port));
 
     strcat(htmlbuffer, html_tail(workbuffer, sizeof(workbuffer)));
     //log_debug("webserver: / page size: %d, %d", strlen(htmlbuffer), strlen(workbuffer));
@@ -1279,7 +1307,7 @@ static void handle_bgnet_html(int client_fd, BGNET_CTRL *pCtrl)
 
     strcpy(htmlbuffer, ""); // initialize the empty buffer
 
-    strcat(htmlbuffer, html_head(workbuffer, sizeof(workbuffer)));
+    strcat(htmlbuffer, html_head(pCtrl, workbuffer, sizeof(workbuffer)));
     strcat(htmlbuffer, html_title(workbuffer, sizeof(workbuffer)));
 
     strcat(htmlbuffer, html_interface_top(workbuffer));
@@ -1343,7 +1371,7 @@ void *webserver_thread(void *arg)
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family      = AF_INET;
-    addr.sin_port        = htons(pCtrl->pCfg->web_port);
+    addr.sin_port        = htons(pCtrl->pCfg->webserver.web_port);
     addr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
@@ -1358,7 +1386,7 @@ void *webserver_thread(void *arg)
         return NULL;
     }
 
-    log_info("webserver: Web listening on http://localhost:%d", pCtrl->pCfg->web_port);
+    log_info("webserver: Web listening on http://localhost:%d", pCtrl->pCfg->webserver.web_port);
 
     while (g_running) {
         int client_fd = accept(server_fd, NULL, NULL);

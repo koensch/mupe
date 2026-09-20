@@ -3,6 +3,6 @@
 
 #include "config.h"
 
-void *serial_thread(void *arg);
+void *fastnet_thread(void *arg);
 
 #endif

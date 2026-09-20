@@ -138,7 +138,7 @@ void *timer_thread(void *arg)
         }
 
         // no racing allowed, use the configured timer interval, but protect against someone entering 0        
-        usleep(BGNET_MIN(pCtrl->pCfg->timer_interval_ms * 1000, MSEC1));
+        usleep(BGNET_MIN(pCtrl->pCfg->timer.timer_interval_ms * 1000, MSEC1));
     }
     log_info("Timer: thread exiting");
     return NULL;

@@ -624,6 +624,8 @@ int main(void)
     // assign signal handler
     signal(SIGINT, handle_sigint);
 
+    app_state_init();
+
     // first we need the configuration, otherwise we cannot log errors
     Config cfg;
     if (load_config("config.json", &cfg) != 0) {
@@ -632,7 +634,7 @@ int main(void)
         fprintf(stderr, "Failed to load config.json\n");
         return 1;
     }
-    logger_init(cfg.log_file, cfg.log_level);
+    logger_init(cfg.logger.str_log_file, cfg.logger.str_log_level);
 
     gethostname(cHostName, sizeof(cHostName));
     log_info("Starting %s on %s (%d bits)", ApplicationName, cHostName, (sizeof(char*)*__CHAR_BIT__));
@@ -656,15 +658,13 @@ int main(void)
     bgnet_initialize_reset(pBGNET_ctrl);
     bgnet_initialize(pBGNET_ctrl);
 
-    app_state_init();
-
     // activate all out threads
     // we allow the threads to be excluded for diagnostic purposes
     pthread_t th_serial, th_ethernet, th_timer, th_web, th_nmea2k;
     if (
            (
 #ifdef BGN_ENABLE_SERIAL
-            pthread_create(&th_serial,  NULL, serial_thread, pBGNET_ctrl) != 0 ||
+            pthread_create(&th_serial,  NULL, fastnet_thread, pBGNET_ctrl) != 0 ||
 #endif
 #ifdef BGN_ENABLE_ETHERNET
             pthread_create(&th_ethernet,NULL, ethernet_thread, pBGNET_ctrl) != 0 ||

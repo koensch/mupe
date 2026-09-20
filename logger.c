@@ -8,37 +8,48 @@
 #include <string.h>
 
 static FILE *logf = NULL;
-static int log_level = LOGGER_LEVEL_INFO;
+//static int log_level = LOGGER_LEVEL_INFO;
 static pthread_mutex_t log_mutex;
 
+int logger_level(const char *pStr) {
+    int r = LOGGER_LEVEL_UNDEFINED;
+    if (strcmp(pStr, "none") == 0) r = LOGGER_LEVEL_NONE;
+    else if (strcmp(pStr, "error") == 0) r = LOGGER_LEVEL_ERROR;
+    else if (strcmp(pStr, "warn") == 0) r = LOGGER_LEVEL_WARN;
+    else if (strcmp(pStr, "info") == 0) r = LOGGER_LEVEL_INFO;
+    else if (strcmp(pStr, "debug") == 0) r = LOGGER_LEVEL_DEBUG;
+    else r = LOGGER_LEVEL_WARN; // default
+    return(r);
+}
 void logger_init(const char *filename, const char *level)
 {
     int log;
+    time_t t;
+    time(&t);
 
     pthread_mutex_init(&log_mutex, NULL);
 
-    if (strcmp(level, "error") == 0) log_level = LOGGER_LEVEL_ERROR;
-    else if (strcmp(level, "warn") == 0) log_level = LOGGER_LEVEL_WARN;
-    else if (strcmp(level, "info") == 0) log_level = LOGGER_LEVEL_INFO;
-    else if (strcmp(level, "debug") == 0) log_level = LOGGER_LEVEL_DEBUG;
+    g_n2kdata.cfg.log_level.value.nByte = logger_level(level);
+    g_n2kdata.cfg.log_level.source = BGN_SOURCE_ACP;
+    CounterInit(&g_n2kdata.cfg.log_level.Counter, t);
 
     logf = fopen(filename, "a");
     if (!logf) {
         logf = stderr;
     }
-    log = log_level;
-    log_level = LOGGER_LEVEL_INFO;
-    log_info("***** Logging started (level %d)",log);
-    log_level = log;
+    log = g_n2kdata.cfg.log_level.value.nByte;
+    g_n2kdata.cfg.log_level.value.nByte = LOGGER_LEVEL_INFO;
+    log_info("***** Logging started (level %d), output to %s", log, filename);
+    g_n2kdata.cfg.log_level.value.nByte = log;
 }
 
 void logger_close(void)
 {
     int log;
-    log = log_level;
-    log_level = LOGGER_LEVEL_INFO;
+    log = g_n2kdata.cfg.log_level.value.nByte;
+    g_n2kdata.cfg.log_level.value.nByte = LOGGER_LEVEL_INFO;
     log_info("***** Logging stopped (level %d)",log);
-    log_level = log;
+    g_n2kdata.cfg.log_level.value.nByte = log;
 
     if (logf && logf != stderr)
         fclose(logf);
@@ -47,14 +58,17 @@ void logger_close(void)
 
 static void write_log(int level, const char *prefix, const char *fmt, va_list ap)
 {
-    if (level > log_level) return;
-
-    pthread_mutex_lock(&log_mutex);
-    fprintf(logf, "%s ", prefix);
-    vfprintf(logf, fmt, ap);
-    fprintf(logf, "\n");
-    fflush(logf);
-    pthread_mutex_unlock(&log_mutex);
+    if (level <= g_n2kdata.cfg.log_level.value.nByte) {
+        pthread_mutex_lock(&log_mutex);
+        fprintf(logf, "%s ", prefix);
+        vfprintf(logf, fmt, ap);
+        fprintf(logf, "\n");
+        fflush(logf);
+        pthread_mutex_unlock(&log_mutex);
+    } else {
+        // do not log higher levels
+    }
+    return;
 }
 
 void log_error(const char *fmt, ...) {
@@ -173,9 +187,10 @@ int16_t ascii2byte(unsigned char *OutByte, char *InString, size_t size) {
     }
     return(r);
 }
+// with the optional offset parameter, we can use this routine to iterate through a multi-frame buffer
 int16_t ascii2frame(FRAME_H *pF, char *pString, size_t *pOffset) {
     int16_t r, len_msg;
-    size_t offset = 0;
+    size_t offset = 0; // default is 0 -> start of string
     if (pOffset != NULL) offset = *pOffset;
     // convert the ascii/hex string into a binary frame (just the header)
     r = ascii2byte((unsigned char *)pF, &pString[offset], BGNET_FRAME_HEAD);

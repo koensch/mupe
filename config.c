@@ -33,47 +33,53 @@ int load_config(const char *filename, Config *cfg)
         return -1;
     }
 
+    // clear config structure (also makes all strings into NULL strings)
     memset(cfg, 0, sizeof(*cfg));
+    // apply some defaults to make sure we can log some errors incase someone did not configure config.json correctly
+    strcpy(cfg->logger.str_log_file, ApplicationName);
+    strcpy(cfg->logger.str_log_level, "warn");
 
-    cJSON *serial = cJSON_GetObjectItem(root, "serial");
-    cJSON *ether  = cJSON_GetObjectItem(root, "ethernet");
-    cJSON *n2k    = cJSON_GetObjectItem(root, "nmea2000");
-    cJSON *timer  = cJSON_GetObjectItem(root, "timer");
-    cJSON *web    = cJSON_GetObjectItem(root, "webserver");
-    cJSON *log    = cJSON_GetObjectItem(root, "logging");
+    cJSON *fastnet   = cJSON_GetObjectItem(root, "fastnet");
+    cJSON *ethernet  = cJSON_GetObjectItem(root, "ethernet");
+    cJSON *nmea2000  = cJSON_GetObjectItem(root, "nmea2000");
+    cJSON *timer     = cJSON_GetObjectItem(root, "timer");
+    cJSON *webserver = cJSON_GetObjectItem(root, "webserver");
+    cJSON *logger    = cJSON_GetObjectItem(root, "logger");
 
-    if (serial) {
-        snprintf(cfg->serial_port, sizeof(cfg->serial_port), "%s", cJSON_GetObjectItem(serial, "port")->valuestring);
-        cfg->baudrate = cJSON_GetObjectItem(serial, "baudrate")->valueint;
-        cfg->databits = cJSON_GetObjectItem(serial, "databits")->valueint;
-        cfg->stopbits = cJSON_GetObjectItem(serial, "stopbits")->valueint;
-        snprintf(cfg->parity, sizeof(cfg->parity), "%s", cJSON_GetObjectItem(serial, "parity")->valuestring);
-        snprintf(cfg->mode, sizeof(cfg->mode), "%s", cJSON_GetObjectItem(serial, "mode")->valuestring);
+    if (fastnet) {
+        snprintf(cfg->fastnet.port, sizeof(cfg->fastnet.port), "%s", cJSON_GetObjectItem(fastnet, "port")->valuestring);
+        cfg->fastnet.baudrate = cJSON_GetObjectItem(fastnet, "baudrate")->valueint;
+        cfg->fastnet.databits = cJSON_GetObjectItem(fastnet, "databits")->valueint;
+        cfg->fastnet.stopbits = cJSON_GetObjectItem(fastnet, "stopbits")->valueint;
+        snprintf(cfg->fastnet.parity, sizeof(cfg->fastnet.parity), "%s", cJSON_GetObjectItem(fastnet, "parity")->valuestring);
+        snprintf(cfg->fastnet.mode, sizeof(cfg->fastnet.mode), "%s", cJSON_GetObjectItem(fastnet, "mode")->valuestring);
     }
 
-    if (ether) {
-        snprintf(cfg->eth_device, sizeof(cfg->eth_device), "%s", cJSON_GetObjectItem(ether, "device")->valuestring);
-        snprintf(cfg->protocol, sizeof(cfg->protocol), "%s", cJSON_GetObjectItem(ether, "protocol")->valuestring);
-        snprintf(cfg->remote_ip, sizeof(cfg->remote_ip), "%s", cJSON_GetObjectItem(ether, "remote_ip")->valuestring);
-        cfg->remote_port = cJSON_GetObjectItem(ether, "remote_port")->valueint;
-        cfg->local_port  = cJSON_GetObjectItem(ether, "local_port")->valueint;
+    if (ethernet) {
+        snprintf(cfg->ethernet.eth_device, sizeof(cfg->ethernet.eth_device), "%s", cJSON_GetObjectItem(ethernet, "device")->valuestring);
+        snprintf(cfg->ethernet.protocol, sizeof(cfg->ethernet.protocol), "%s", cJSON_GetObjectItem(ethernet, "protocol")->valuestring);
+        snprintf(cfg->ethernet.remote_ip, sizeof(cfg->ethernet.remote_ip), "%s", cJSON_GetObjectItem(ethernet, "remote_ip")->valuestring);
+        cfg->ethernet.remote_port = cJSON_GetObjectItem(ethernet, "remote_port")->valueint;
+        cfg->ethernet.local_port  = cJSON_GetObjectItem(ethernet, "local_port")->valueint;
     }
 
-    if (n2k) {
-        snprintf(cfg->can_interface, sizeof(cfg->can_interface), "%s", cJSON_GetObjectItem(n2k, "can_interface")->valuestring);
+    if (nmea2000) {
+        snprintf(cfg->nmea2000.can_interface, sizeof(cfg->nmea2000.can_interface), "%s", cJSON_GetObjectItem(nmea2000, "can_interface")->valuestring);
     }
 
     if (timer) {
-        cfg->timer_interval_ms = cJSON_GetObjectItem(timer, "interval_ms")->valueint;
+        cfg->timer.timer_interval_ms = cJSON_GetObjectItem(timer, "interval_ms")->valueint;
     }
 
-    if (web) {
-        cfg->web_port = cJSON_GetObjectItem(web, "port")->valueint;
+    if (webserver) {
+        cfg->webserver.web_port = cJSON_GetObjectItem(webserver, "port")->valueint;
+        cfg->webserver.web_autorefresh = cJSON_GetObjectItem(webserver, "autorefresh")->valueint;
+        if ((cfg->webserver.web_autorefresh < -1) | (cfg->webserver.web_autorefresh > 30))  cfg->webserver.web_autorefresh = -1; // disable autorefresh
     }
 
-    if (log) {
-        snprintf(cfg->log_file, sizeof(cfg->log_file), "%s", cJSON_GetObjectItem(log, "file")->valuestring);
-        snprintf(cfg->log_level, sizeof(cfg->log_level), "%s", cJSON_GetObjectItem(log, "level")->valuestring);
+    if (logger) {
+        snprintf(cfg->logger.str_log_file, sizeof(cfg->logger.str_log_file), "%s", cJSON_GetObjectItem(logger, "file")->valuestring);
+        snprintf(cfg->logger.str_log_level, sizeof(cfg->logger.str_log_level), "%s", cJSON_GetObjectItem(logger, "level")->valuestring);
     }
 
     cJSON_Delete(root);
