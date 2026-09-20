@@ -164,29 +164,27 @@ static int handle_ws_handshake(int client_fd, const char *req)
 
 // to read data via API interface, use 'curl':
 // curl http://localhost:8080/api/state
-// this returns the most recent received and transmitted serial message
+// this returns the most recent received and transmitted fastnet message
 static void handle_api_state(int client_fd)
 {
-    unsigned char serial_dataRx[BGNET_RXTXRAW_SIZE];
-    unsigned char serial_dataTx[BGNET_RXTXRAW_SIZE];
-//    char ethernet_data[BGNET_RXTXRAW_SIZE];
+    unsigned char fastnet_dataRx[BGNET_RXTXRAW_SIZE];
+    unsigned char fastnet_dataTx[BGNET_RXTXRAW_SIZE];
+    // the ASCII representation of the frame takes 2x the size of the binary original
     char asciibufRx[BGNET_RXTXRAW_SIZE*2], asciibufTx[BGNET_RXTXRAW_SIZE*2];
 
     // lock source, copy data
     pthread_mutex_lock(&g_data_mutex);
-    memcpy(serial_dataRx, g_last_serial_dataRx, sizeof(serial_dataRx));
-    memcpy(serial_dataTx, g_last_serial_dataTx, sizeof(serial_dataRx));
- //   memcpy(ethernet_data, g_last_ethernet_data, sizeof(ethernet_data));
+    memcpy(fastnet_dataRx, g_last_fastnet_dataRx, sizeof(fastnet_dataRx));
+    memcpy(fastnet_dataTx, g_last_fastnet_dataTx, sizeof(fastnet_dataRx));
     pthread_mutex_unlock(&g_data_mutex);
 
     // convert Rx/Tx data to human readable format (haven't checked if the bytes are really a BGNET frame)
-    CommandToAscii(asciibufRx, sizeof(asciibufRx), (FRAME_H *)serial_dataRx);
-    CommandToAscii(asciibufTx, sizeof(asciibufTx), (FRAME_H *)serial_dataTx);
+    CommandToAscii(asciibufRx, sizeof(asciibufRx), (FRAME_H *)fastnet_dataRx);
+    CommandToAscii(asciibufTx, sizeof(asciibufTx), (FRAME_H *)fastnet_dataTx);
 
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "SerialDataRx", asciibufRx);
-    cJSON_AddStringToObject(root, "SerialDataTx", asciibufTx);
-//    cJSON_AddStringToObject(root, "EthernetData", ethernet_data);
+    cJSON_AddStringToObject(root, "FastnetDataRx", asciibufRx);
+    cJSON_AddStringToObject(root, "FastnetDataTx", asciibufTx);
 
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -542,8 +540,8 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 CounterUp(&pCtrl->DEV[FTx.FROM].CounterTx, t);
                 // put it for transmission
                 // we are already locked  pthread_mutex_lock(&g_data_mutex);
-                memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &FTx, len_msg); // put output message in write buffer
-                g_serial_data_lenTx = g_serial_data_lenTx + len_msg; // increment byte counter in TX buffer
+                memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &FTx, len_msg); // put output message in write buffer
+                g_fastnet_data_lenTx = g_fastnet_data_lenTx + len_msg; // increment byte counter in TX buffer
                 // we are already locked  pthread_mutex_unlock(&g_data_mutex);
                 break;
         }
@@ -580,8 +578,8 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
             }
             // put it for transmission
             // we are already locked  pthread_mutex_lock(&g_data_mutex);
-            memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &FTx, len_msg); // put output message in write buffer
-            g_serial_data_lenTx = g_serial_data_lenTx + len_msg; // increment byte counter in TX buffer
+            memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &FTx, len_msg); // put output message in write buffer
+            g_fastnet_data_lenTx = g_fastnet_data_lenTx + len_msg; // increment byte counter in TX buffer
             // we are already locked  pthread_mutex_unlock(&g_data_mutex);
         }
     }

@@ -12,12 +12,12 @@ pthread_mutex_t g_data_mutex;
 // - if doing read access to global common and you must guarentee a consistent dataset, do a memcpy of the
 //   data you need.
 
-unsigned char g_last_serial_dataRx[BGNET_RXTXRAW_SIZE];
-unsigned char g_last_serial_dataTx[BGNET_RXTXRAW_SIZE];
-int  g_serial_data_lenRx = 0;
-int  g_serial_data_lenTx = 0;
-int  g_serial_data_counter = SerialCounter_Reset;
-int  g_serial_mode = BGN_SERIAL_MODE_RO;
+unsigned char g_last_fastnet_dataRx[BGNET_RXTXRAW_SIZE];
+unsigned char g_last_fastnet_dataTx[BGNET_RXTXRAW_SIZE];
+int  g_fastnet_data_lenRx = 0;
+int  g_fastnet_data_lenTx = 0;
+int  g_fastnet_data_counter = SerialCounter_Reset;
+int  g_fastnet_mode = BGN_FASTNET_MODE_RO; // set default
 
 char g_last_ethernet_data[BGNET_RXTXRAW_SIZE];
 char g_last_signalk_delta[BGNET_RXTXRAW_SIZE];
@@ -30,13 +30,13 @@ void app_state_init(void)
     time(&t);
 
     pthread_mutex_init(&g_data_mutex, NULL);
-    memset(g_last_serial_dataRx, 0, sizeof(g_last_serial_dataRx));
-    memset(g_last_serial_dataTx, 0, sizeof(g_last_serial_dataRx));
+    memset(g_last_fastnet_dataRx, 0, sizeof(g_last_fastnet_dataRx));
+    memset(g_last_fastnet_dataTx, 0, sizeof(g_last_fastnet_dataRx));
     memset(g_last_ethernet_data, 0, sizeof(g_last_ethernet_data));
     memset(g_last_signalk_delta, 0, sizeof(g_last_signalk_delta));
-    g_serial_data_lenRx = 0;
-    g_serial_data_lenTx = 0;
-    g_serial_data_counter = SerialCounter_Reset;
+    g_fastnet_data_lenRx = 0;
+    g_fastnet_data_lenTx = 0;
+    g_fastnet_data_counter = SerialCounter_Reset;
 
     // erase datablock
     memset(&g_n2kdata, 0, sizeof(g_n2kdata));

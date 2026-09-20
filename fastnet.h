@@ -1,5 +1,5 @@
-#ifndef SERIAL_H
-#define SERIAL_H
+#ifndef FASTNET_H
+#define FASTNET_H
 
 #include "config.h"
 

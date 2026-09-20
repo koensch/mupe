@@ -25,21 +25,21 @@ void *timer_thread(void *arg)
 
         // check if there is serial data ready
         pthread_mutex_lock(&g_data_mutex);
-        if (g_serial_data_lenRx > 0) {
+        if (g_fastnet_data_lenRx > 0) {
             // data is present, wait for frame completion
-            if (g_serial_data_counter > SerialCounter_Reset) {
+            if (g_fastnet_data_counter > SerialCounter_Reset) {
                 // wait for more, decrement counter
-                g_serial_data_counter--;
+                g_fastnet_data_counter--;
             } else {
                 // timeout, end of frame, get data into local buffer
-                memcpy(RxBuf, g_last_serial_dataRx, g_serial_data_lenRx);
-                RxBufLen = g_serial_data_lenRx;
-                g_serial_data_lenRx = 0; // reset receiving buffer (so serial port can handle the next frame)
+                memcpy(RxBuf, g_last_fastnet_dataRx, g_fastnet_data_lenRx);
+                RxBufLen = g_fastnet_data_lenRx;
+                g_fastnet_data_lenRx = 0; // reset receiving buffer (so serial port can handle the next frame)
             }
         } else {
             // no data present, count down to the bottom (prevent underflow)
-            if (g_serial_data_counter > SerialCounter_Bottom) {
-                g_serial_data_counter--;
+            if (g_fastnet_data_counter > SerialCounter_Bottom) {
+                g_fastnet_data_counter--;
             }
         }
         pthread_mutex_unlock(&g_data_mutex);
@@ -89,11 +89,9 @@ void *timer_thread(void *arg)
 
           // This is what we call "watchdog" checking. WE do the count-down. As long as the PILOT
           // sends it's "PILOT_HELLO" message, we know the boat has a working PILOT to monitor and command the autopilot
-          switch (g_serial_mode) {
-            case BGN_SERIAL_MODE_RO:
-              // no need to do WD cheking; we are not in control
-              break;
-            default:
+          switch (g_fastnet_mode) {
+            case BGN_FASTNET_MODE_PASSIVE:
+            case BGN_FASTNET_MODE_RW:
               if (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong > 0) {
                 pCtrl->BGNET.SERVICE.PILOTWD.value.nLong--;
                 pCtrl->BGNET.SERVICE.PILOTWD.source = BGN_SOURCE_ACP;
@@ -127,12 +125,12 @@ void *timer_thread(void *arg)
           // copy any output frame (from device processor) into the Txbuffer. I do not 'append' to any existing
           // contents, but overwrite what there might be. The reason is that i do not want to risk a buffer overflow
           if (TxBufLen > 0) {
-            if ((TxBufLen * 10) > (sizeof(g_last_serial_dataTx) * 9)) {
+            if ((TxBufLen * 10) > (sizeof(g_last_fastnet_dataTx) * 9)) {
               log_error("Tx buffer dangerously full (>90%)");
             }
             pthread_mutex_lock(&g_data_mutex);
-            memcpy(g_last_serial_dataTx, &TxBuf, TxBufLen);
-            g_serial_data_lenTx = TxBufLen;
+            memcpy(g_last_fastnet_dataTx, &TxBuf, TxBufLen);
+            g_fastnet_data_lenTx = TxBufLen;
             pthread_mutex_unlock(&g_data_mutex);
           }
         }

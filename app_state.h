@@ -66,8 +66,8 @@
 extern volatile int g_running;
 
 extern pthread_mutex_t g_data_mutex;
-extern unsigned char g_last_serial_dataRx[BGNET_RXTXRAW_SIZE];
-extern unsigned char g_last_serial_dataTx[BGNET_RXTXRAW_SIZE];
+extern unsigned char g_last_fastnet_dataRx[BGNET_RXTXRAW_SIZE];
+extern unsigned char g_last_fastnet_dataTx[BGNET_RXTXRAW_SIZE];
 extern char g_last_ethernet_data[BGNET_RXTXRAW_SIZE];
 extern char g_last_signalk_delta[BGNET_RXTXRAW_SIZE];
 
@@ -75,13 +75,13 @@ extern char g_last_signalk_delta[BGNET_RXTXRAW_SIZE];
 #define SerialCounter_Reset     0
 #define SerialCounter_Set       10
 #define SerialCounter_Bottom    -999
-extern int  g_serial_data_lenRx;      // number of bytes in serial buffer
-extern int  g_serial_data_lenTx;      // number of bytes in serial buffer
-extern int  g_serial_data_counter;    // receive counter
-#define BGN_SERIAL_MODE_RO      0
-#define BGN_SERIAL_MODE_RW      1
-#define BGN_SERIAL_MODE_PASSIVE 2
-extern int  g_serial_mode;
+extern int  g_fastnet_data_lenRx;      // number of bytes in serial buffer
+extern int  g_fastnet_data_lenTx;      // number of bytes in serial buffer
+extern int  g_fastnet_data_counter;    // receive counter
+#define BGN_FASTNET_MODE_RO      0
+#define BGN_FASTNET_MODE_RW      1
+#define BGN_FASTNET_MODE_PASSIVE 2
+extern int  g_fastnet_mode;
 
 // NMEA2K value definition. We keep a timestamp for every individual value as we can not predict
 // that all parameters come from a sensor at the same time, from the same sensor, or how the sensor

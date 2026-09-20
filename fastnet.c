@@ -1,4 +1,4 @@
-#include "serial.h"
+#include "fastnet.h"
 #include "app_state.h"
 #include "logger.h"
 
@@ -102,12 +102,12 @@ void *fastnet_thread(void *arg)
     // we allow readonly or readwrite on this communication. This allows us to be a 'monitor-only' application
     // if you enter something wrong, you get RO mode
     if (strcmp(pCtrl->pCfg->fastnet.mode, "readwrite") == 0) {
-        g_serial_mode = BGN_SERIAL_MODE_RW; // write actively
+        g_fastnet_mode = BGN_FASTNET_MODE_RW; // write actively
     } else {
         if (strcmp(pCtrl->pCfg->fastnet.mode, "passive") == 0) {
-            g_serial_mode = BGN_SERIAL_MODE_PASSIVE; // only write when explicitly requested
+            g_fastnet_mode = BGN_FASTNET_MODE_PASSIVE; // only write when explicitly requested
         } else {
-            g_serial_mode = BGN_SERIAL_MODE_RO; // do not write anything
+            g_fastnet_mode = BGN_FASTNET_MODE_RO; // do not write anything
         }
     }
 
@@ -139,8 +139,8 @@ void *fastnet_thread(void *arg)
 
     // initialize for a clean start
     pthread_mutex_lock(&g_data_mutex);
-    g_serial_data_lenRx = 0;
-    g_serial_data_counter = SerialCounter_Reset;
+    g_fastnet_data_lenRx = 0;
+    g_fastnet_data_counter = SerialCounter_Reset;
     pthread_mutex_unlock(&g_data_mutex);
     
     while (g_running) {
@@ -153,9 +153,9 @@ void *fastnet_thread(void *arg)
             } else {
                 // if any input received; append to buffer
                 pthread_mutex_lock(&g_data_mutex);
-                memcpy(&g_last_serial_dataRx[g_serial_data_lenRx], RxBuf, nRx);
-                g_serial_data_lenRx = g_serial_data_lenRx + nRx;
-                g_serial_data_counter = SerialCounter_Set;
+                memcpy(&g_last_fastnet_dataRx[g_fastnet_data_lenRx], RxBuf, nRx);
+                g_fastnet_data_lenRx = g_fastnet_data_lenRx + nRx;
+                g_fastnet_data_counter = SerialCounter_Set;
                 pthread_mutex_unlock(&g_data_mutex);
             }
         } else if (nRx < 0) {
@@ -167,17 +167,17 @@ void *fastnet_thread(void *arg)
             // if there is no input (n=0) and the counter is quiet, we may send someting
             // realise that when we send someting, this is echoed back into our read (Tx
             // and Rx signals are connected). That means we have to write 'blocking'
-            if (g_serial_data_counter > SerialCounter_Reset) {
+            if (g_fastnet_data_counter > SerialCounter_Reset) {
                 // someting is still going on
             } else {
                 // is someting to send
-                if (g_serial_data_lenTx > 0) {
+                if (g_fastnet_data_lenTx > 0) {
                         
                     // get message from common storage into local storage
                     pthread_mutex_lock(&g_data_mutex);
-                    memcpy(&TxBuf, &g_last_serial_dataTx, g_serial_data_lenTx);
-                    nTx = g_serial_data_lenTx;
-                    g_serial_data_lenTx = 0; // release common storage
+                    memcpy(&TxBuf, &g_last_fastnet_dataTx, g_fastnet_data_lenTx);
+                    nTx = g_fastnet_data_lenTx;
+                    g_fastnet_data_lenTx = 0; // release common storage
                     pthread_mutex_unlock(&g_data_mutex);
 
                     // write content

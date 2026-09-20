@@ -8,7 +8,7 @@
 #include "config.h"
 #include "logger.h"
 #include "app_state.h"
-#include "serial.h"
+#include "fastnet.h"
 #include "bgnprotocol.h"
 #include "ethernet.h"
 #include "timer.h"

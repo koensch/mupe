@@ -76,7 +76,7 @@ unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     // this phenomenon is observed with PILOT and QUAD modules
     switch (pF->FROM & BGNET_TYPE_MASK) {
         case BGNET_TYPE_NETPILOT:
-        case BGNET_TYPE_NETQUAD:
+        //case BGNET_TYPE_NETQUAD:
             switch (bgnet_command_type(pF)) { // put this in a seperate routine to avoid too much distraction here
                 // we observe this behaviour only with CMD-REQ and CMD-DTA commands
                 case BGNET_COMMANDTYPE_REQ:
@@ -1189,8 +1189,8 @@ size_t sendWINDSETUP(BGNET_CTRL *pCtrl, unsigned char ucTO, unsigned char ucFROM
 
     // put it for transmission
     pthread_mutex_lock(&g_data_mutex);
-    memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
-    g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
+    memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+    g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
     pthread_mutex_unlock(&g_data_mutex);
 
     return(TxSize);
@@ -1286,8 +1286,8 @@ size_t sendSPEEDSETUP(BGNET_CTRL *pCtrl, unsigned char ucTO, unsigned char ucFRO
 
     // put it for transmission
     pthread_mutex_lock(&g_data_mutex);
-    memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
-    g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
+    memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+    g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
     pthread_mutex_unlock(&g_data_mutex);
 
     return(TxSize);
@@ -1893,7 +1893,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
     // here we will output our DATA commands, simulating the WIND and QUAD nodes.
     // note: using the routine 'register_DATA_frame' these DATA commands will appear as 'Received', altough
     // they are effectively 'Transmitted'. I do not see the need to change that. 
-    if (g_serial_mode == BGN_SERIAL_MODE_RW) {
+    if (g_fastnet_mode == BGN_FASTNET_MODE_RW) {
 #define BGNET_ENABLE_QUAD_TX
 #ifdef BGNET_ENABLE_QUAD_TX
 
@@ -1998,7 +1998,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
     // by integrating the readonly/readwrite mode into the logic
     // realise that readonly does NOT mean 'no output'. The application will send a output message upon request (otherwise
     // the PILOT unit would be stuck in 'No Pilot')
-    if (g_serial_mode == BGN_SERIAL_MODE_RW) {
+    if (g_fastnet_mode == BGN_FASTNET_MODE_RW) {
         // leave output data
     } else {
         r = 0; // destroy what we have in the buffer
@@ -2344,7 +2344,7 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
         memcpy(pCtrl->CHN[ucCHN].x06.ucRAW, pFRx, bgnet_sizeof_frame(pFRx));
         log_debug("    Ch=%02X, Subscribed by %02X on %02X", ucCHN, pFRx->FROM, pFRx->TO);
         // we will do only generate a reply if we are if RW mode
-        if (g_serial_mode == BGN_SERIAL_MODE_RW) {
+        if (g_fastnet_mode == BGN_FASTNET_MODE_RW) {
             // we only handle a subscription request from a NETDATA type node
             iIsDefault = 0;
             switch(pFRx->FROM & BGNET_TYPE_MASK) {
@@ -2418,8 +2418,8 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
                         CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                         // put it for transmission
                         pthread_mutex_lock(&g_data_mutex);
-                        memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], pFTx, len_msg); // put output message in write buffer
-                        g_serial_data_lenTx = g_serial_data_lenTx + len_msg; // increment byte counter in TX buffer
+                        memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], pFTx, len_msg); // put output message in write buffer
+                        g_fastnet_data_lenTx = g_fastnet_data_lenTx + len_msg; // increment byte counter in TX buffer
                         pthread_mutex_unlock(&g_data_mutex);
                     }
                     break;
@@ -2467,8 +2467,8 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
         len_pl = 0;
         len_msg = 0;
 
-        switch (g_serial_mode) {
-            case BGN_SERIAL_MODE_RW:
+        switch (g_fastnet_mode) {
+            case BGN_FASTNET_MODE_RW:
                 // in RW mode, do not log any DATA command (except what comes from PILOT devices)
                 switch (pFRx->CMD) {
                     case BGNET_CMD_01_DATA:
@@ -2574,26 +2574,29 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                             CounterUp(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
                             pthread_mutex_unlock(&g_data_mutex);
 
-                            if (g_serial_mode == BGN_SERIAL_MODE_RO) {
-                                // nothing to do
-                            } else {
-                                // this reply gets the PILOT out of the "No PILOT" state
-                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                len_pl = makeACPresponseMINI(pCtrl, payload);
-                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
-                                register_DATA_frame(pCtrl, pFTx);
+                            // do not replay with message if we are in RO mode
+                            switch (g_fastnet_mode) {
+                                case BGN_FASTNET_MODE_PASSIVE:
+                                case BGN_FASTNET_MODE_RW:
+                                    // this reply gets the PILOT out of the "No PILOT" state
+                                    pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                    len_pl = makeACPresponseMINI(pCtrl, payload);
+                                    len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                    register_DATA_frame(pCtrl, pFTx);
 
-                                memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-                                CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                TxSize = TxSize + len_msg;
+                                    memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+                                    memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                    CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                    TxSize = TxSize + len_msg;
 
-                                // put it for transmission
-                                pthread_mutex_lock(&g_data_mutex);
-                                memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
-                                g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
-                                pthread_mutex_unlock(&g_data_mutex);
+                                    // put it for transmission
+                                    pthread_mutex_lock(&g_data_mutex);
+                                    memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+                                    g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                    pthread_mutex_unlock(&g_data_mutex);
+
+                                    break;
                             }
                             break;
                         case BGNET_CMD_0A_POWERUP:
@@ -2681,9 +2684,9 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 // in their boat or wind sensors on their masts? i don't! But assuming some puts all their nodes into 'demo' mode might have some fun.
                                 // you will probably run this service in 'readonly' or 'passive' mode.
                                 // When we are in 'readwrite', all DATA commands are send by our goodselves. i do not want to put our data into a endless loop, so we skip
-                                // the all DATA commands, except for PILOT, because these can send NAV data receive via the NMEA port
-                                switch (g_serial_mode) {
-                                    case BGN_SERIAL_MODE_RW:
+                                // the all DATA commands, except from PILOT, because these can send NAV data receive via the NMEA port
+                                switch (g_fastnet_mode) {
+                                    case BGN_FASTNET_MODE_RW:
                                         switch (pFRx->FROM & BGNET_TYPE_MASK) {
                                             case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
                                                 decode_command_DATA(pCtrl, pFRx);
@@ -2819,8 +2822,8 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
 
                                     // put it for transmission
                                     pthread_mutex_lock(&g_data_mutex);
-                                    memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
-                                    g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                    memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+                                    g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
                                     pthread_mutex_unlock(&g_data_mutex);
                                 }
 
@@ -4229,8 +4232,8 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
 
                                         // put it for transmission
                                         pthread_mutex_lock(&g_data_mutex);
-                                        memcpy(&g_last_serial_dataTx[g_serial_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
-                                        g_serial_data_lenTx = g_serial_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                        memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+                                        g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
                                         pthread_mutex_unlock(&g_data_mutex);
                                     }                                
                                 }
