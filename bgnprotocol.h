@@ -31,11 +31,15 @@
 // - NET QUAD-R: does have NMEA output capabilities that the QUAD module has not. You can configure a QUAD as
 //   a repeater, but that does not give it the NMEA capability.
 // - NET QUAD has a 'demo mode' (setup is a little hidden)
-//          - select TYPEr mode, power down/up
-//          - wait untill display shows "OFF" (3x)
-//          - press TIMER button until "LOG" is displayed
-//          - press SETUP, observe that there are now 3 options (TYPEr, TYPEd and TYPEt)
-//          - select TYPEd mode, power down/up
+//          - make the QUAD display 3x "OFF":
+//              - select TYPEr mode
+//              - stop communication
+//              - power down/up
+//              - wait untill display shows "OFF" (3x)
+//          - configure QUAD mode:
+//              - press TIMER button until "LOG" is displayed
+//              - press SETUP, observe that there are now 3 options (TYPEr, TYPEd and TYPEt)
+//              - select TYPEd mode, power down/up, press ENTER
 //          - observe demo mode is active 
 // - NET PILOT: has a 'demo mode' (TYPE D)
 // - NET PILOT: has a connector at the back for NMEA0183 input. Could be a 2-pin connector (use cable 612-OA-014)
@@ -172,7 +176,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_TYPE_NETPILOT             0x50 // confirmed
 #define BGNET_TYPE_NETDEPTH             0x10 //?
 #define BGNET_TYPE_NETSPEED             0x40 //?
-#define BGNET_TYPE_NETDATA              0xD0 // confirmed, sometimes 0x60, sometimes 0xD4
+#define BGNET_TYPE_NETDATA              0x60 // confirmed, sometimes 0x60, sometimes 0xD4
 #define BGNET_TYPE_NETWIND              0x70 // confirmed
 #define BGNET_TYPE_ALL                  0xFF // used for broadcast (to ALL)
 
@@ -545,8 +549,10 @@ typedef struct {
     char cLabel[64];
 } BGNET_FMTDT;
 
-// 16 NETWORK devices exist, the first one (index=0) is used for devices we are unable to identify
-#define BGNET_TYPE_MAX            (16+1)
+// 16 NETWORK devices exist
+// add 1 for index 0 = unidentified
+// add 1 because DATA sometimes is 0x60, sometimes 0xD4
+#define BGNET_TYPE_MAX            (16+1+1)
 // Device Definition Table
 typedef struct {
     char sProdName[BGNET_CMD_LABEL_MAX];

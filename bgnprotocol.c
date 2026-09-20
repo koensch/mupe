@@ -76,7 +76,7 @@ unsigned char bgnet_weird_seed(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     // this phenomenon is observed with PILOT and QUAD modules
     switch (pF->FROM & BGNET_TYPE_MASK) {
         case BGNET_TYPE_NETPILOT:
-        //case BGNET_TYPE_NETQUAD:
+        case BGNET_TYPE_NETQUAD:
             switch (bgnet_command_type(pF)) { // put this in a seperate routine to avoid too much distraction here
                 // we observe this behaviour only with CMD-REQ and CMD-DTA commands
                 case BGNET_COMMANDTYPE_REQ:
@@ -4212,30 +4212,36 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                         bSend_CMDACK = 0; // do not send CMDACK
                                         break;
                                 }
-                                if (bSend_CMDACK == 0) {
-                                    // do not send a CMD-ACK
-                                } else {
-                                    if (pFRx->TO == BGNET_TYPE_ALL) {
-                                        // the CMDDAT/CMDREQ we received was a broadcast. Do not reply to a broadcast
-                                    } else {
-                                        // make the CMD-ACK for the CMD-REQ/CMD-DAT we received (only for non-default passes)
-                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                        len_pl = 1;
-                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_ACK, payload, len_pl);
+                                // only renerate reply when we are supposed to
+                                switch (g_fastnet_mode) {
+                                    case BGN_FASTNET_MODE_PASSIVE:
+                                    case BGN_FASTNET_MODE_RW:
+                                        if (bSend_CMDACK == 0) {
+                                            // do not send a CMD-ACK
+                                        } else {
+                                            if (pFRx->TO == BGNET_TYPE_ALL) {
+                                                // the CMDDAT/CMDREQ we received was a broadcast. Do not reply to a broadcast
+                                            } else {
+                                                // make the CMD-ACK for the CMD-REQ/CMD-DAT we received (only for non-default passes)
+                                                payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                len_pl = 1;
+                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_ACK, payload, len_pl);
 
-                                        memcpy(pCtrl->CMD[BGNET_CMD_ACK].Tx.ucFrame, pFTx, len_msg);
-                                        CounterUp(&pCtrl->CMD[BGNET_CMD_ACK].CounterTx, t);
-                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                        TxSize = TxSize + len_msg;
+                                                memcpy(pCtrl->CMD[BGNET_CMD_ACK].Tx.ucFrame, pFTx, len_msg);
+                                                CounterUp(&pCtrl->CMD[BGNET_CMD_ACK].CounterTx, t);
+                                                memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                TxSize = TxSize + len_msg;
 
-                                        // put it for transmission
-                                        pthread_mutex_lock(&g_data_mutex);
-                                        memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
-                                        g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
-                                        pthread_mutex_unlock(&g_data_mutex);
-                                    }                                
+                                                // put it for transmission
+                                                pthread_mutex_lock(&g_data_mutex);
+                                                memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+                                                g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                                pthread_mutex_unlock(&g_data_mutex);
+                                            }                                
+                                        }
+                                        break;
                                 }
                                 break;
                         }
