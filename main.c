@@ -77,11 +77,11 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN 04",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 05",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 06",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_07_AP_FR,         "AP FAULT REPORT", BGN_FMT_08, BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_07_AP_FR,         "AP FAULT REPORT", BGN_FMT_08, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 08",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 09",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 0A",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_0B_RUDDER,        "RUDDER"    ,      BGN_FMT_01, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NMEA,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 127245,  "steering.rudderAngle"},\
+    {BGNET_CHN_0B_RRU,           "RRU POSITION",    BGN_FMT_01, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NMEA,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 127245,  "steering.rudderAngle"},\
     {0,                          "UNKNOWN 0C",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 0D",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 0E",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -143,7 +143,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {BGNET_CHN_46_AP_SPEED,      "AP SPEED SEL",    BGN_FMT_01, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 47",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 48",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_49_HEADING,       "HEADING",         BGN_FMT_08, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_49_HEADING,       "HEADING",         BGN_FMT_08, BGNET_TYPE_NETACP  ,0,     0,     0,  "",            BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_4A_DEPTHM,        "DEPTH",           BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,     0,  "DEPTH  M",    0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 4B",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 4C",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -188,7 +188,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN 73",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 74",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_75_TIMER,         "TIMER",           BGN_FMT_03, BGNET_TYPE_NETQUAD, 0,     0,     0,  "TIMER",       BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_76_AP_WA_ALARM,   "WA ALARM",        BGN_FMT_18, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_76_AP_WA_ALARM,   "WA ALARM",        BGN_FMT_18, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 77",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 78",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 79",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -245,7 +245,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN AC",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN AD",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN AE",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_AF_AP_OC_ALARM,   "OC ALARM",        BGN_FMT_18, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_AF_AP_OC_ALARM,   "OC ALARM",        BGN_FMT_18, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B0",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B1",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B2",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -341,7 +341,7 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN 07"},\
     {0,                          "UNKNOWN 08"},\
     {0,                          "UNKNOWN 09"},\
-    {BGNET_CMD_0A_POWERUP,       "POWERUP"},\
+    {BGNET_CMD_0A_POWERUP,       "BROADCAST POWERUP"},\
     {0,                          "UNKNOWN 0B"},\
     {0,                          "UNKNOWN 0C"},\
     {0,                          "UNKNOWN 0D"},\
@@ -517,7 +517,7 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN B7"},\
     {0,                          "UNKNOWN B8"},\
     {0,                          "UNKNOWN B9"},\
-    {0,                          "UNKNOWN BA"},\
+    {BGNET_CHN_BA_OVERCURRENT,   "ACP OVERCURRENT"},\
     {0,                          "UNKNOWN BB"},\
     {0,                          "UNKNOWN BC"},\
     {0,                          "UNKNOWN BD"},\
@@ -588,30 +588,30 @@ BGNET_CMDDT CMDDT[BGNET_COMMAND_MAX+1] = { \
     {0,                          "UNKNOWN FE"},\
     {0,                          "UNKNOWN FF"}
 };
-// for every DataType (0-15) we check the validity (>0) and the number of bytes used in the frame
-// -1 = not defined, unhandled
-// 0 = variable string, look for the null-byte
-// 1-n = fixed length
-BGNET_FMTDT FMTDT[16] = {       {0x00, 2, "0 bytes, odd one (found on PILOT/NMEA)"}, \
-                                {0x01, 4, "2 bytes, signed 16bit register"}, \
-                                {0x02, 6, "4 bytes, unsigned 32bit register (used by STOREDLOG)"}, \
-                                {0x03, 5, "3 bytes, timer value (HH,MM,SS, displayed as 'H:MM:SS')"}, \
-                                {0x04, 6, "4 bytes, text (00+3 bytes, like ' T ',' F ','OFF','ON ','---')"}, \
-                                {0x05,-1, "not used"}, \
-                                {0x06,-1, "not used"}, \
-                                {0x07, 0, "variable, string (ascii + 1 null-byte)"}, \
-                                {0x08, 4, "2 bytes, unsigned 16bit register"}, \
-                                {0x09,-1, "not used"}, \
-                                {0x0A, 6, "used by WP ID (4 ascii)"}, \
-                                {0x0B,-1, "not used"}, \
-                                {0x0C, 5, "3 bytes text (like 'INV')"}, \
-                                {0x0D, 6, "used to store ANC alarm level with 2 values"}, \
-                                {0x0E,-1, "not used"}, \
-                                {0x0F,-1, "not used"}
+// for every possible DataType (0x0-0xF) we check the validity (>0) and the number of bytes used in the data block
+// (CHID, FMT byte + 0-4 data bytes). Entries can be:
+//  -1 = not defined, unhandled, should not be present
+//   0 = variable string, look for the null-byte
+// 1-n = fixed length, use length from table
+BGNET_FMTDT FMTDT[16] = {       {BGN_FMT_00, 2, "0 data bytes, odd one (found on PILOT/NMEA)"}, \
+                                {BGN_FMT_01, 4, "2 data bytes, signed 16bit register"}, \
+                                {BGN_FMT_02, 6, "4 data bytes, unsigned 32bit register (used by STOREDLOG)"}, \
+                                {BGN_FMT_03, 5, "3 data bytes, timer value (HH,MM,SS, displayed as 'H:MM:SS')"}, \
+                                {BGN_FMT_04, 6, "4 data bytes, text (00+3 bytes, like '---')"}, \
+                                {0x05,      -1, "not used"}, \
+                                {0x06,      -1, "not used"}, \
+                                {BGN_FMT_07, 0, "variable, string (ascii + null-byte)"}, \
+                                {BGN_FMT_08, 4, "2 data bytes, unsigned 16bit register"}, \
+                                {0x09,      -1, "not used"}, \
+                                {BGN_FMT_0A, 6, "4 data bytes, used by WPID (4 ascii)"}, \
+                                {0x0B,      -1, "not used"}, \
+                                {BGN_FMT_0C, 5, "3 data bytes, text (like 'INV')"}, \
+                                {BGN_FMT_0D, 6, "4 data bytes, 2 values (ANC alarm level)"}, \
+                                {0x0E,      -1, "not used"}, \
+                                {BGN_FMT_0F, 2, "0 data bytes, boolean flag (0F=Off, 1F=On)"}
                             };
 
-// if you screwed up you can disable one (or more) threads so you can get a clue in what subsystem
-// your screwup is hiding
+// if you screwed up you can disable one (or more) threads so you can get a clue in what subsystem your screwup is hiding
 #define BGN_ENABLE_SERIAL
 #define BGN_ENABLE_ETHERNET
 #define BGN_ENABLE_TIMER
@@ -622,7 +622,7 @@ int main(void)
 {
     int i;
     char cHostName[32];
-    // assign signal handler
+    // assign signal handler, used to intercept <ctrl><C>
     signal(SIGINT, handle_sigint);
 
     app_state_init();

@@ -407,7 +407,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         CounterInit(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
 
         // initialize AutoPilot to STBY/COMP; joystick OFF
-        pCtrl->BGNET.ACP.STATE.value.nByte = (BGN_AP_MODE1_STBY | BGN_AP_MODE1_VANE);
+        pCtrl->BGNET.ACP.STATE.value.nByte = (BGN_AP_MODE1_STBY | BGN_AP_MODE1_ENABLEVANE | BGN_AP_MODE1_UNKNOWN);
         pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.STATE.Counter, t);
 
@@ -804,8 +804,8 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
             CounterInit(&pCtrl->CHN[i].x00.CounterRx, t);
         }
         // Here we will setup some pointers for generating broadcasts
-        pCtrl->CHN[BGNET_CHN_0B_RUDDER].x01.pBGNET = &pCtrl->BGNET.ACP.Rudder;
-        pCtrl->CHN[BGNET_CHN_0B_RUDDER].x01.BGNET_DATATYPE = BGNET_DATATYPE_LONG;
+        pCtrl->CHN[BGNET_CHN_0B_RRU].x01.pBGNET = &pCtrl->BGNET.ACP.Rudder;
+        pCtrl->CHN[BGNET_CHN_0B_RRU].x01.BGNET_DATATYPE = BGNET_DATATYPE_LONG;
 
         pCtrl->CHN[BGNET_CHN_20_SEATEMPQ].x01.pBGNET = &pCtrl->BGNET.SPEED.Temperature;
         pCtrl->CHN[BGNET_CHN_20_SEATEMPQ].x01.BGNET_DATATYPE = BGNET_DATATYPE_DOUBLE;
@@ -936,7 +936,7 @@ size_t encode_channel_double(BGNET_CTRL *pCtrl, union CH *pCH, unsigned char ucC
                     break;
             }
             break;
-        case 1: // sometimes we have 2 2-byte values
+        case 1: // sometimes we have 2 2-byte values, only when FMT= 0x0D
             switch(ucFMT & BGNET_FMT_DT) {
                 case BGN_FMT_0D: // unsigned 16bit register
                     pCH->s.cv.uW[iX] = htons(uW);
@@ -980,101 +980,122 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
     unsigned int d;
     const double fDiv[4]    = { 1.0,   10.0,  100.0, 1000.0};
     const char cPrint[4][6] = {"%d", "%.1f", "%.2f", "%.3f"};
-    switch (puCH->s.CH) {
-        // some channels have no data
-        case BGNET_CHN_98_NMEA_ACTIVE:
+    switch(puCH->s.FMT & BGNET_FMT_DT) {
+        case BGN_FMT_00:
             strcpy(pStr,"{null}");
             iValid = 2;
             break;
-        default:
-            switch(puCH->s.FMT & BGNET_FMT_DT) {
-                case BGN_FMT_00:
-                    strcpy(pStr,"{null}");
+        case BGN_FMT_01: // signed 16bit register (-999 to +999)
+            switch (puCH->s.CH) {
+                case BGNET_CHN_AF_AP_OC_ALARM:
+                    sprintf(pStr,"0x%02X", puCH->s.cv.uB[1]);
                     iValid = 2;
                     break;
-                case BGN_FMT_01: // signed 16bit register (-999 to +999)
-                    switch (puCH->s.CH) {
-                        case BGNET_CHN_AF_AP_OC_ALARM:
-                            sprintf(pStr,"0x%02X", puCH->s.cv.uB[1]);
-                            iValid = 2;
-                            break;
-                        case BGNET_CHN_EE_XTE:
-                            dRawValue = decode_channel_numeric(puCH)/100.0;
-                            iValid = 3;
-                            break;
-                        default:
-                            iRawValue = decode_channel_numeric(puCH);
-                            iValid = 1;
-                            break;
-                    }
+                case BGNET_CHN_EE_XTE:
+                    dRawValue = decode_channel_numeric(puCH)/100.0;
+                    iValid = 3;
                     break;
-                case BGN_FMT_02: // unsigned 32bit register (0xCD, storedlog)
+                default:
                     iRawValue = decode_channel_numeric(puCH);
                     iValid = 1;
                     break;
-                case BGN_FMT_03: // 3 bytes timer value (0x75, timer)
-                                 // note: QUAD displays H:MM:SS maximum (left digit is not displayed)
-                                 //       DATA displays H:MM, SS is displayed in the topline
-                    sprintf(pStr,"%02d:%02d:%02d", puCH->s.cv.uB[0], puCH->s.cv.uB[1], puCH->s.cv.uB[2]);
-                    iValid = 2;
-                    break;
-                case BGN_FMT_04: // 3 bytes ASCII, byte 0 is unused
-                    pStr[0] = puCH->s.cv.uB[1];
-                    pStr[1] = puCH->s.cv.uB[2];
-                    pStr[2] = puCH->s.cv.uB[3];
-                    pStr[3] = BGNET_ASC_NULL;
-                    iValid = 2;
-                    break;
-                case BGN_FMT_07: // variable length ASCII string (null-terminated)
-                    strcpy(pStr, puCH->s.cv.uC);
-                    iValid = 2;
-                    break;
-                case BGN_FMT_08: // unsigned 16bit register
-                    switch (puCH->s.CH) {
-                        case BGNET_CHN_46_AP_SPEED:
-                        case BGNET_CHN_B5_AP_STATUS:
-                            sprintf(pStr,"0x%02X 0x%02X", puCH->s.cv.uB[0], puCH->s.cv.uB[1]);
-                            iValid = 2;
-                            break;
-                        //case BGNET_CHN_CF_TRIPNM: // it seems that the TRIPLOG has not 1 10.0 divisor, but a 64.0
-                        //    iRawValue = decode_channel_numeric(puCH);
-                        //    sprintf(pStr, "%.1f", ITOD(iRawValue)/BGNET_DIVISOR_TRIPLOG);
-                        //    iValid = 2;
-                        //    break;
-                        case BGNET_CHN_E8_WPD:
-                            dRawValue = decode_channel_numeric(puCH)/100.0;
-                            iValid = 3;
-                            break;
-                        default:
-                            iRawValue = decode_channel_numeric(puCH);
-                            iValid = 1;
-                            break;
-                    }
-                    break;
-                case BGN_FMT_0A: // 4 bytes ASCII (length = 6)
-                    pStr[0] = puCH->s.cv.uB[0];
-                    pStr[1] = puCH->s.cv.uB[1];
-                    pStr[2] = puCH->s.cv.uB[2];
-                    pStr[3] = puCH->s.cv.uB[3];
-                    pStr[4] = BGNET_ASC_NULL;
-                    iValid = 2;
-                    break;
-                case BGN_FMT_0C: // 3 bytes ASCII, byte 0 is unused
-                    pStr[0] = puCH->s.cv.uB[0];
-                    pStr[1] = puCH->s.cv.uB[1];
-                    pStr[2] = puCH->s.cv.uB[2];
-                    pStr[3] = BGNET_ASC_NULL;
-                    iValid = 2;
-                    break;
-                default:        // all others
-                    pStr[0] = BGNET_ASC_QUEST;
-                    pStr[1] = BGNET_ASC_QUEST;
-                    pStr[2] = BGNET_ASC_QUEST;
-                    pStr[3] = BGNET_ASC_NULL;
-                    iValid = 0;
             }
             break;
+        case BGN_FMT_02: // unsigned 32bit register (0xCD, storedlog)
+            iRawValue = decode_channel_numeric(puCH);
+            iValid = 1;
+            break;
+        case BGN_FMT_03: // 3 bytes timer value (0x75, timer)
+                         // note: QUAD displays H:MM:SS maximum (left digit is not displayed)
+                         //       DATA displays H:MM, SS is displayed in the topline
+            sprintf(pStr,"%02d:%02d:%02d", puCH->s.cv.uB[0], puCH->s.cv.uB[1], puCH->s.cv.uB[2]);
+            iValid = 2;
+            break;
+        case BGN_FMT_04: // 3 bytes ASCII, byte 0 is unused
+            pStr[0] = puCH->s.cv.uB[1];
+            pStr[1] = puCH->s.cv.uB[2];
+            pStr[2] = puCH->s.cv.uB[3];
+            pStr[3] = BGNET_ASC_NULL;
+            iValid = 2;
+            break;
+        case BGN_FMT_07: // variable length ASCII string (null-terminated)
+            strcpy(pStr, puCH->s.cv.uC);
+            iValid = 2;
+            break;
+        case BGN_FMT_08: // unsigned 16bit register
+            switch (puCH->s.CH) {
+                case BGNET_CHN_46_AP_SPEED:
+                case BGNET_CHN_B5_AP_STATUS:
+                    sprintf(pStr,"0x%02X 0x%02X", puCH->s.cv.uB[0], puCH->s.cv.uB[1]);
+                    iValid = 2;
+                    break;
+                //case BGNET_CHN_CF_TRIPNM: // it seems that the TRIPLOG has not 1 10.0 divisor, but a 64.0
+                //    iRawValue = decode_channel_numeric(puCH);
+                //    sprintf(pStr, "%.1f", ITOD(iRawValue)/BGNET_DIVISOR_TRIPLOG);
+                //    iValid = 2;
+                //    break;
+                case BGNET_CHN_E8_WPD:
+                    dRawValue = decode_channel_numeric(puCH)/100.0;
+                    iValid = 3;
+                    break;
+                default:
+                    iRawValue = decode_channel_numeric(puCH);
+                    iValid = 1;
+                    break;
+            }
+            break;
+        case BGN_FMT_0A: // 4 bytes ASCII (length = 6)
+            pStr[0] = puCH->s.cv.uB[0];
+            pStr[1] = puCH->s.cv.uB[1];
+            pStr[2] = puCH->s.cv.uB[2];
+            pStr[3] = puCH->s.cv.uB[3];
+            pStr[4] = BGNET_ASC_NULL;
+            iValid = 2;
+            break;
+        case BGN_FMT_0C: // 3 bytes ASCII, byte 0 is unused
+            pStr[0] = puCH->s.cv.uB[0];
+            pStr[1] = puCH->s.cv.uB[1];
+            pStr[2] = puCH->s.cv.uB[2];
+            pStr[3] = BGNET_ASC_NULL;
+            iValid = 2;
+            break;
+        case BGN_FMT_0D: // 4 bytes, 2 values (only used by ANC alarm limit)
+            strcpy(pStr, "2xlim");
+            iValid = 2;
+            break;
+        case BGN_FMT_0F: // no data, but on/off state derived from FMT byte
+            switch (puCH->s.FMT) {
+                case BGNET_FMT_ON:
+                    pStr[0] = BGNET_ASC_O;
+                    pStr[1] = BGNET_ASC_N;
+                    pStr[2] = BGNET_ASC_SPACE;
+                    pStr[3] = BGNET_ASC_NULL;
+                    break;
+                case BGNET_FMT_OFF:
+                    pStr[0] = BGNET_ASC_O;
+                    pStr[1] = BGNET_ASC_F;
+                    pStr[2] = BGNET_ASC_F;
+                    pStr[3] = BGNET_ASC_NULL;
+                    break;
+                default:
+                    // this should never happen, just incase.....
+                    pStr[0] = BGNET_ASC_PERIOD;
+                    pStr[1] = BGNET_ASC_PERIOD;
+                    pStr[2] = BGNET_ASC_PERIOD;
+                    pStr[3] = BGNET_ASC_NULL;
+                    break;
+            }
+            iValid = 2;
+            break;
+        default:
+            // this should never happen, just incase.....
+            pStr[0] = BGNET_ASC_QUEST;
+            pStr[1] = BGNET_ASC_QUEST;
+            pStr[2] = BGNET_ASC_QUEST;
+            pStr[3] = BGNET_ASC_NULL;
+            iValid = 0;
     }
+    
     switch(iValid) {
         case 0: // invalue format, result already there
             break;
@@ -1548,7 +1569,7 @@ size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
         case BGN_AP_MODE1_AUTO:
             switch (pCtrl->BGNET.ACP.MODE.value.nByte & BGN_AP_MODE2_MASK_MODE) {
                 case BGN_AP_MODE2_VANE:
-                    // VANE mode => show heading
+                    // VANE mode => show compass heading
                     puCH = (union CH *)&(payload[r]);
                     c = BGNET_CHN_A6_AP_TARGET;
                     puCH->s.CH = c;
@@ -1557,7 +1578,7 @@ size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
                     r = r + bgnet_sizeof_channel(pCtrl, puCH);
                     break;
                 default:
-                    // COMPASS and NAV mode => show CTS
+                    // COMPASS and NAV mode => show Course To Steer
                     puCH = (union CH *)&(payload[r]);
                     c = BGNET_CHN_A6_AP_TARGET;
                     puCH->s.CH = c;
@@ -1590,18 +1611,47 @@ size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     r = makeACPresponseSTATUSONLY(pCtrl, payload);
 
     puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_0B_RUDDER;
+    c = BGNET_CHN_0B_RRU;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    // when in STBY, the display shows the HEADING (compass reading)
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_49_HEADING;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
+    puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_BA_OVERCURRENT;
+    puCH->s.CH = c;
+    if (1>2) {
+        puCH->s.FMT = BGNET_FMT_ON;
+    } else {
+        puCH->s.FMT = BGNET_FMT_OFF;
+    }
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
+    puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_76_AP_WA_ALARM;
+    puCH->s.CH = c;
+    if (1>2) {
+        puCH->s.FMT = BGNET_FMT_ON;
+    } else {
+        puCH->s.FMT = BGNET_FMT_OFF;
+    }
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
+    puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_AF_AP_OC_ALARM;
+    puCH->s.CH = c;
+    if (1>2) {
+        puCH->s.FMT = BGNET_FMT_ON;
+    } else {
+        puCH->s.FMT = BGNET_FMT_OFF;
+    }
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     return(r);
@@ -2159,7 +2209,7 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
 
             // sometimes we have to do something when some data comes in
             switch(pCH->s.CH) {
-                case BGNET_CHN_0B_RUDDER:
+                case BGNET_CHN_0B_RRU:
                     pCtrl->BGNET.ACP.Rudder.value.nLong = (int16_t)(ntohs(pCH->s.cv.uW[0])); // make it signed
                     pCtrl->BGNET.ACP.Rudder.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.ACP.Rudder.Counter, t);
@@ -2259,7 +2309,7 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     // if (later) NMEA has this data incoming, it will overwrite it (and we will not write it again)
                     // we do not need to lock/unlock it, as NMEA already does that and will cancel us out anyway
                     switch(pCH->s.CH) {
-                        case BGNET_CHN_0B_RUDDER:
+                        case BGNET_CHN_0B_RRU:
                             if ((g_n2kdata.boat.rudder.source == BGN_SOURCE_NMEA) | (g_n2kdata.boat.rudder.source == BGN_SOURCE_SIGNALK)) {
                                 // is was already written by NMEA/SIGNALK interface; do not overwrite
                             } else {
@@ -2278,7 +2328,7 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     // if (later) SIGNAL has this data incoming, it will overwrite it (and we will not write it again)
                     // we do not need to lock/unlock it, as SIGNAL already does that and will cancel us out anyway
                     switch(pCH->s.CH) {
-                        case BGNET_CHN_0B_RUDDER:
+                        case BGNET_CHN_0B_RRU:
                             if ((g_n2kdata.boat.rudder.source == BGN_SOURCE_NMEA) | (g_n2kdata.boat.rudder.source == BGN_SOURCE_SIGNALK)) {
                                 // is was already written by NMEA/SIGNAL interface; do not overwrite
                             } else {
@@ -2485,7 +2535,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                 break;
             default:
                 // do not log some DATA/0x01 commands
-                switch (pFRx->CMD) {
+                switch (pFRx->CMD & 0x00) {
                     case BGNET_CMD_01_DATA:
                         switch (pFRx->FROM & BGNET_TYPE_MASK) {
                             case BGNET_TYPE_NETACP:
@@ -2581,7 +2631,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     // this reply gets the PILOT out of the "No PILOT" state
                                     pFTx = (FRAME_H *)&TxBuf[TxSize];
                                     len_pl = makeACPresponseMINI(pCtrl, payload);
-                                    len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                    len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
                                     register_DATA_frame(pCtrl, pFTx);
 
                                     memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
@@ -2652,6 +2702,26 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                             case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
                                                 // initialize PILOT
                                                 log_debug("Initializing PILOT");
+                                                // we send our own POWERUP command with our 2-byte ID
+#define BGNET_ACP_ID    0xBA9E
+                                                payload[0] = BGNET_HIBYTE(BGNET_ACP_ID);
+                                                payload[1] = BGNET_LOBYTE(BGNET_ACP_ID);
+                                                len_pl = 2;
+                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_0A_POWERUP, payload, len_pl);
+                                                        
+                                                memcpy(pCtrl->CMD[BGNET_CMD_0A_POWERUP].Tx.ucFrame, pFTx, len_msg);
+                                                CounterUp(&pCtrl->CMD[BGNET_CMD_0A_POWERUP].CounterTx, t);
+                                                memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
+                                                CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
+                                                TxSize = TxSize + len_msg;
+
+                                                // put it for transmission
+                                                pthread_mutex_lock(&g_data_mutex);
+                                                memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+                                                g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                                pthread_mutex_unlock(&g_data_mutex);
+
                                                 //pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
                                                 break;
                                             default:
@@ -2746,7 +2816,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     CounterUp(&pCtrl->CMD[BGNET_CMD_CD_PILOT_DMPREQ].CounterTx, t);
                                     memcpy(pCtrl->DEV[BGNET_TYPE_NETQUAD].Tx.ucFrame, pFTx, len_msg);
                                     CounterUp(&pCtrl->DEV[BGNET_TYPE_NETQUAD].CounterTx, t);
-                                    TxSize =TxSize + len_msg;
+                                    TxSize = TxSize + len_msg;
                                     log_info("Experimental - QUAD RESET COMMAND: TRIPLOG");
                                     log_debug_frame(pFTx);
                                 }
@@ -3764,6 +3834,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
                                                         // make DATA command (to ALL, so also other PILOT units, if present, receive it)
                                                         len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
+
                                                         pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                         len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
                                                         register_DATA_frame(pCtrl, pFTx);
@@ -3858,7 +3929,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
                                                         memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
-                                                        TxSize =TxSize + len_msg;
+                                                        TxSize = TxSize + len_msg;
                                                         break;
                                                 }
                                                 break;                                               
@@ -3891,6 +3962,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                             // Going IN or OUT of JOYSTCK is not someting we can emulate. I keep it simple:
                                                             // JOYSTCK mode is always OFF (unless someone comes along with a great idea)
                                                         }
+
                                                         // make DATA command (to ALL, so also other PILOT units, if present, receive it)
                                                         len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
                                                         pFTx = (FRAME_H *)&TxBuf[TxSize];
@@ -3901,6 +3973,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
                                                         TxSize = TxSize + len_msg;
+
                                                         break;
                                                     // SETUP > SPEED SELECT (TRA/MAN/SOG) > ENTER
                                                     case BGNET_CHN_46_AP_SPEED:
@@ -3985,13 +4058,12 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
                                                         pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                         len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
-                                                        register_DATA_frame(pCtrl, pFTx);
-                                                
+                                                        register_DATA_frame(pCtrl, pFTx);                                                
                                                         memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
                                                         memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
-                                                        TxSize =TxSize + len_msg;
+                                                        TxSize = TxSize + len_msg;
                                                                                                                        
                                                         break;
                                                     // in SETUP, the RESPONSE parameter is configured, 5 bytes payload.

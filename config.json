@@ -6,7 +6,8 @@
     "databits": 8,
     "stopbits": 2,
     "parity": "odd",
-    "mode": "readonly"
+    "mode": "readwrite",
+    "protocol": "bgnet"
   },
   "ethernet": {
     "comment": "network interface for SignalK protocol",

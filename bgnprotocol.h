@@ -206,7 +206,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                              //                     CD(LOGNM),64(AVGSPEEDKT),CF(TRIPNM),81(DRDISTNM),D3(DRCOURSEM)
                                              //Note: Command is not send by DATA/60 when QUAD/30 is in 'repeater' mode.
 #define BGNET_CMD_0A_POWERUP            0x0A //at startup all stations (QUAD/30, PILOT/50, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
-                                             //QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
+                                             // QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
                                              //(no firmware version number is included in NETWORK series)
 #define BGNET_CMD_0E_PILOT_HELLO        0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
                                              // PILOT: "00 51 00 0E A1" (no payload)
@@ -270,7 +270,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_03_UNKNOWN            0x03
 #define BGNET_CHN_07_AP_FR              0x07  // FR - Fault Reporting. When PILOT receives this channel, causes PILOT to display an error message and to 'freeze'
                                             // 0x00 = "UNCOMIS"      This channelID is also used in PILOT/SETUP/FR option SELECT.
-                                            // 0x01 = "INT CMP"      To ' 'un-freeze' you need to cycle power on the PILOT
+                                            // 0x01 = "INT CMP"      To accept the error, press <OFF>
                                             // 0x02 = "RUD ERR"
                                             // 0x03 = "RUD DRV"
                                             // 0x04 = "NO SPD"
@@ -285,7 +285,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                             // 0x0D = "ERR ERR"
                                             // 0x0E = "ERR ERR"
                                             // 0x0F = "ERR ERR"
-#define BGNET_CHN_0B_RUDDER             0x0B  // range (-,PORT)<99 or >99(+,STARBOARD)
+#define BGNET_CHN_0B_RRU              0x0B  // range: clamped between -40 and +40 (-=PORT, +=STARBOARD), wired to ACP/RRU input (0-4kO, 2kO=0deg, 0kO=-40deg, 4kO=+40deg)
 //#define BGNET_CHN_0C_LINEAR5          0x0C
 //#define BGNET_CHN_0D_LINEAR6          0x0D
 //#define BGNET_CHN_0E_LINEAR7          0x0E
@@ -398,23 +398,24 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
                                            // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
                                            // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
-    #define BGN_AP_MODE1_MASK_STATE 0x03   // DATA1 - 0-1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO, 2=not used, 3=not used), bit 1 seems unused
+    #define BGN_AP_MODE1_MASK_STATE 0x03   // DATA1 - 0-1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO, 2=not used, 3=not used)
     #define BGN_AP_MODE1_STBY       0x00   //         2   makes "MEM 000" displayed (when in COMP mode), locks AUTO key (OFF key is operational)
     #define BGN_AP_MODE1_AUTO       0x01   //             Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
     #define BGN_AP_MODE1_MEM        0x04   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
-    #define BGN_AP_MODE1_LOCK1      0x08   //         4   enables VANE mode    
-    #define BGN_AP_MODE1_VANE       0x10   //         5   DISPLAY, SPEED, SETUP buttons are deactivated    
+    #define BGN_AP_MODE1_LOCK1      0x08   //         4   enables VANE mode (is set if an ACP is enabled for a sailing boat)    
+    #define BGN_AP_MODE1_ENABLEVANE 0x10   //         5   DISPLAY, SPEED, SETUP buttons are deactivated    
     #define BGN_AP_MODE1_LOCK2      0x20   //         6   not used
-                                           //         7   not used 
+    #define BGN_AP_MODE1_UNKNOWN    0x80   //         7   unknown (set by ACP when there is an error)
                                            //        
-    #define BGN_AP_MODE2_MASK_MODE  0x07   // DATA2 - 0-2 MODE (1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
-    #define BGN_AP_MODE2_COMP       0x01   //         3   not used                     note: if there is no WIND signal, you can not select VANE mode
-    #define BGN_AP_MODE2_NAV        0x03   //         4   PILOT SETUP option appears: "WIND A/T", behaviour unknown
-    #define BGN_AP_MODE2_VANE       0x04   //         5   makes "MEM 000" displayed, but no command observed
-    #define BGN_AP_MODE2_JOYSTICK   0x06   //         6-7 not used
-    #define BGN_AP_MODE2_MEM        0x20   // 
+    #define BGN_AP_MODE2_MASK_MODE  0x0F   // DATA2 - 0-3 CORE MODE (1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
+    #define BGN_AP_MODE2_COMP       0x01   //                                   note: if there is no WIND signal, you can not select VANE mode
+    #define BGN_AP_MODE2_NAV        0x03   //         
+    #define BGN_AP_MODE2_VANE       0x04   //         4   PILOT SETUP option appears: "WIND A/T" (Appearent/True), used in VANE mode (0=TWA/1=AWA)
+    #define BGN_AP_MODE2_JOYSTICK   0x06   //         5   makes "MEM 000" displayed, but no command observed
+    #define BGN_AP_MODE2_WINDTYPE   0x10   //         6   1=in calibration mode
+    #define BGN_AP_MODE2_MEM        0x20   //         7   resereved
 
-#define BGNET_CHN_BA_UNKNOWN          0xBA
+#define BGNET_CHN_BA_OVERCURRENT      0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A)
 #define BGNET_CHN_BB_LATITUDE         0xBB
 #define BGNET_CHN_BC_LONGITUDE        0xBC
 #define BGNET_CHN_C1_DEPTHRAW         0xC1 // i assume that this is the RAW depth value, but i am not sure
@@ -516,9 +517,9 @@ union CH {
                                     // optionally scaled down to 25.5, 2.55, 0.255 using the divisor
 #define BGN_FMT_81      0x81        // used by 0xEE, XTE (fixed divisor 100x, signed, +/-, range 0-9.99)
 #define BGN_FMT_91      0x91
-#define BGN_FMT_03      0x03        // Timer value (5 bytes, 0x75 only), last 3 bytes are HH:MM:SS
 #define BGN_FMT_02      0x02        // 32 bit unsigned register (6 bytes) 
 #define BGN_FMT_42      0x42        // used by channel 0xCD, STORLOGNM (with divisor = 10)
+#define BGN_FMT_03      0x03        // Timer value (5 bytes, 0x75 only), last 3 bytes are HH:MM:SS
 #define BGN_FMT_04      0x04        // 4 bytes, byte 1 not used (0x00), bytes 2-4 are ASCII, like " T ", " F ", "OFF", "ON " or "---"
                                     // observed: 0x31: " F ", " A " (DEPTH signal quality, F=bad, A=exccelent)
                                     //           alarm setting: "OFF" (when set a 'numeric datatype' is used)
@@ -535,11 +536,11 @@ union CH {
 #define BGN_FMT_88      0x88        // used by channel 0xE8, WPD (with fixed divisor = 100)
 #define BGN_FMT_0A      0x0A        // used by 0xFB, WPID, 4 ASCII characters
 #define BGN_FMT_0C      0x0C        // 3 letter error message, like "INV"
+#define BGN_FMT_9D      0x9D        // send by QUAD/DEPTH/SETUP anchor alarm (7 bytes payload)
+#define BGN_FMT_0D      0x0D        // used for dual values (Anchor Alarm Shallow & Deep, relative)
 #define BGN_FMT_0F      0x0F        // Boolean/switch value: 0x0F= Off, 0x1F= On
     #define BGNET_FMT_ON    0x1F
     #define BGNET_FMT_OFF   0x0F
-#define BGN_FMT_9D      0x9D        // send by QUAD/DEPTH/SETUP anchor alarm (7 bytes payload)
-#define BGN_FMT_0D      0x0D        // used for dual values (Anchor Alarm Shallow & Deep, relative)
 
 
 // FMT Definition Table
