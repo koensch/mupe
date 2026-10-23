@@ -747,15 +747,15 @@ static char* html_interface_top(char *Buffer) {
         "<h2>NETWORK Statistics</h2>"
         "<h3>Serial Interface</h3>"
         "<table>"
-        "<tr><th colspan='3'>Communication Device</th><th colspan='2'>Service</th><th colspan='2'>Emulator</th></tr>"
-        "<tr><th>Port</th><th>Interface</th><th>Communication Parameters</th><th>Mode</th><th>Watchdog</th><th>Node</th><th>Type</th></tr>\r\n";
+        "<tr><th colspan='3'>Communication Device</th><th colspan='5'>Service</th></tr>"
+        "<tr><th>Port</th><th>Interface</th><th>Communication Parameters</th><th>Mode</th><th>Protocol</th><th>Watchdog</th><th>Node</th><th>Type</th></tr>\r\n";
     strcpy(Buffer, cDevTop);
     return(Buffer);
 }
 static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
     const char *cInfRow =
-        "<tr><td>%s</td><td>RS232 (inverted Rx/Tx)</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>\r\n";
+        "<tr><td>%s</td><td>RS232 (inverted Rx/Tx)</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>\r\n";
     snprintf(cLine, sizeof(cLine), cInfRow,
                                             pCtrl->pCfg->fastnet.port,
                                             pCtrl->pCfg->fastnet.baudrate,
@@ -763,6 +763,7 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->fastnet.databits,
                                             pCtrl->pCfg->fastnet.stopbits,
                                             pCtrl->pCfg->fastnet.mode,
+                                            pCtrl->pCfg->fastnet.protocol,
                                             (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong>0?"<text style='color:green;'><b>OK</b></text>":"<text style='color:red;'><b>FLUNK</b></text>"),
                                             BGNET_TYPE_NETACP,
                                             pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_TYPE_NETACP)].sProdName
@@ -832,7 +833,7 @@ static char* html_device_end(char *Buffer) {
 
 static char* html_ACP_top(char *Buffer) {
     const char *cACPTop =
-        "<h3>ACP status</h3>"
+        "<h3>Service variables</h3>"
         "<table>"
         "<tr><th rowspan='2'>Parameter</th><th rowspan='2'>Nomenclature</th><th colspan='4'>Display</th></tr>"
         "<tr><th>Count</th><th>Sec</th><th>Source</th><th>Value</th></tr>\r\n";
@@ -857,22 +858,24 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "CFG: LogLevel", "LogLevel [0=None, 1=Error, 2=Warn, 3=Info, 4=Debug]", g_n2kdata.cfg.log_level.Counter.iCounter, t-g_n2kdata.cfg.log_level.Counter.tTimestamp, strSource(cSource, g_n2kdata.cfg.log_level.source), g_n2kdata.cfg.log_level.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "CFG: AutoRefresh", "Page Auto Refresh [-1=None, 0-30 seconds]", 0, 0, strSource(cSource, BGN_SOURCE_BLANK), pCtrl->pCfg->webserver.web_autorefresh);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "CFG: AutoRefresh", "Client Page Refresh [-1=None, 0-30 seconds]", 0, 0, strSource(cSource, BGN_SOURCE_BLANK), pCtrl->pCfg->webserver.web_autorefresh);
     strcat(Buffer, cLine);
 
     ptmInfo = localtime (&pCtrl->BGNET.tTimestamp);
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Running since", "Startup timestamp (set once)", 1, t-pCtrl->BGNET.tTimestamp, strSource(cSource, BGN_SOURCE_ACP), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Running since", "Timestamp (set once at startup)", 1, t-pCtrl->BGNET.tTimestamp, strSource(cSource, BGN_SOURCE_ACP), asciibuffer);
     strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: System Time", "Computer Time (set every scan)", pCtrl->BGNET.SERVICE.SystemTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.SystemTime.source), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: System Time", "Timestamp (set every scan)", pCtrl->BGNET.SERVICE.SystemTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.SystemTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.SystemTime.source), asciibuffer);
     strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->BGNET.SERVICE.NetworkTime.value.tTime); //
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Time received from external source (GPS/NMEA/API/SignalK, set when received)", pCtrl->BGNET.SERVICE.NetworkTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.NetworkTime.source), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Timestamp (set when received via NMEA, API or SignalK)", pCtrl->BGNET.SERVICE.NetworkTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.NetworkTime.source), asciibuffer);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: WATCHDOG", "Countdown by timer, reset by PILOT 'HELLO' command", pCtrl->BGNET.SERVICE.PILOTWD.Counter.iCounter, t-pCtrl->BGNET.SERVICE.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.PILOTWD.source), pCtrl->BGNET.SERVICE.PILOTWD.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: FAULT", "Fault code (0x00-0x0F, 0xFF= no fault)", pCtrl->BGNET.ACP.FAULT.Counter.iCounter, t-pCtrl->BGNET.ACP.FAULT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.FAULT.source), pCtrl->BGNET.ACP.FAULT.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "External switch [0=OFF, 1=ON]", pCtrl->BGNET.ACP.Joystick.Counter.iCounter, t-pCtrl->BGNET.ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Joystick.source), pCtrl->BGNET.ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
@@ -882,7 +885,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Heading", "Compass reading (from Flux-Gate) [0-359 DegM]", pCtrl->BGNET.ACP.Heading.Counter.iCounter, t-pCtrl->BGNET.ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Heading.source), pCtrl->BGNET.ACP.Heading.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Rudder", "Rudder position (from RRU) [-45-+45 Deg]", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Rudder", "Rudder position (from RRU) [-40/+40 Deg]", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "ACP: EBS", "Effective Boat Speed by source selection [KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.dValue);
     strcat(Buffer, cLine);

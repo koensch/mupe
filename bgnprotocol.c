@@ -593,6 +593,10 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.EBS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.EBS.Counter, t);
 
+        pCtrl->BGNET.ACP.FAULT.value.nLong = BGNET_FAULT_OK;
+        pCtrl->BGNET.ACP.FAULT.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.FAULT.Counter, t);
+
         // Alarms
 
         ALARM_Init(&pCtrl->BGNET.PILOT.ALARM.WA, BGNET_CHN_76_AP_WA_ALARM, "WATCH   ", "ALARM   ", t);
@@ -1212,6 +1216,7 @@ size_t sendWINDSETUP(BGNET_CTRL *pCtrl, unsigned char ucTO, unsigned char ucFROM
     pthread_mutex_lock(&g_data_mutex);
     memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
     g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
+    TxSize = 0;
     pthread_mutex_unlock(&g_data_mutex);
 
     return(TxSize);
@@ -1309,6 +1314,7 @@ size_t sendSPEEDSETUP(BGNET_CTRL *pCtrl, unsigned char ucTO, unsigned char ucFRO
     pthread_mutex_lock(&g_data_mutex);
     memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
     g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
+    TxSize = 0;
     pthread_mutex_unlock(&g_data_mutex);
 
     return(TxSize);
@@ -1718,7 +1724,6 @@ size_t makeACPresponseALARM(BGNET_CTRL *pCtrl, unsigned char *payload) {
         puCH = (union CH *)&(payload[r]);
         r = r + ALARM_CHN(pCtrl, puCH, &pCtrl->BGNET.PILOT.ALARM.OC, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
     }
-
     return(r);
 }
 
@@ -1967,7 +1972,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
 
         len_pl = makeSPEEDresponse(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
+        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
         register_DATA_frame(pCtrl, pFTx);        
         // put it for transmission
         memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
@@ -1980,24 +1985,27 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
 #endif
 
+        // note: this routine can also return "nothing to send"
         len_pl = makeACPresponseALARM(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
-        register_DATA_frame(pCtrl, pFTx);        
-        // put it for transmission
-        memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
-        r = r + len_msg; // increment byte counter in TX buffer
+        if (len_pl > 0) {
+            len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+            register_DATA_frame(pCtrl, pFTx);        
+            // put it for transmission
+            memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+            r = r + len_msg; // increment byte counter in TX buffer
 
-        // update statistics
-        memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-        memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
-        CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
+            // update statistics
+            memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+            CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+            memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
+            CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
+        }
 
 #define BGNET_ENABLE_WIND_TX
 #ifdef BGNET_ENABLE_WIND_TX
 
         len_pl = makeWINDresponseLONG(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETWIND, BGNET_CMD_01_DATA, payload, len_pl);
+        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETWIND, BGNET_CMD_01_DATA, payload, len_pl);
         register_DATA_frame(pCtrl, pFTx);        
         // put it for transmission
         memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
@@ -2158,7 +2166,7 @@ size_t register_DATA_frame(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     // we expect only a single DATA command to have one (or more) channels
     time(&t);
     z = 0;
-    if (pF->CMD == BGNET_CMD_01_DATA ) {
+    if (pF->CMD == BGNET_CMD_01_DATA) {
         pucP = pF->payload;
         while (pucP < (pF->payload + pF->PL)) {
             pCH = (union CH *)pucP;
@@ -2168,8 +2176,8 @@ size_t register_DATA_frame(BGNET_CTRL *pCtrl, FRAME_H *pF) {
             decode_channel_string(pCtrl->CHN[pCH->s.CH].x01.cValue, pCH);
             memcpy(pCtrl->CHN[pCH->s.CH].x01.ucRAW, pCH, y);
             CounterUp(&pCtrl->CHN[pCH->s.CH].x01.CounterRx, t);
-            z++;
-            pucP = pucP + y;
+            z++; // next item in payload
+            pucP = pucP + y; // point to next channel in payload
         }
     }
     return(z); // return number of channels
@@ -2287,6 +2295,11 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     } else {
                         // is already ON
                     }
+                    break;
+                case BGNET_CHN_07_AP_FAULT:
+                    pCtrl->BGNET.ACP.FAULT.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.ACP.FAULT.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.ACP.FAULT.Counter, t);
                     break;
             }
             if ((t-pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter.tTimestamp) < 60) {
@@ -2466,6 +2479,7 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
                         CounterUp(&pCtrl->CMD[BGNET_CMD_02_LABEL].CounterTx, t);
                         memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
                         CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+
                         // put it for transmission
                         pthread_mutex_lock(&g_data_mutex);
                         memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], pFTx, len_msg); // put output message in write buffer
@@ -2644,6 +2658,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     pthread_mutex_lock(&g_data_mutex);
                                     memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
                                     g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                    TxSize = 0;
                                     pthread_mutex_unlock(&g_data_mutex);
 
                                     break;
@@ -2704,24 +2719,31 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 log_debug("Initializing PILOT");
                                                 // we send our own POWERUP command with our 2-byte ID
 #define BGNET_ACP_ID    0xBA9E
-                                                payload[0] = BGNET_HIBYTE(BGNET_ACP_ID);
-                                                payload[1] = BGNET_LOBYTE(BGNET_ACP_ID);
-                                                len_pl = 2;
-                                                pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_0A_POWERUP, payload, len_pl);
-                                                        
-                                                memcpy(pCtrl->CMD[BGNET_CMD_0A_POWERUP].Tx.ucFrame, pFTx, len_msg);
-                                                CounterUp(&pCtrl->CMD[BGNET_CMD_0A_POWERUP].CounterTx, t);
-                                                memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
-                                                CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
-                                                TxSize = TxSize + len_msg;
+                                                // do not replay with message if we are in RO mode
+                                                 switch (g_fastnet_mode) {
+                                                    case BGN_FASTNET_MODE_PASSIVE:
+                                                    case BGN_FASTNET_MODE_RW:
+                                                        payload[0] = BGNET_HIBYTE(BGNET_ACP_ID);
+                                                        payload[1] = BGNET_LOBYTE(BGNET_ACP_ID);
+                                                        len_pl = 2;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_0A_POWERUP, payload, len_pl);
 
-                                                // put it for transmission
-                                                pthread_mutex_lock(&g_data_mutex);
-                                                memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
-                                                g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
-                                                pthread_mutex_unlock(&g_data_mutex);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_0A_POWERUP].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_0A_POWERUP].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[BGNET_TYPE_NETACP].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[BGNET_TYPE_NETACP].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
 
+                                                        // put it for transmission
+                                                        pthread_mutex_lock(&g_data_mutex);
+                                                        memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
+                                                        g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                                        TxSize = 0; // local buffer was written
+                                                        pthread_mutex_unlock(&g_data_mutex);
+
+                                                        break;
+                                                }
                                                 //pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
                                                 break;
                                             default:
@@ -2894,6 +2916,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     pthread_mutex_lock(&g_data_mutex);
                                     memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
                                     g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                    TxSize = 0;
                                     pthread_mutex_unlock(&g_data_mutex);
                                 }
 
@@ -3687,10 +3710,10 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                         TxSize = TxSize + len_msg;
                                                         break;
-                                                    case BGNET_CHN_07_AP_FR:
+                                                    case BGNET_CHN_07_AP_FAULT:
                                                         // create command with current FR SELECT
                                                         payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                        payload[1] = BGNET_CHN_07_AP_FR;
+                                                        payload[1] = BGNET_CHN_07_AP_FAULT;
                                                         payload[2] = BGN_FMT_08;
                                                         payload[3] = 0;
                                                         payload[4] = pCtrl->BGNET.PILOT.SETUP.FR.value.nByte;
@@ -3836,7 +3859,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
 
                                                         pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
                                                         register_DATA_frame(pCtrl, pFTx);
                                                         memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
@@ -3966,7 +3989,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         // make DATA command (to ALL, so also other PILOT units, if present, receive it)
                                                         len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
                                                         pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                                        len_msg = bgnet_encode_frame(pFTx,BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
+                                                        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_01_DATA, payload, len_pl);
                                                         register_DATA_frame(pCtrl, pFTx);
                                                         memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
                                                         CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
@@ -3992,7 +4015,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         CounterUp(&pCtrl->BGNET.PILOT.SETUP.SPD.Counter, t);
                                                         break;
                                                     // SETUP > FR SELECT (ON/OFF) > ENTER
-                                                    case BGNET_CHN_07_AP_FR:
+                                                    case BGNET_CHN_07_AP_FAULT:
                                                         // update the channel value
                                                         pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                         pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
@@ -4310,6 +4333,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 pthread_mutex_lock(&g_data_mutex);
                                                 memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
                                                 g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
+                                                TxSize = 0;
                                                 pthread_mutex_unlock(&g_data_mutex);
                                             }                                
                                         }

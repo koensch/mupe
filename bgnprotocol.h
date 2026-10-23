@@ -171,7 +171,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 // The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51. As long as you have 1 of each it's simple. I do not have multiple
 // units of the same type, so i was never able to reverse-engineer the address negotiations.
 #define BGNET_TYPE_MASK                 0xF0 // mask the node type from the address
-#define BGNET_TYPE_NETACP               0x00 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
+#define BGNET_TYPE_NETACP               0x12 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
 #define BGNET_TYPE_NETQUAD              0x30 // confirmed
 #define BGNET_TYPE_NETPILOT             0x50 // confirmed
 #define BGNET_TYPE_NETDEPTH             0x10 //?
@@ -268,8 +268,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_00_NODERESET          0x00
 #define BGNET_CHN_01_UNKNOWN            0x01
 #define BGNET_CHN_03_UNKNOWN            0x03
-#define BGNET_CHN_07_AP_FR              0x07  // FR - Fault Reporting. When PILOT receives this channel, causes PILOT to display an error message and to 'freeze'
-                                            // 0x00 = "UNCOMIS"      This channelID is also used in PILOT/SETUP/FR option SELECT.
+#define BGNET_CHN_07_AP_FAULT           0x07  // FR - Fault Reporting. When PILOT receives this channel, causes PILOT to display an error message and to 'freeze'
+    #define BGNET_FAULT_OK          0xFF    // 0x00 = "UNCOMIS"      This channelID is also used in PILOT/SETUP/FR option SELECT.
                                             // 0x01 = "INT CMP"      To accept the error, press <OFF>
                                             // 0x02 = "RUD ERR"
                                             // 0x03 = "RUD DRV"
@@ -747,7 +747,8 @@ typedef struct {
         NMEA2K_VALUE MEM;           // Course Memory (previous CTS)
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
         NMEA2K_VALUE SHA_ALARM;
-        NMEA2K_VALUE DEEP_ALARM;     // WIND Selection Type (0=T, 1 =A)
+        NMEA2K_VALUE DEEP_ALARM;    // WIND Selection Type (0=T, 1 =A)
+        NMEA2K_VALUE FAULT;         // FAULT code 0x00-0x0f (FF= no fault)
     } ACP;
     // parameters, usually hosted by PILOT
     struct {

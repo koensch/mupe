@@ -99,6 +99,14 @@ void *fastnet_thread(void *arg)
         return NULL;
     }
 
+    if (strcmp(pCtrl->pCfg->fastnet.protocol, "bgnet") == 0) {
+    } else {
+        log_error("Serial: protocol '%s' is not supported. Use 'bgnet' only", pCtrl->pCfg->fastnet.protocol);
+        close(fd);
+        g_running = 0;
+        return NULL;
+    }
+
     // we allow readonly or readwrite on this communication. This allows us to be a 'monitor-only' application
     // if you enter something wrong, you get RO mode
     if (strcmp(pCtrl->pCfg->fastnet.mode, "readwrite") == 0) {

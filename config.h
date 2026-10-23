@@ -13,6 +13,7 @@ typedef struct {
         int   stopbits;
         char  parity[16];
         char  mode[16];
+        char  protocol[16];
     } fastnet;
 
     struct {

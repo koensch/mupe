@@ -53,6 +53,7 @@ int load_config(const char *filename, Config *cfg)
         cfg->fastnet.stopbits = cJSON_GetObjectItem(fastnet, "stopbits")->valueint;
         snprintf(cfg->fastnet.parity, sizeof(cfg->fastnet.parity), "%s", cJSON_GetObjectItem(fastnet, "parity")->valuestring);
         snprintf(cfg->fastnet.mode, sizeof(cfg->fastnet.mode), "%s", cJSON_GetObjectItem(fastnet, "mode")->valuestring);
+        snprintf(cfg->fastnet.protocol, sizeof(cfg->fastnet.protocol), "%s", cJSON_GetObjectItem(fastnet, "protocol")->valuestring);
     }
 
     if (ethernet) {
