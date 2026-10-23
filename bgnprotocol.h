@@ -172,6 +172,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 // units of the same type, so i was never able to reverse-engineer the address negotiations.
 #define BGNET_TYPE_MASK                 0xF0 // mask the node type from the address
 #define BGNET_TYPE_NETACP               0x12 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
+//#define BGNET_ACP_ID    0xBA9E
+#define BGNET_ACP_ID    0x0000
 #define BGNET_TYPE_NETQUAD              0x30 // confirmed
 #define BGNET_TYPE_NETPILOT             0x50 // confirmed
 #define BGNET_TYPE_NETDEPTH             0x10 //?
@@ -394,7 +396,9 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
 #define BGNET_CHN_AF_AP_OC_ALARM      0xAF
 #define BGNET_CHN_B3_COMPASSCAL       0xB3
-#define BGNET_CHN_B4_UNKNOWN          0xB4
+#define BGNET_CHN_B4_JSM              0xB4 // Joystick Steering Mode
+    #define BGNET_JSM_NORM          0x00
+    #define BGNET_JSM_PROP          0x01
 #define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
                                            // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
                                            // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER

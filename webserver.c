@@ -940,7 +940,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/DMP", "Compass Damping [1-99 sec, 4=default]", pCtrl->BGNET.PILOT.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.DMP.source), pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/JS", "Joystick Steering [NORMal, PROPortional]", pCtrl->BGNET.PILOT.SETUP.JSM.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.JSM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.JSM.source), pCtrl->BGNET.PILOT.SETUP.JSM.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/JSM", "Joystick Steering Mode [0=NORMal, 1=PROPortional]", pCtrl->BGNET.PILOT.SETUP.JSM.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.JSM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.JSM.source), pCtrl->BGNET.PILOT.SETUP.JSM.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/FR", "Fault Reporting Disable [0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->BGNET.PILOT.SETUP.FR.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.FR.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.FR.source), pCtrl->BGNET.PILOT.SETUP.FR.value.nByte);
     strcat(Buffer, cLine);

@@ -250,7 +250,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN B1",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B2",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B3",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {0,                          "UNKNOWN B4",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_B4_JSM,           "JOYSTICK STEERING MODE",   BGN_FMT_01, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_B5_AP_STATUS,     "AP STATUS",       BGN_FMT_08, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B6",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B7",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\

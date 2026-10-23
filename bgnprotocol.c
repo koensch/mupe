@@ -455,7 +455,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.SETUP.OC_STAT.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter, t);
 
-        pCtrl->BGNET.PILOT.SETUP.JSM.value.nLong = 1; // Joystick Steering Mode (Normal, Proportional)
+        pCtrl->BGNET.PILOT.SETUP.JSM.value.nLong = BGNET_JSM_PROP; // Joystick Steering Mode (Normal, Proportional)
         pCtrl->BGNET.PILOT.SETUP.JSM.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.SETUP.JSM.Counter, t);
 
@@ -2718,7 +2718,6 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 // initialize PILOT
                                                 log_debug("Initializing PILOT");
                                                 // we send our own POWERUP command with our 2-byte ID
-#define BGNET_ACP_ID    0xBA9E
                                                 // do not replay with message if we are in RO mode
                                                  switch (g_fastnet_mode) {
                                                     case BGN_FASTNET_MODE_PASSIVE:
@@ -3803,6 +3802,23 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                                         TxSize = TxSize + len_msg;
                                                         break;
+                                                    case BGNET_CHN_B4_JSM:
+                                                        // GET JOYSTICK STEERING MODE (0=NORM, 1= PROP)
+                                                        payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
+                                                        pCHTx = (union CH *)&payload[1];
+                                                        pCHTx->s.CH = BGNET_CHN_B4_JSM;
+                                                        pCHTx->s.FMT = BGN_FMT_01;
+                                                        pCHTx->s.cv.uB[0] = 0;
+                                                        pCHTx->s.cv.uB[1] = pCtrl->BGNET.PILOT.SETUP.JSM.value.nByte;
+                                                        len_pl = 5;
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, pFRx->FROM, BGNET_TYPE_NETACP, BGNET_CMD_D6_PILOT_SLWDAT, payload, len_pl);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_D6_PILOT_SLWDAT].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
+                                                        break;
                                                 }
                                                 break;
                                             case BGNET_CMD_D3_PILOT_AM:
@@ -4200,6 +4216,21 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte = pCHRx->s.cv.uB[1];
                                                         pCtrl->BGNET.PILOT.SETUP.WIND_SEL.source = BGN_SOURCE_BGNET;
                                                         CounterUp(&pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter, t);
+                                                        break;
+                                                    case BGNET_CHN_B4_JSM:
+                                                        // SET JOYSTICK STEERING MODE (0=NORM, 1= PROP)
+                                                        pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
+                                                        pCtrl->CHN[pCHRx->s.CH].x00.ucCMD = pFRx->CMD;
+                                                        y = bgnet_sizeof_channel(pCtrl, pCHRx);
+                                                        memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
+                                                        decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
+                                                        CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
+                                                        // get the new JS MODE from the channel
+                                                        pCtrl->BGNET.PILOT.SETUP.JSM.value.nByte = pCHRx->s.cv.uB[1];
+                                                        pCtrl->BGNET.PILOT.SETUP.JSM.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.PILOT.SETUP.JSM.Counter, t);
                                                         break;
                                                 }
                                                 break;
