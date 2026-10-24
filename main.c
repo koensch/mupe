@@ -222,7 +222,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN 95",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 96",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 97",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_98_NMEA_ACTIVE,   "NMEA ACTIVE",     BGN_FMT_00, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_98_NMEA_RMB,      "NMEA/RMB ACTIVE", BGN_FMT_00, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 99",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 9A",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 9B",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -250,13 +250,13 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {0,                          "UNKNOWN B1",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B2",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B3",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_B4_JSM,           "JOYSTICK STEERING MODE",   BGN_FMT_01, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_B4_JSM,           "JOYSTICK MODE",   BGN_FMT_01, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_B5_AP_STATUS,     "AP STATUS",       BGN_FMT_08, BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B6",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B7",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B8",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN B9",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_BA_OVERCURRENT,   "ACP OVERCURRENT", 0x00,       BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_BA_TRIP,          "AP TRIP ALARM",   0x00,       BGNET_TYPE_NETACP,  0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN BB",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN BC",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN BD",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -305,7 +305,7 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {BGNET_CHN_E8_WPD,           "NMEA/RMB/WPD",    BGN_FMT_88, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN E9",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 129026,  ""},\
     {0,                          "UNKNOWN EA",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_EB_SOG,           "NMEA/VTG/SOG",    BGN_FMT_08, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 129026,  ""},\
+    {BGNET_CHN_EB_VTG,           "NMEA/VTG/SOG",    BGN_FMT_08, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 129026,  ""},\
     {0,                          "UNKNOWN EC",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN ED",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_EE_XTE,           "NMEA/RMB/XTE",    BGN_FMT_81, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
@@ -635,7 +635,7 @@ int main(void)
         fprintf(stderr, "Failed to load config.json\n");
         return 1;
     }
-    logger_init(cfg.logger.str_log_file, cfg.logger.str_log_level);
+    log_init(cfg.logger.str_log_file, cfg.logger.str_log_level);
 
     gethostname(cHostName, sizeof(cHostName));
     log_info("Starting %s on %s (%d bits)", ApplicationName, cHostName, (sizeof(char*)*__CHAR_BIT__));
@@ -685,7 +685,7 @@ int main(void)
         log_error("Failed to create threads");
         g_running = 0;
         app_state_shutdown();
-        logger_close();
+        log_close();
         return 1;
     }
 
@@ -749,7 +749,7 @@ int main(void)
     
     // child threads are all closed, make a soft landing, bye, bye
     log_info("Exiting %s, bye-bye......", ApplicationName);
-    logger_close();
+    log_close();
     app_state_shutdown();
     return 0;
 }

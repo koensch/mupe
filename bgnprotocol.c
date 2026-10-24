@@ -407,7 +407,8 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         CounterInit(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
 
         // initialize AutoPilot to STBY/COMP; joystick OFF
-        pCtrl->BGNET.ACP.STATE.value.nByte = (BGN_AP_MODE1_STBY | BGN_AP_MODE1_ENABLEVANE | BGN_AP_MODE1_UNKNOWN);
+        //pCtrl->BGNET.ACP.STATE.value.nByte = (BGN_AP_MODE1_STBY | BGN_AP_MODE1_ENABLEVANE | BGN_AP_MODE1_UNKNOWN);
+        pCtrl->BGNET.ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
         pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.STATE.Counter, t);
 
@@ -562,7 +563,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, t);
 
-        pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte = 0;
+        pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte = BGNET_VTG_OFF;
         pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.Counter, t);
 
@@ -582,7 +583,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter, t);
 
-        pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte = 0;
+        pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte = BGNET_RMB_OFF;
         pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter, t);
 
@@ -661,13 +662,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.DEPTH.SETUP.CAL.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.DEPTH.SETUP.CAL.Counter, t);
 
-        pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue = 2.598;
-        pCtrl->BGNET.DEPTH.Depth_RAW.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.DEPTH.Depth_RAW.Counter, t);
-
-        pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue = pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue + pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue;
-        pCtrl->BGNET.DEPTH.Depth_CAL.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.DEPTH.Depth_CAL.Counter, t);
+        pCtrl->BGNET.DEPTH.Depth.value.dValue = 2.598;
+        pCtrl->BGNET.DEPTH.Depth.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.DEPTH.Depth.Counter, t);
 
         pCtrl->BGNET.DEPTH.SETUP.SA_M.value.dValue = 50.50;
         pCtrl->BGNET.DEPTH.SETUP.SA_M.source = BGN_SOURCE_ACP;
@@ -986,6 +983,7 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
     const char cPrint[4][6] = {"%d", "%.1f", "%.2f", "%.3f"};
     switch(puCH->s.FMT & BGNET_FMT_DT) {
         case BGN_FMT_00:
+            // no databytes are used, it's only the presence of the channel that has the meaning
             strcpy(pStr,"{null}");
             iValid = 2;
             break;
@@ -1063,11 +1061,18 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
             pStr[3] = BGNET_ASC_NULL;
             iValid = 2;
             break;
-        case BGN_FMT_0D: // 4 bytes, 2 values (only used by ANC alarm limit)
-            strcpy(pStr, "2xlim");
+        case BGN_FMT_0D: // 4 bytes, 2 values 
+            // this format specifier is only used by ANCHOR alarm limit setting relative to depth at that moment.
+            // so we have 3 values to deal with!
+            // is only used for ANCHOR alarm limit, so we can do something specific, we output mm/ss/dd, where:
+            // mm= reference depth at the moment the alarm is set (current tide)
+            // ss= shallow limit (fall below current tide)
+            // dd= deep limit (rise above current tide)
+            // in the display these values are rotated, but that does not work on the webpage
+            strcpy(pStr, "mm/ss/dd");
             iValid = 2;
             break;
-        case BGN_FMT_0F: // no data, but on/off state derived from FMT byte
+        case BGN_FMT_0F: // no data, but on/off state derived from FMT byte (0x0F or 0x1F)
             switch (puCH->s.FMT) {
                 case BGNET_FMT_ON:
                     pStr[0] = BGNET_ASC_O;
@@ -1328,7 +1333,7 @@ size_t makeSPEEDresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_41_STW;
-    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.SPEED.SETUP.CAL_OFFSET.value.dValue + pCtrl->BGNET.SPEED.STW.value.dValue * pCtrl->BGNET.SPEED.SETUP.CAL_FACTOR.value.dValue, 0);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, (pCtrl->BGNET.SPEED.STW.value.dValue * pCtrl->BGNET.SPEED.SETUP.CAL_FACTOR.value.dValue) + pCtrl->BGNET.SPEED.SETUP.CAL_OFFSET.value.dValue, 0);
 
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_42_STWRAW;
@@ -1477,11 +1482,11 @@ size_t makeDEPTHresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_C4_DEPTH;  // displayed on QUAD
-    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue, 0);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, (pCtrl->BGNET.DEPTH.Depth.value.dValue + pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue), 0);
 
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_C1_DEPTHRAW;
-    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue, 0);
+    r = r + encode_channel_double(pCtrl, puCH, c, pCtrl->pCHNDT[c].ucFMT, pCtrl->BGNET.DEPTH.Depth.value.dValue, 0);
 
     return(r);
 }
@@ -1630,8 +1635,9 @@ size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
+#ifdef KOEN
     puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_BA_OVERCURRENT;
+    c = BGNET_CHN_BA_TRIP;
     puCH->s.CH = c;
     if (1>2) {
         puCH->s.FMT = BGNET_FMT_ON;
@@ -1639,6 +1645,7 @@ size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
         puCH->s.FMT = BGNET_FMT_OFF;
     }
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
+#endif
 
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_76_AP_WA_ALARM;
@@ -2020,7 +2027,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         // we want to be able to enable/disable navigation data in our reverse engineering efforts
         switch (pCtrl->BGNET.PILOT.ucNAV_SIM & BGNET_TYPE_MASK) {
             case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
-                payload[0] = BGNET_CHN_98_NMEA_ACTIVE;
+                payload[0] = BGNET_CHN_98_NMEA_RMB;
                 payload[1] = BGN_FMT_00; // is this gets bigger than 0x0F, QUAD starts to beep
                 len_pl = 2;
                 len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, pCtrl->BGNET.PILOT.ucNAV_SIM, BGNET_CMD_01_DATA, payload, len_pl);
@@ -2083,7 +2090,7 @@ size_t bgnet_sizeof_channel(BGNET_CTRL *pCtrl, union CH *pCH) {
     char asciibuf[32];
     // we have some odd channels that do not follow the FMT-sizing rule
     switch (pCH->s.CH) {
-        case BGNET_CHN_98_NMEA_ACTIVE:
+        case BGNET_CHN_98_NMEA_RMB:
             r = 2;
             break;
         default:
@@ -2232,13 +2239,14 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     pCtrl->BGNET.WIND.VMG.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.WIND.VMG.Counter, t);
                     break;
-                case BGNET_CHN_98_NMEA_ACTIVE:
-                    if (pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte == 0) {
-                        pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte = 1;
+                case BGNET_CHN_98_NMEA_RMB:
+                    // the RMB_SEL is switched 'on' when receiving this channel; it is switched 'off' when
+                    if (pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte == BGNET_RMB_ON) {
+                        // is already ON
+                    } else {
+                        pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte = BGNET_RMB_ON;
                         pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.source = BGN_SOURCE_BGNET;
                         CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter, t);                                                                
-                    } else {
-                        // is already ON
                     }
                     break;
                 case BGNET_CHN_A6_AP_TARGET:
@@ -2247,17 +2255,16 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
                     break;
                 case BGNET_CHN_C1_DEPTHRAW:
-                    // we back-calculate the RAW DEPTH and ignore this channel
+                    // on the NETWORK DEPTH RAW is uncalibrated depth, add calibration to get real depth)
+                    pCtrl->BGNET.DEPTH.Depth.value.dValue = (decode_channel_double(pCH, 0) + pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue);
+                    pCtrl->BGNET.DEPTH.Depth.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.DEPTH.Depth.Counter, t);
                     break;
                 case BGNET_CHN_C4_DEPTH:
-                    // on the NETWORK DEPTH is calibrated depth
-                    pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue = decode_channel_double(pCH, 0);
-                    pCtrl->BGNET.DEPTH.Depth_CAL.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->BGNET.DEPTH.Depth_CAL.Counter, t);
-                    // knowing the DEPTH CALIBRATION we can calulate the RAW DEPTH
-                    pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue = pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue - pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue;
-                    pCtrl->BGNET.DEPTH.Depth_RAW.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->BGNET.DEPTH.Depth_RAW.Counter, t);
+                    // on the NETWORK DEPTH is calibrated depth (already includes the calibration)
+                    pCtrl->BGNET.DEPTH.Depth.value.dValue = decode_channel_double(pCH, 0);
+                    pCtrl->BGNET.DEPTH.Depth.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.DEPTH.Depth.Counter, t);
                     break;
                 case BGNET_CHN_B5_AP_STATUS:
                     // leave the fixed-bits inplace, only alter the selected STATE
@@ -2284,16 +2291,16 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     pCtrl->BGNET.PILOT.NMEA.VTG.COG.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter, t);
                     break;
-                case BGNET_CHN_EB_SOG:
+                case BGNET_CHN_EB_VTG:
                     pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = decode_channel_double(pCH, 0);
                     pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, t);
-                    if (pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte == 0) {
-                        pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte = 1;
+                    if (pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte == BGNET_VTG_ON) {
+                        // is already ON
+                    } else {
+                        pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte = BGNET_VTG_ON;
                         pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.source = BGN_SOURCE_BGNET;
                         CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.Counter, t);                                                                
-                    } else {
-                        // is already ON
                     }
                     break;
                 case BGNET_CHN_07_AP_FAULT:
@@ -2302,10 +2309,11 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     CounterUp(&pCtrl->BGNET.ACP.FAULT.Counter, t);
                     break;
             }
+
             if ((t-pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter.tTimestamp) < 60) {
                 // channel data is recently received
             } else {
-                pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte = 0;
+                pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte = BGNET_RMB_OFF;
                 pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.source = BGN_SOURCE_BGNET;
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter, t);                                                                
             }
@@ -2722,6 +2730,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                  switch (g_fastnet_mode) {
                                                     case BGN_FASTNET_MODE_PASSIVE:
                                                     case BGN_FASTNET_MODE_RW:
+                                                    #ifdef KOEN
                                                         payload[0] = BGNET_HIBYTE(BGNET_ACP_ID);
                                                         payload[1] = BGNET_LOBYTE(BGNET_ACP_ID);
                                                         len_pl = 2;
@@ -2740,6 +2749,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         g_fastnet_data_lenTx = g_fastnet_data_lenTx + TxSize; // increment byte counter in TX buffer
                                                         TxSize = 0; // local buffer was written
                                                         pthread_mutex_unlock(&g_data_mutex);
+                                                    #endif
 
                                                         break;
                                                 }
@@ -2992,8 +3002,8 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                             case BGN_FMT_0F:
                                                                 // set alarm ON or OFF, payload byte 3: 0x1F=ON, 0x0F=OFF
                                                                 if (pCHRx->s.FMT == BGNET_FMT_ON) {
-                                                                    // when activating the Anchor Alarm, also set the current depth (use calibrated depth)
-                                                                    pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue = pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue;
+                                                                    // when activating the Anchor Alarm, also set the current (calibrated) depth
+                                                                    pCtrl->BGNET.DEPTH.SETUP.AMA_M.value.dValue = pCtrl->BGNET.DEPTH.Depth.value.dValue;
                                                                     pCtrl->BGNET.DEPTH.SETUP.AMA_M.source = BGN_SOURCE_BGNET;
                                                                     CounterUp(&pCtrl->BGNET.DEPTH.SETUP.AMA_M.Counter, t);
                                                                     // enable the anchor alarm
@@ -4142,15 +4152,15 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         pCtrl->BGNET.PILOT.NAV_SEL.source = BGN_SOURCE_BGNET;
                                                         CounterUp(&pCtrl->BGNET.PILOT.NAV_SEL.Counter, t);
                                                         break;
-                                                    case BGNET_CHN_EB_SOG:
+                                                    case BGNET_CHN_EB_VTG:
                                                         // broadcast by PILOT to FF, 3 bytes payload, unknown purpose. Is send when a MANual speed is selected
                                                         // FF 50 03 D5 D9 B5 EB 0F FB
                                                         // 0xB5 is most likely a ACKSEQ (this number changes in other instances)
-                                                        // 0xEB seems a channel ID (SOG)
+                                                        // 0xEB seems a channel ID (VTG/SOG)
                                                         // 0x0F means "OFF" (0x1F means ON)
                                                         // FB   is a valid CS
                                                         // Because it's a broadcast, it should be relevant for all NETWORK attached units to switch something
-                                                        // OFF that has to do with the SOG
+                                                        // OFF that has to do with the VTG/SOG
                                                         // I think that it when a MANual speed is selected (FST/MED/SLW) the system should stop using the SOG
                                                         // (that might be received via NMEA 0183 interface on the PILOT). For the very good reason, if the skipper
                                                         // wanted to use the SOG, the MAN speed would never be selected (but the SOG instead). So i think that
@@ -4164,15 +4174,15 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
                                                         CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
                                                         if (pCHRx->s.FMT == BGNET_FMT_OFF) {
-                                                            if (pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte == 0) {
-                                                                // is already OFF
-                                                            } else {
-                                                                pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte = 0;
+                                                            if (pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte == BGNET_VTG_ON) {
+                                                                pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.value.nByte = BGNET_VTG_OFF;
                                                                 pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.VTG_SEL.Counter, t);                                                                
+                                                            } else {
+                                                                // is already OFF
                                                             }
                                                         } else {
-                                                            // Action to switch ON is when we receive the SOG channel. This                                                                           pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
+                                                            // Action to switch ON is when we receive the VTG/SOG channel. This state is not used.                                                                           pCtrl->BGNET.DEPTH.SETUP.DA_STAT.value.nByte = 1;
                                                         }
                                                         break;
                                                 }

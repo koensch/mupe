@@ -371,9 +371,9 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_8A_UNKNOWN          0x8A
 #define BGNET_CHN_8D_BATTERY          0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
                                            // displayed by DATA (if 'OPTIONS' button is pressed)
-#define BGNET_CHN_98_NMEA_ACTIVE      0x98 // When a PILOT/NMEA/APB message is received this channel is transmitted via a DATA/0x01 command with FMT_00 and
-                                           // and only 2 bytes, no data. I believe that FMT_00 means "channel without data".
-                                           // When the PILOT receives navigation data via the NMEA it will transmit this message every 2 seconds as long as a NMEA message
+#define BGNET_CHN_98_NMEA_RMB         0x98 // When a PILOT/NMEA/APB message is received this channel is transmitted via a DATA/0x01 command with FMT_00 and
+    #define BGNET_RMB_OFF       0x00       // and only 2 bytes, no data. I believe that FMT_00 means "channel without data".
+    #define BGNET_RMB_ON        0x01       // When the PILOT receives navigation data via the NMEA it will transmit this message every 2 seconds as long as a NMEA message
                                            // was observed. Only after 60 seconds of no NMEA data this message stops. The presence of CHN_98 means "navigation data present".
                                            // NETWORK supports 2 PILOT with their NMEA connection to a 'navigation source'.
                                            // If PILOT detects a 0x98 message from a other pilot (then itself), it 'splits' the NAV mode into NAV1 and NAV2. NAV1 is it own
@@ -419,7 +419,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGN_AP_MODE2_WINDTYPE   0x10   //         6   1=in calibration mode
     #define BGN_AP_MODE2_MEM        0x20   //         7   resereved
 
-#define BGNET_CHN_BA_OVERCURRENT      0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A)
+#define BGNET_CHN_BA_TRIP             0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A)
 #define BGNET_CHN_BB_LATITUDE         0xBB
 #define BGNET_CHN_BC_LONGITUDE        0xBC
 #define BGNET_CHN_C1_DEPTHRAW         0xC1 // i assume that this is the RAW depth value, but i am not sure
@@ -445,9 +445,9 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_E8_WPD              0xE8 // WP Distance (via PILOT/NMEA/RMB/#10)
 #define BGNET_CHN_E9_COGTRUE          0xE9 // Course Over Ground, True, realise that no NETWORK node displays COG
 #define BGNET_CHN_EA_COGMAG           0xEA // Course Over Ground, Magnetic, realise that no NETWORK node displays COG
-#define BGNET_CHN_EB_SOG              0xEB // Speed Over Ground, KT (via PILOT/NMEA/VTG/#5)
-                                           // Is also observed with command 0xD5 (with a 3 byte payload) after setting FST/MED/SLW (Manual Speed selection on PILOT)
-                                           // It is send when you page though the selection option (from FST>MED>SLW>FST), but not the 1st time you press the <SPEED>
+#define BGNET_CHN_EB_VTG              0xEB // Speed Over Ground, KT (via PILOT/NMEA/VTG/#5)
+    #define BGNET_VTG_OFF       0x00       // Is also observed with command 0xD5 (with a 3 byte payload) after setting FST/MED/SLW (Manual Speed selection on PILOT)
+    #define BGNET_VTG_ON        0x01       // It is send when you page though the selection option (from FST>MED>SLW>FST), but not the 1st time you press the <SPEED>
                                            // button. The first 2 bytes stays the same (0xEB 0x0F), but the 3rd payload byte varies between 0x00-0xFF (and sometimes
                                            // it does not change). The meaning of this command is unclear. The 3rd byte also does not seem te be a ASCII character.
                                            // The occurance of this channel causes this application to log a message, because the 2nd bye is not a recognised FMT byte.
@@ -838,8 +838,7 @@ typedef struct {
     } SPEED;
     // DEPTH parameters
     struct {
-        NMEA2K_VALUE Depth_RAW;    // Measured DEPTH (current value, uncalibrated)
-        NMEA2K_VALUE Depth_CAL;    // Measured DEPTH (current value, calibrated)
+        NMEA2K_VALUE Depth;        // Measured DEPTH (current value, calibrated)
         NMEA2K_VALUE ANC_ALARM;
         struct {
             NMEA2K_VALUE CAL;      // CALibration: 0= No Calibration, <0= offset to keel (>depth under keel), >0= offset to watersurface (>waterdepth)

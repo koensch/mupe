@@ -311,7 +311,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     }
     // curl --data "{\"log\":\"error\"}" http://localhost:8080/api/update
     if (log) {
-        g_n2kdata.cfg.log_level.value.nByte = logger_level(log->valuestring);
+        g_n2kdata.cfg.log_level.value.nByte = log_level(log->valuestring);
         g_n2kdata.cfg.log_level.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.cfg.log_level.Counter, t);
         log_info("LogLevel set to '%s' via API (%d)", log->valuestring, g_n2kdata.cfg.log_level.value.nByte);
@@ -343,6 +343,16 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.pos.sog.value.dValue = sog->valuedouble;
         g_n2kdata.pos.sog.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.sog.Counter, t);
+        switch (pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source) {
+            case BGN_SOURCE_BGNET:
+            case BGN_SOURCE_NMEA:
+                break;
+            default:
+                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = sog->valuedouble;
+                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_API;
+                CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, t);
+                break;
+        }
     }
 
     // boat information from instruments onboard
@@ -351,11 +361,30 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.boat.stw.value.dValue = stw->valuedouble;
         g_n2kdata.boat.stw.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.stw.Counter, t);
+        switch (pCtrl->BGNET.SPEED.STW.source) {
+            case BGN_SOURCE_BGNET:
+                break;
+            default:
+                pCtrl->BGNET.SPEED.STW.value.dValue = stw->valuedouble;
+                pCtrl->BGNET.SPEED.STW.source = BGN_SOURCE_API;
+                CounterUp(&pCtrl->BGNET.SPEED.STW.Counter, t);
+                break;
+        }
     }
     if (depth) {
         g_n2kdata.boat.depth.value.dValue = depth->valuedouble;
         g_n2kdata.boat.depth.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.depth.Counter, t);
+        switch (pCtrl->BGNET.DEPTH.Depth.source) {
+            case BGN_SOURCE_BGNET:
+                break;
+            default:
+                // assume that API value is calibrated depth
+                pCtrl->BGNET.DEPTH.Depth.value.dValue = depth->valuedouble;
+                pCtrl->BGNET.DEPTH.Depth.source = BGN_SOURCE_API;
+                CounterUp(&pCtrl->BGNET.DEPTH.Depth.Counter, t);
+                break;
+        }
     }
     if (seatemp) {
         g_n2kdata.boat.seatemp.value.dValue = seatemp->valuedouble;
@@ -1001,9 +1030,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
 
     // ==== DEPTH
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Depth", "Measured by sensor [M]", pCtrl->BGNET.DEPTH.Depth_RAW.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_RAW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_RAW.source), pCtrl->BGNET.DEPTH.Depth_RAW.value.dValue);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Depth", "Calibrated [M]", pCtrl->BGNET.DEPTH.Depth_CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth_CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth_CAL.source), pCtrl->BGNET.DEPTH.Depth_CAL.value.dValue);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH: Depth", "Calibrated [M]", pCtrl->BGNET.DEPTH.Depth.Counter.iCounter, t-pCtrl->BGNET.DEPTH.Depth.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.Depth.source), pCtrl->BGNET.DEPTH.Depth.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "DEPTH/SETUP/CAL:", "Depth calibration (0= sensor, >0= waterline, <0= keel) [M]", pCtrl->BGNET.DEPTH.SETUP.CAL.Counter.iCounter, t-pCtrl->BGNET.DEPTH.SETUP.CAL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.DEPTH.SETUP.CAL.source), pCtrl->BGNET.DEPTH.SETUP.CAL.value.dValue);
     strcat(Buffer, cLine);

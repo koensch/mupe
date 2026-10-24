@@ -9,9 +9,9 @@
 #define LOGGER_LEVEL_INFO   3
 #define LOGGER_LEVEL_DEBUG  4
 
-int logger_level(const char *);
-void logger_init(const char *filename, const char *level);
-void logger_close(void);
+int log_level(const char *);
+void log_init(const char *filename, const char *level);
+void log_close(void);
 
 void log_error(const char *fmt, ...);
 void log_warn(const char *fmt, ...);

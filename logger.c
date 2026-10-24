@@ -11,7 +11,8 @@ static FILE *logf = NULL;
 //static int log_level = LOGGER_LEVEL_INFO;
 static pthread_mutex_t log_mutex;
 
-int logger_level(const char *pStr) {
+// set the numerical loglevel as specified by the string
+int log_level(const char *pStr) {
     int r = LOGGER_LEVEL_UNDEFINED;
     if (strcmp(pStr, "none") == 0) r = LOGGER_LEVEL_NONE;
     else if (strcmp(pStr, "error") == 0) r = LOGGER_LEVEL_ERROR;
@@ -21,7 +22,7 @@ int logger_level(const char *pStr) {
     else r = LOGGER_LEVEL_WARN; // default
     return(r);
 }
-void logger_init(const char *filename, const char *level)
+void log_init(const char *filename, const char *level)
 {
     int log;
     time_t t;
@@ -29,7 +30,7 @@ void logger_init(const char *filename, const char *level)
 
     pthread_mutex_init(&log_mutex, NULL);
 
-    g_n2kdata.cfg.log_level.value.nByte = logger_level(level);
+    g_n2kdata.cfg.log_level.value.nByte = log_level(level);
     g_n2kdata.cfg.log_level.source = BGN_SOURCE_ACP;
     CounterInit(&g_n2kdata.cfg.log_level.Counter, t);
 
@@ -43,7 +44,7 @@ void logger_init(const char *filename, const char *level)
     g_n2kdata.cfg.log_level.value.nByte = log;
 }
 
-void logger_close(void)
+void log_close(void)
 {
     int log;
     log = g_n2kdata.cfg.log_level.value.nByte;
