@@ -139,7 +139,8 @@ typedef struct {
     NMEA2K_VALUE rudder;
     NMEA2K_VALUE headingM;
     NMEA2K_VALUE headingT;
-    NMEA2K_VALUE time;
+    NMEA2K_VALUE time;  // absolute time
+    NMEA2K_VALUE timer; // countdown/countup timer
 } NMEA2K_BOAT;
 typedef struct {
     NMEA2K_VALUE twa;
