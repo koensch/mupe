@@ -172,8 +172,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 // units of the same type, so i was never able to reverse-engineer the address negotiations.
 #define BGNET_TYPE_MASK                 0xF0 // mask the node type from the address
 #define BGNET_TYPE_NETACP               0x12 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
-//#define BGNET_ACP_ID    0xBA9E
-#define BGNET_ACP_ID    0x0000
+#define BGNET_ACP_ID    0xBA9E
+//#define BGNET_ACP_ID    0x0000
 #define BGNET_TYPE_NETQUAD              0x30 // confirmed
 #define BGNET_TYPE_NETPILOT             0x50 // confirmed
 #define BGNET_TYPE_NETDEPTH             0x10 //?
@@ -209,7 +209,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                              //Note: Command is not send by DATA/60 when QUAD/30 is in 'repeater' mode.
 #define BGNET_CMD_0A_POWERUP            0x0A //at startup all stations (QUAD/30, PILOT/50, DATA/60, WIND/70) broadcast (ALL/FF) their presence. Header only, no payload. Message format:
                                              // QUAD: "FF-30-00-0A-C7", PILOT: "FF-50-00-0A-A6", DATA: "FF-D6-00-0A-97", WIND: "FF 70 00 0A 87"
-                                             //(no firmware version number is included in NETWORK series)
+                                             // Note: ACP also sends a 0A command, but 2 bytes payload.
 #define BGNET_CMD_0E_PILOT_HELLO        0x0E //continously, a PILOT/50 station broadcasts (TO 0x00) every 3-4 seconds. Message format:
                                              // PILOT: "00 51 00 0E A1" (no payload)
                                              // PILOT broadcasts this command in 'normal' mode, and also in 'demo' mode.
@@ -736,6 +736,7 @@ typedef struct {
     // if we look the the command 0x06 that the DATA uses to register it's values, you see that it adresses the ACP/PILOT/QUAD/WIND node
     // this is a clear indication where what parameters lives.
     struct {
+        NMEA2K_VALUE ID;            // ID send with POWERUP command
         NMEA2K_VALUE STATE;
         NMEA2K_VALUE MODE;
         NMEA2K_VALUE Heading;       // Compass Heading
@@ -791,7 +792,6 @@ typedef struct {
         } SPEED;
         struct {
             struct {
-                NMEA2K_VALUE COG;       // Course Over Ground, VTG#1 DegT]
                 NMEA2K_VALUE SOG;       // Speed Over Ground, VTG#5 [KT]
                 NMEA2K_VALUE VTG_SEL;   // when VTG messages are being received, SOG is present/available
             } VTG;

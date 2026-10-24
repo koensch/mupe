@@ -307,15 +307,6 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
         g_n2kdata.pos.cog.source = BGN_SOURCE_NMEA;
         CounterUp(&g_n2kdata.pos.cog.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
-
-        switch(pCtrl->BGNET.PILOT.NMEA.VTG.COG.source) {
-            case BGN_SOURCE_NONE:
-            case BGN_SOURCE_ACP:
-            case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong = DTOIROUND(cog * 180/BGNET_PI); // convert rad to deg
-                pCtrl->BGNET.PILOT.NMEA.VTG.COG.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-        }
         //log_debug("N2K 129026: COG=%.4f rad", cog);
     }
 

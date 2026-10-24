@@ -406,6 +406,10 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.SERVICE.PILOTWD.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.SERVICE.PILOTWD.Counter, t);
 
+        pCtrl->BGNET.ACP.ID.value.nLong = BGNET_ACP_ID;
+        pCtrl->BGNET.ACP.ID.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.ID.Counter, t);
+
         // initialize AutoPilot to STBY/COMP; joystick OFF
         //pCtrl->BGNET.ACP.STATE.value.nByte = (BGN_AP_MODE1_STBY | BGN_AP_MODE1_ENABLEVANE | BGN_AP_MODE1_UNKNOWN);
         pCtrl->BGNET.ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
@@ -554,10 +558,6 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.SPEED.TIMER.value.tTime = t;            // the TIMER value is 'the current time' (SERVICE.SystemTime.value.tTime) minus this (SPEED.TIMER.value.tTime)
         pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_ACP;    // converted to HH, MM and SS
         CounterInit(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
-
-        pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong = 312;
-        pCtrl->BGNET.PILOT.NMEA.VTG.COG.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter, t);
 
         pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = 22.8;
         pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_ACP;
@@ -2286,11 +2286,6 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
                     break;
-                case BGNET_CHN_EA_COGMAG :
-                    pCtrl->BGNET.PILOT.NMEA.VTG.COG.value.nLong = ntohs(pCH->s.cv.uW[0]);
-                    pCtrl->BGNET.PILOT.NMEA.VTG.COG.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.COG.Counter, t);
-                    break;
                 case BGNET_CHN_EB_VTG:
                     pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = decode_channel_double(pCH, 0);
                     pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_BGNET;
@@ -2557,11 +2552,11 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                 break;
             default:
                 // do not log some DATA/0x01 commands
-                switch (pFRx->CMD & 0x00) {
+                switch (pFRx->CMD) {
                     case BGNET_CMD_01_DATA:
                         switch (pFRx->FROM & BGNET_TYPE_MASK) {
                             case BGNET_TYPE_NETACP:
-                            case BGNET_TYPE_NETQUAD:
+                            //case BGNET_TYPE_NETQUAD:
                                 // do not log
                                 break;
                             case BGNET_TYPE_NETPILOT:
@@ -2731,8 +2726,8 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                     case BGN_FASTNET_MODE_PASSIVE:
                                                     case BGN_FASTNET_MODE_RW:
                                                     #ifdef KOEN
-                                                        payload[0] = BGNET_HIBYTE(BGNET_ACP_ID);
-                                                        payload[1] = BGNET_LOBYTE(BGNET_ACP_ID);
+                                                        payload[0] = BGNET_HIBYTE(pCtrl->BGNET.ACP.ID.value.nLong);
+                                                        payload[1] = BGNET_LOBYTE(pCtrl->BGNET.ACP.ID.value.nLong);
                                                         len_pl = 2;
                                                         pFTx = (FRAME_H *)&TxBuf[TxSize];
                                                         len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_0A_POWERUP, payload, len_pl);
@@ -2805,11 +2800,23 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                             case BGNET_CMD_06_SUBSCRIBE:
                                 decode_command_SUBSCRIBE(pCtrl, pFRx);
                                 break;
+                            case BGNET_CMD_0A_POWERUP:
+                                // in theory a 0A command with payload could be received. This is because 0A command with data is send by ACP
+                                // however, our application more-or-less emulates the ACP and a system with 2 ACP's is not a thing in the B&G
+                                // NETWORK product.
+                                // We we handle the 0A command with data, just to be correct and complete when this application is used to monitor
+                                // a NETWORK system with ACP.
+                                // Realise we do not know what purpose the 0A data is and how it is used. It is a firmware version? configuration bits?
+                                // who knows.....
+                                // Realise that (because we are behaving as some kind of ACP ourselves) we DO send a POWERUP command with 2 bytes data.
+                                pCtrl->BGNET.ACP.ID.value.nLong = BGNET_BYTES2WORD(pFRx->payload[0], pFRx->payload[1]);
+                                pCtrl->BGNET.ACP.ID.source = BGN_SOURCE_BGNET;
+                                CounterUp(&pCtrl->BGNET.ACP.ID.Counter, t);
+                                break;
                             case BGNET_CMD_C9_BACKLIGHT:
                                 pCtrl->BGNET.NETWORK.BackLight.value.nByte = pFRx->payload[0]; // first byte is the LIGHTS state
                                 pCtrl->BGNET.NETWORK.BackLight.source = BGN_SOURCE_BGNET;
                                 CounterUp(&pCtrl->BGNET.NETWORK.BackLight.Counter, t);
-                                CounterUp(&pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY, t);
 
 //#define BGNET_ENABLE_RESET_LOG
 #ifdef BGNET_ENABLE_RESET_LOG

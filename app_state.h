@@ -19,6 +19,7 @@
 #define BGNET_MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define BGNET_HIBYTE(w) (((uint16_t)(w) >> 8) & 0xFF)
 #define BGNET_LOBYTE(w) ((uint8_t)((w) & 0xFF))
+#define BGNET_BYTES2WORD(a, b) ((uint8_t)(a)*0xFF+(uint8_t)(b))
 //#define BGNET_REMAINDER(a, b) ((a) % (b))
 // WRAP and increment around a range. a= value, b= increment, c= range 
 #define BGNET_INCREMENTWRAP(a, b, c, d) ( (a) + (b) + ((d)-(c)) ) % ( (d)-(c) )
