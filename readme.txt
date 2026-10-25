@@ -35,7 +35,9 @@ project/
 - check that the config.json uses the correct serial port, select "readonly" mode 
 - start application							./app
 - to observer output trace:						tail -f marine_gateway.log
-- check status of your code after making changes			git status
+- check status of your source files after making changes		git status
+- check changes in the source files					git diff
+- remove uncommitted changes						git restore
 - add changes to your staging						git add *.h *.c
 - commit changes to your repository					git commit -m {description}
 
