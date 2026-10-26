@@ -14,7 +14,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "bgnprotocol.h"
+#include "bgnet.h"
 
 static int set_interface_attribs(int fd, int speed, int databits, int stopbits, const char *parity, const char *mode)
 {

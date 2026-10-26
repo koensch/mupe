@@ -1,6 +1,6 @@
 #include "app_state.h"
 #include "config.h"
-#include "bgnprotocol.h"
+#include "bgnet.h"
 #include "logger.h"
 #include <stdio.h>
 #include <pthread.h>

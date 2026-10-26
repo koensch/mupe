@@ -1,5 +1,5 @@
-#ifndef BGNPROTODEF_H
-#define BGNPROTODEF_H
+#ifndef BGNET_H
+#define BGNET_H
 
 // notes:
 // - The NETWORK series system by B&G was the pinnacle for marine instrumentation. Introduced somewhere

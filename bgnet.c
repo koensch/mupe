@@ -1,6 +1,3 @@
-#ifndef BGNPROTOSUB_H
-#define BGNPROTOSUB_H
-
 #include <stdio.h>
 #include <time.h>
 #include <limits.h>
@@ -11,7 +8,7 @@
 #include "app_state.h"
 #include "config.h"
 #include "logger.h"
-#include "bgnprotocol.h"
+#include "bgnet.h"
 
 #define BGNET_COMMANDTYPE_REQ   1
 #define BGNET_COMMANDTYPE_DTA   2
@@ -4458,5 +4455,3 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
     }
     return(z);
 }
-
-#endif

@@ -1,7 +1,7 @@
 #include "ethernet.h"
 #include "app_state.h"
 #include "logger.h"
-#include "bgnprotocol.h"
+#include "bgnet.h"
 
 #include <stdio.h>
 #include <string.h>

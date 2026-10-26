@@ -1,7 +1,7 @@
 #include "nmea2000.h"
 #include "app_state.h"
 #include "logger.h"
-#include "bgnprotocol.h"
+#include "bgnet.h"
 
 #include <linux/can.h>
 #include <linux/can/raw.h>

@@ -9,7 +9,7 @@
 #include "logger.h"
 #include "app_state.h"
 #include "fastnet.h"
-#include "bgnprotocol.h"
+#include "bgnet.h"
 #include "ethernet.h"
 #include "timer.h"
 #include "webserver.h"

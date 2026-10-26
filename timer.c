@@ -5,7 +5,7 @@
 #include "timer.h"
 #include "app_state.h"
 #include "logger.h"
-#include "bgnprotocol.h"
+#include "bgnet.h"
 
 void *timer_thread(void *arg)
 {
