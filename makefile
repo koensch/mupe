@@ -4,14 +4,14 @@ CC      = gcc
 CFLAGS  = -Wall -Wextra -std=gnu99 -pthread 
 #LDFLAGS = -pthread -lcjson
 LDFLAGS = -pthread -lcjson -lcrypto
-GITREF = $(shell git show -s --format=%ci)
+GIT_VERSION := "$(shell git describe --abbrev=4 --dirty --always --tags)"
 
 SRC = main.c \
       config.c \
       logger.c \
       app_state.c \
       fastnet.c \
-      bgnprotocol.c \
+      bgnet.c \
       ethernet.c \
       timer.c \
       webserver.c \
@@ -21,7 +21,7 @@ H = config.h \
 	logger.h \
 	app_state.h \
 	fastnet.h \
-	bgnprotocol.h \
+	bgnet.h \
 	ethernet.h \
 	timer.h \
 	webserver.h \
@@ -32,7 +32,7 @@ OBJ = $(SRC:.c=.o)
 all: app
 
 app: $(OBJ) $(H)
-	$(CC) $(CFLAGS) -DGITREF="$(GITREF)" -o app $(OBJ) $(LDFLAGS)
+	$(CC) $(CFLAGS) -DGIT_VER=\"$(GIT_VERSION)\" -o app $(OBJ) $(LDFLAGS)
 
 clean:
 	rm -f $(OBJ) app
