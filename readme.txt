@@ -40,5 +40,4 @@ project/
 - remove uncommitted changes						git restore
 - add changes to your staging						git add *.h *.c
 - commit changes to your repository					git commit -m {description}
-
-
+- publish commits to repository						git push

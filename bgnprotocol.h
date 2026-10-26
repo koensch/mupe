@@ -338,8 +338,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                            // displayed by PILOT (when in VANE mode)
 #define BGNET_CHN_52_AWARAW           0x52 // signal from the direction sensor, prior correction, calibration or alignment
 #define BGNET_CHN_53_TARGET_AWA       0x53 // send by PILOT upon change/button pressed, Target Appearent Wind Angle, fmt=0x01; displayed on PILOT in AUTO/VANE mode
-#define BGNET_CHN_55_TWS              0x55 // in KT
-#define BGNET_CHN_56_TWS              0x56 // in M/S
+//#define BGNET_CHN_55_TWS              0x55 // in KT
+//#define BGNET_CHN_56_TWS              0x56 // in M/S
 #define BGNET_CHN_57_TWS              0x57
 #define BGNET_CHN_59_TWA              0x59
 #define BGNET_CHN_5A_MEASWINDANGLE    0x5A
@@ -419,7 +419,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGN_AP_MODE2_WINDTYPE   0x10   //         6   1=in calibration mode
     #define BGN_AP_MODE2_MEM        0x20   //         7   resereved
 
-#define BGNET_CHN_BA_TRIP             0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A)
+#define BGNET_CHN_BA_TRIP             0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A) or RUDDER LIMIT?
 #define BGNET_CHN_BB_LATITUDE         0xBB
 #define BGNET_CHN_BC_LONGITUDE        0xBC
 #define BGNET_CHN_C1_DEPTHRAW         0xC1 // i assume that this is the RAW depth value, but i am not sure
@@ -823,8 +823,8 @@ typedef struct {
         NMEA2K_VALUE TripLogNM;    // channel CF (trip log NM) is stored as a 2 byte register
         NMEA2K_VALUE DRD;          // channel 81 (Dead Reconing Distance) is stored as a 2 byte register
         NMEA2K_VALUE DRC;          // channel D3 (Dead Reconing Course) is stored as a 2 byte register
-        NMEA2K_VALUE SpeedMAX;     // MAX speed (since DRD reset)
-        NMEA2K_VALUE SpeedAVG;     // AVG speed (since DRD reset)
+        NMEA2K_VALUE SpeedMAX;     // MAX speed (since DRD reset, AVG is derived from DRD and time since last DRD reset)
+        NMEA2K_VALUE SpeedAVG;     // AVG speed (for the record)
         NMEA2K_VALUE TIMER;        // Timer (no yet implemented, but lives here)
         struct {
             NMEA2K_VALUE DMP;           // QUAD/SPEED/SETUP/#1/DMP, response time of speed value
@@ -929,7 +929,7 @@ void CounterUp(BGNET_COUNT*, time_t);
 void NMEAinit(NMEA2K_VALUE*, time_t);
 
 // convert Command Frame to ASCII for display purposes
-#define BGN_CMD_ASCII              48
+#define BGN_CMD_ASCII              52
 #define BGN_CMD_ASCII_SEP   " /.../ "
 #define BGN_CMD_DATA_TAIL           6
 char* CommandToAscii(char*, size_t, FRAME_H*);
