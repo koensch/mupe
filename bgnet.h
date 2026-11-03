@@ -174,12 +174,15 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_TYPE_NETACP               0x12 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
 #define BGNET_ACP_ID    0xBA9E
 //#define BGNET_ACP_ID    0x0000
-#define BGNET_TYPE_NETQUAD              0x30 // confirmed
-#define BGNET_TYPE_NETPILOT             0x50 // confirmed
 #define BGNET_TYPE_NETDEPTH             0x10 //?
+#define BGNET_TYPE_COMPASS              0x20 // used by COMPASS? (unconfirmed)
+#define BGNET_TYPE_NETQUAD              0x30 // confirmed
 #define BGNET_TYPE_NETSPEED             0x40 //?
+#define BGNET_TYPE_NETPILOT             0x50 // confirmed
 #define BGNET_TYPE_NETDATA              0x60 // confirmed, sometimes 0x60, sometimes 0xD4
 #define BGNET_TYPE_NETWIND              0x70 // confirmed
+#define BGNET_TYPE_NAV                  0xB0 // used by NAV/GPS? (unconfirmed)
+#define BGNET_TYPE_TACK                 0xD0 // used by TACK? (unconfirmed)
 #define BGNET_TYPE_ALL                  0xFF // used for broadcast (to ALL)
 
 #define BGNET_COMMAND_MAX               0x0100 // 0x00-0xFF, both included
@@ -254,7 +257,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_CID                   0    // position of channel byte
 // FMT byte is encoded as follows
 // MSB bit 7,6    : divisor (00=1, 01=10, 10=100, 11=1000)
-//     bit 5,4    : size/padding (00=4, 01=3, 10=2, 11=1), note that bit 4 might also be used to trigger thet alarm beeper
+//     bit 5,4    : size/padding (00=4, 01=3, 10=2, 11=1), note that bit 4 might also be used to trigger the alarm beeper
 // LSB bit 3,2,1,0: datatype (0000-1111, see decoding routine)
     #define BGNET_FMT_DIVPAD        0xF0     // bits 7,6,5,4  - Divisor & Padding
     #define BGNET_FMT_DIVPAD_DIV    0xC0     // bits 7,6      - Divisor
@@ -329,7 +332,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 //#define BGNET_CHN_48_LONLAT           0x48 //send in ASCII via CMD03
 #define BGNET_CHN_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
 #define BGNET_CHN_4A_DEPTHM           0x4A // referenced by DATA via a LABEL/0x02 command, appears to be "DEPTH M", but seems incorrect
-#define BGNET_CHN_4D_AWINDSPEEDKT     0x4D
+#define BGNET_CHN_4D_AWS              0x4D // Appearent Wind Speed KT
 #define BGNET_CHN_4E_AWSRAW           0x4E // signal from the paddlewheel, prior correction or calibration 
 //#define BGNET_CHN_4F_AWINDSPEEDMS     0x4F
 #define BGNET_CHN_50_AWS              0x50 // displayed by WIND (small display, when APP selected)
@@ -337,37 +340,37 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_51_AWA              0x51 // displayed by WIND (the dial always displays the APP wind angle)
                                            // displayed by PILOT (when in VANE mode)
 #define BGNET_CHN_52_AWARAW           0x52 // signal from the direction sensor, prior correction, calibration or alignment
-#define BGNET_CHN_53_TARGET_AWA       0x53 // send by PILOT upon change/button pressed, Target Appearent Wind Angle, fmt=0x01; displayed on PILOT in AUTO/VANE mode
+#define BGNET_CHN_53_TARGET_TWA       0x53 // send by PILOT upon change/button pressed, Target True Wind Angle, fmt=0x01; displayed on PILOT in AUTO/VANE mode
 //#define BGNET_CHN_55_TWS              0x55 // in KT
 //#define BGNET_CHN_56_TWS              0x56 // in M/S
 #define BGNET_CHN_57_TWS              0x57
 #define BGNET_CHN_59_TWA              0x59
-#define BGNET_CHN_5A_MEASWINDANGLE    0x5A
+//#define BGNET_CHN_5A_MEASWINDANGLE    0x5A
 #define BGNET_CHN_64_SPEEDAVG         0x64 // displayed by QUAD
 #define BGNET_CHN_65_SPEEDMAX         0x65 // displayed by QUAD
-#define BGNET_CHN_66_KEELANGLE        0x66
-#define BGNET_CHN_67_CANARDANGLE      0x67
-#define BGNET_CHN_68_REQFORDATA       0x68
-#define BGNET_CHN_69_COURSE           0x69
-#define BGNET_CHN_6A_ACTFORDATA       0x6A
-#define BGNET_CHN_6D_TRUEWINDDIR      0x6D
-#define BGNET_CHN_6F_NEXTLEGAWA       0x6F
-#define BGNET_CHN_70_NEXTLEGBOATSPEED 0x70
-#define BGNET_CHN_71_NEXTLEGAWSPEED   0x71
+//#define BGNET_CHN_66_KEELANGLE        0x66
+//#define BGNET_CHN_67_CANARDANGLE      0x67
+//#define BGNET_CHN_68_REQFORDATA       0x68
+//#define BGNET_CHN_69_COURSE           0x69
+//#define BGNET_CHN_6A_ACTFORDATA       0x6A
+//#define BGNET_CHN_6D_TRUEWINDDIR      0x6D
+//#define BGNET_CHN_6F_NEXTLEGAWA       0x6F
+//#define BGNET_CHN_70_NEXTLEGBOATSPEED 0x70
+//#define BGNET_CHN_71_NEXTLEGAWSPEED   0x71
 #define BGNET_CHN_75_TIMER            0x75
 #define BGNET_CHN_76_AP_WA_ALARM      0x76
-#define BGNET_CHN_77_ROLLTIMER        0x77
-#define BGNET_CHN_7C_POLARPERFORMANCE 0x7C
+//#define BGNET_CHN_77_ROLLTIMER        0x77
+//#define BGNET_CHN_7C_POLARPERFORMANCE 0x7C
 #define BGNET_CHN_7D_TARGETBOATSPEED  0x7D
 #define BGNET_CHN_7F_VMG              0x7F // calculated by WIND, displayed on DATA (only when WIND is present) under the WIND button
-#define BGNET_CHN_80_UNKNOWN          0x80
+//#define BGNET_CHN_80_UNKNOWN          0x80
 #define BGNET_CHN_81_DRD              0x81 // QUAD/SPEED: Dead Recogning Distance travelled, resettable
-#define BGNET_CHN_82_LEEWAY           0x82
-#define BGNET_CHN_83_TIDALDRIFT       0x83
-#define BGNET_CHN_84_TIDALSET         0x84
-#define BGNET_CHN_85_UPWASH           0x85
-#define BGNET_CHN_86_BAROTREND        0x86
-#define BGNET_CHN_87_BARORAW          0x87 // signal from the barometric sensor, prior calibration
+//#define BGNET_CHN_82_LEEWAY           0x82
+//#define BGNET_CHN_83_TIDALDRIFT       0x83
+//#define BGNET_CHN_84_TIDALSET         0x84
+//#define BGNET_CHN_85_UPWASH           0x85
+//#define BGNET_CHN_86_BAROTREND        0x86
+//#define BGNET_CHN_87_BARORAW          0x87 // signal from the barometric sensor, prior calibration
 #define BGNET_CHN_8A_UNKNOWN          0x8A
 #define BGNET_CHN_8D_BATTERY          0x8D // displayed by WIND (if 'VOLTS' button pressed), fmt=0x48 (120=12.0)
                                            // displayed by DATA (if 'OPTIONS' button is pressed)
@@ -385,11 +388,11 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                            // DATA/0x01 commands. When PILOT sees 2 NAV connections. (via the nETWORK) but no longer transmits it  data after 60 second after the last NMEA message, the channel is no longer transmitted
                                            // it seems this is some kind of 'nmea communication active' signal.
                                            // it is observed with APB, RMB, XTE messages, possibly others too, but not fDATA/0x01 or VTG
-#define BGNET_CHN_9A_HEADINGNEXTTACK  0x9A
-#define BGNET_CHN_9B_FOREAFTTRIM      0x9B
-#define BGNET_CHN_9C_MASTANGLE        0x9C
-#define BGNET_CHN_9D_WANGLETOMAST     0x9D
-#define BGNET_CHN_9E_PITCHRATE        0x9E
+//#define BGNET_CHN_9A_HEADINGNEXTTACK  0x9A
+//#define BGNET_CHN_9B_FOREAFTTRIM      0x9B
+//#define BGNET_CHN_9C_MASTANGLE        0x9C
+//#define BGNET_CHN_9D_WANGLETOMAST     0x9D
+//#define BGNET_CHN_9E_PITCHRATE        0x9E
 #define BGNET_CHN_A2_UNKNOWN          0xA2
 #define BGNET_CHN_A4_BOOMPOS          0xA4
 #define BGNET_CHN_A6_AP_TARGET        0xA6 // Target in AUTO (COMP/NAV= CTS, VANE= Headeing)
@@ -411,7 +414,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGN_AP_MODE1_LOCK2      0x20   //         6   not used
     #define BGN_AP_MODE1_UNKNOWN    0x80   //         7   unknown (set by ACP when there is an error)
                                            //        
-    #define BGN_AP_MODE2_MASK_MODE  0x0F   // DATA2 - 0-3 CORE MODE (1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
+    #define BGN_AP_MODE2_MASK_MODE  0x0F   // DATA2 - 0-3 CORE MODE (0, UNDEF, 1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
+    #define BGN_AP_MODE2_NONE       0x00   // set by COMMIS procedure      
     #define BGN_AP_MODE2_COMP       0x01   //                                   note: if there is no WIND signal, you can not select VANE mode
     #define BGN_AP_MODE2_NAV        0x03   //         
     #define BGN_AP_MODE2_VANE       0x04   //         4   PILOT SETUP option appears: "WIND A/T" (Appearent/True), used in VANE mode (0=TWA/1=AWA)
@@ -419,6 +423,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGN_AP_MODE2_WINDTYPE   0x10   //         6   1=in calibration mode
     #define BGN_AP_MODE2_MEM        0x20   //         7   resereved
 
+#define BGNET_CHN_B6_BOATTYPE         0xB6  // Commisioning, Boattype
 #define BGNET_CHN_BA_TRIP             0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A) or RUDDER LIMIT?
 #define BGNET_CHN_BB_LATITUDE         0xBB
 #define BGNET_CHN_BC_LONGITUDE        0xBC
@@ -519,6 +524,7 @@ union CH {
 #define BGN_FMT_00      0x00        // No data (channel size is only 2 bytes)
 #define BGN_FMT_01      0x01        // 16 bit signed register, is used for a value that falls in range -255/+255 (rudder position, wind angle, temperature)
                                     // optionally scaled down to 25.5, 2.55, 0.255 using the divisor
+#define BGN_FMT_31      0x31        // used by COMMIS procedure/BOATTYPE
 #define BGN_FMT_81      0x81        // used by 0xEE, XTE (fixed divisor 100x, signed, +/-, range 0-9.99)
 #define BGN_FMT_91      0x91
 #define BGN_FMT_02      0x02        // 32 bit unsigned register (6 bytes) 
@@ -747,21 +753,14 @@ typedef struct {
         NMEA2K_VALUE EBS_SEL;       // Effective Boat Speed, selector
         NMEA2K_VALUE TARGET_AWA;    // Target AWA (Setpoint for AutoPilot in VANE mode)
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot in COMP/NAV mode)
-        NMEA2K_VALUE OCE;           // OffCourse Error
         NMEA2K_VALUE CRS;           // Course Preset (Setpoint for AutoPilot)
         NMEA2K_VALUE MEM;           // Course Memory (previous CTS)
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
         NMEA2K_VALUE SHA_ALARM;
         NMEA2K_VALUE DEEP_ALARM;    // WIND Selection Type (0=T, 1 =A)
         NMEA2K_VALUE FAULT;         // FAULT code 0x00-0x0f (FF= no fault)
-    } ACP;
-    // parameters, usually hosted by PILOT
-    struct {
-        NMEA2K_VALUE WA;            // Watch Alarm Counter
-        unsigned char ucNAV_SIM;    // NAV data simulation (enabled/disabled via api)
-        NMEA2K_VALUE NAV_SEL;       // NAV source selector (address of PILOT to use)
         struct {
-            // PILOT/SETUP parameters
+            // ACP/SETUP parameters
             NMEA2K_VALUE SPD;           // 0=TRA (Transmitter); 1=Manual (SLW/MED/FST); 2=SOG (from NMEA/GPS)
             NMEA2K_VALUE RESP;          // Steering response (Normal/Downwind/Eco)
             NMEA2K_VALUE WIND_SEL;
@@ -774,10 +773,44 @@ typedef struct {
             NMEA2K_VALUE FR;            // Fault Reporting ON/OFF
         } SETUP;
         struct {
-            BGNET_ALARM WA;             // WA Alarm control block
+#define BGN_BTYPE_INIT       0
+#define BGN_BTYPE_SAIL       1
+#define BGN_BTYPE_POWER_P    2
+#define BGN_BTYPE_POWER_D    3
+            NMEA2K_VALUE BTYPE;   // BoatType (SAIL, POWER_P, POWER_D)
+            NMEA2K_VALUE RDP;     // Rudder Drive Endstop Port
+            NMEA2K_VALUE RDS;     // Rudder Drive Endstop Starboard
+            NMEA2K_VALUE RDM;     // Rudder Drive Midpoint
+#define BGN_DTYPE_INIT       0
+#define BGN_DTYPE_A          1
+#define BGN_DTYPE_B          2
+#define BGN_DTYPE_C          3
+            NMEA2K_VALUE DTYPE;   // Rudder Drive Type selection (A=RAM,Hydrolic (default), B=Pedestal, C=Outdrive)
+            NMEA2K_VALUE RDT;     // Rudder Drive hardover Time
+            NMEA2K_VALUE BLN_M;   // Boat waterline length M, default 10.0M
+            NMEA2K_VALUE BLN_FT;  // Boat waterline length FT, default 32Ft
+            NMEA2K_VALUE BLV;     // Boat Lag Value, default 0.3 (sailboats, 0.50 (powerboats), set when selecting boattype and rudder drive type)
+            NMEA2K_VALUE DIP;     // Magnetic Dip Angle compensation, default 0, only for boats faster than 20KT
+            NMEA2K_VALUE SWING;   // Compass Deviation Compensation,default ?
+            NMEA2K_VALUE CMP;     // Compass Alignment Correction, default 000
+            NMEA2K_VALUE RGN;     // Rudder Gain Value, default 0.50 (sailboats), 1.25 (powerboats), set when selecting boattype and rudder drive type
+            NMEA2K_VALUE SC;      // Speed Sensor calibration, default 6.25 Hz/KT
+            NMEA2K_VALUE POWER;   // Power Steer Mode enable/disable (backup for manual steering)
+        } COMMIS;
+        struct {
+            BGNET_ALARM FAULT;          // ACP FAULT " PILOT "/" FAULT", channel 0x07
+            BGNET_ALARM WA;             // WA Alarm control block, channel 0x76
             BGNET_COUNT WA_ACTIVITY;    // Used to track KEY activity, when WA is enabled and this timer was not reset (within the WA limit), the WA alarm is fired
-            BGNET_ALARM OC;             // OC Alarm control block
+            BGNET_ALARM OC;             // OC Alarm control block, channel 0xAF
+            NMEA2K_VALUE OC_DELTA;      // OffCourse Delta (absolute difference between heading and CTS)
+            BGNET_ALARM TRIP;           // Unknown Alarm control block, channel 0xBA (TRIP/Overcurrent?, Steeringmoter endstop?)
         } ALARM;
+    } ACP;
+    // parameters, usually hosted by PILOT
+    struct {
+        NMEA2K_VALUE WA;            // Watch Alarm Counter
+        unsigned char ucNAV_SIM;    // NAV data simulation (enabled/disabled via api)
+        NMEA2K_VALUE NAV_SEL;       // NAV source selector (address of PILOT to use)
     // PILOT/SPEED/SETUP - Manual speed selection
 #define BGNET_SPD_TRA           0
 #define BGNET_SPD_MAN_FST       1

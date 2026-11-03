@@ -263,7 +263,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // GPS information
     cJSON *latitude  = cJSON_GetObjectItem(root, "latitude");  // lattitude +=North of equator, -=South of equator
     cJSON *longitude = cJSON_GetObjectItem(root, "longitude"); // longitude +=East of prime meridian, -=West of prime meridian
-    cJSON *altitude  = cJSON_GetObjectItem(root, "altitude");  // altitude [M], 0=sealevel, +=airplane, -=submarine
+    cJSON *altitude  = cJSON_GetObjectItem(root, "altitude");  // altitude [M], 0=boat, +=airplane, -=submarine
     cJSON *cog       = cJSON_GetObjectItem(root, "cog");       // course over ground [degree] (0-359)
     cJSON *sog       = cJSON_GetObjectItem(root, "sog");       // speed over ground [M/S]
     // boat measured parameters
@@ -646,9 +646,9 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     //  PILOT = beeping continues as long as alarm channel is transmitted, also when the BEEP bit is off
     if (alarmon) {
         if (strcmp(alarmon->valuestring, "WA") == 0) {
-            ALARM_On(&pCtrl->BGNET.PILOT.ALARM.WA, t);
+            ALARM_On(&pCtrl->BGNET.ACP.ALARM.WA, t);
         } else if ((strcmp(alarmon->valuestring, "OC") == 0)) {
-            ALARM_On(&pCtrl->BGNET.PILOT.ALARM.OC, t);
+            ALARM_On(&pCtrl->BGNET.ACP.ALARM.OC, t);
         } else if ((strcmp(alarmon->valuestring, "SHAL") == 0)) {
             ALARM_On(&pCtrl->BGNET.DEPTH.ALARM.SHAL, t);
         } else if ((strcmp(alarmon->valuestring, "DEEP") == 0)) {
@@ -659,9 +659,9 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     }
     if (alarmoff) {
         if (strcmp(alarmoff->valuestring, "WA") == 0) {
-            ALARM_Off(&pCtrl->BGNET.PILOT.ALARM.WA);
+            ALARM_Off(&pCtrl->BGNET.ACP.ALARM.WA);
         } else if ((strcmp(alarmoff->valuestring, "OC") == 0)) {
-            ALARM_Off(&pCtrl->BGNET.PILOT.ALARM.OC);
+            ALARM_Off(&pCtrl->BGNET.ACP.ALARM.OC);
         } else if ((strcmp(alarmoff->valuestring, "SHAL") == 0)) {
             ALARM_Off(&pCtrl->BGNET.DEPTH.ALARM.SHAL);
         } else if ((strcmp(alarmoff->valuestring, "DEEP") == 0)) {
@@ -673,32 +673,32 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // curl --data "{\"wa\":\"on\"}" http://localhost:8080/api/update
     if (wa) {
         if (strcmp(wa->valuestring, "on") == 0) {
-            pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 1;
+            pCtrl->BGNET.ACP.SETUP.WA_STAT.value.nByte = 1;
         } else if ((strcmp(wa->valuestring, "off") == 0)) {
-            pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 0;
+            pCtrl->BGNET.ACP.SETUP.WA_STAT.value.nByte = 0;
         } else {
             r = wa->valueint;
             if (r < 1) {
-                pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 0;
+                pCtrl->BGNET.ACP.SETUP.WA_STAT.value.nByte = 0;
             } else if (r < 360) {
-                pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte = 1;
-                pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong = r;
+                pCtrl->BGNET.ACP.SETUP.WA_STAT.value.nByte = 1;
+                pCtrl->BGNET.ACP.SETUP.WA_MIN.value.nLong = r;
             }
         }
     }
     // curl --data "{\"wa\":\"on\"}" http://localhost:8080/api/update
     if (oc) {
         if (strcmp(oc->valuestring, "on") == 0) {
-            pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte = 1;
+            pCtrl->BGNET.ACP.SETUP.OC_STAT.value.nByte = 1;
         } else if ((strcmp(oc->valuestring, "off") == 0)) {
-            pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte = 0;
+            pCtrl->BGNET.ACP.SETUP.OC_STAT.value.nByte = 0;
         } else {
             r = oc->valueint;
             if (r < 1) {
-                pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte = 0;
+                pCtrl->BGNET.ACP.SETUP.OC_STAT.value.nByte = 0;
             } else if (r < 99) {
-                pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte = 1;
-                pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong = r;
+                pCtrl->BGNET.ACP.SETUP.OC_STAT.value.nByte = 1;
+                pCtrl->BGNET.ACP.SETUP.OC_DEG.value.nLong = r;
             }
         }
     }
@@ -942,6 +942,37 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: MEM", "Course Memory [0-359 DegM]", pCtrl->BGNET.ACP.MEM.Counter.iCounter, t-pCtrl->BGNET.ACP.MEM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MEM.source), pCtrl->BGNET.ACP.MEM.value.nLong);
     strcat(Buffer, cLine);
 
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: BTYPE", "Boat Type (1=Sail, 2=Power/Plane, 3=Power/Displacement)", pCtrl->BGNET.ACP.COMMIS.BTYPE.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.BTYPE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.BTYPE.source), pCtrl->BGNET.ACP.COMMIS.BTYPE.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: RDP", "Rudder Drive Port, endstop", pCtrl->BGNET.ACP.COMMIS.RDP.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.RDP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.RDP.source), pCtrl->BGNET.ACP.COMMIS.RDP.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: RDS", "Rudder Drive Starboard, endstop", pCtrl->BGNET.ACP.COMMIS.RDS.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.RDS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.RDS.source), pCtrl->BGNET.ACP.COMMIS.RDS.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: RDM", "Rudder Drive Port, midpoint", pCtrl->BGNET.ACP.COMMIS.RDM.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.RDM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.RDM.source), pCtrl->BGNET.ACP.COMMIS.RDM.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: DTYPE", "Drive Type", pCtrl->BGNET.ACP.COMMIS.DTYPE.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.DTYPE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.DTYPE.source), pCtrl->BGNET.ACP.COMMIS.DTYPE.value.nByte);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: RDT", "Rudder Drive Time, haulover time [sec]", pCtrl->BGNET.ACP.COMMIS.RDT.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.RDT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.RDT.source), pCtrl->BGNET.ACP.COMMIS.RDT.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: BLN_M", "Boat Waterline Length [M]", pCtrl->BGNET.ACP.COMMIS.BLN_M.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.BLN_M.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.BLN_M.source), pCtrl->BGNET.ACP.COMMIS.BLN_M.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: BLN_FT", "Boat Waterline Length [FT]", pCtrl->BGNET.ACP.COMMIS.BLN_FT.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.BLN_FT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.BLN_FT.source), pCtrl->BGNET.ACP.COMMIS.BLN_FT.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: BLV", "Boat Lag Value", pCtrl->BGNET.ACP.COMMIS.BLV.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.BLV.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.BLV.source), pCtrl->BGNET.ACP.COMMIS.BLV.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: DIP", "Magnetic DIP Angle Correction", pCtrl->BGNET.ACP.COMMIS.DIP.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.DIP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.DIP.source), pCtrl->BGNET.ACP.COMMIS.DIP.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: SWING", "Compass Deviation Correctoin [0-359 DegM]", pCtrl->BGNET.ACP.COMMIS.SWING.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.SWING.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.SWING.source), pCtrl->BGNET.ACP.COMMIS.SWING.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: CMP", "Compass Alignment Correction [0-359 DegM]", pCtrl->BGNET.ACP.COMMIS.CMP.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.CMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.CMP.source), pCtrl->BGNET.ACP.COMMIS.CMP.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: RGN", "Rudder Gain [min]", pCtrl->BGNET.ACP.COMMIS.RGN.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.RGN.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.RGN.source), pCtrl->BGNET.ACP.COMMIS.RGN.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: SC", "Speed Calibration [Hz/KT]", pCtrl->BGNET.ACP.COMMIS.SC.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.SC.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.SC.source), pCtrl->BGNET.ACP.COMMIS.SC.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: POWER", "Power Steer Mode, backup for manual steering", pCtrl->BGNET.ACP.COMMIS.POWER.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.POWER.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.POWER.source), pCtrl->BGNET.ACP.COMMIS.POWER.value.nByte);
+    strcat(Buffer, cLine);
+
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "NETWORK", "Backlight [0=OFF, 3=HIGH, 2=MEDIUM, 1=LOW]", pCtrl->BGNET.NETWORK.BackLight.Counter.iCounter, t-pCtrl->BGNET.NETWORK.BackLight.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.NETWORK.BackLight.source), pCtrl->BGNET.NETWORK.BackLight.value.nByte);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "NETWORK", "Alarm Reset Counter", pCtrl->BGNET.NETWORK.AlarmReset.iCounter, t-pCtrl->BGNET.NETWORK.AlarmReset.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
@@ -962,29 +993,29 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/KEY/1>", "1> key pressed", pCtrl->BGNET.PILOT.KEY.S1.iCounter, t-pCtrl->BGNET.PILOT.KEY.S1.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/SPD", "Speed Select [0=TRAnsmitter, 1=MANual/FST, 2=SOG, 3=MANual/MED, 4=MANual/SLW]", pCtrl->BGNET.PILOT.SETUP.SPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.SPD.source), pCtrl->BGNET.PILOT.SETUP.SPD.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/SPD", "Speed Select [0=TRAnsmitter, 1=MANual/FST, 2=SOG, 3=MANual/MED, 4=MANual/SLW]", pCtrl->BGNET.ACP.SETUP.SPD.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.SPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.SPD.source), pCtrl->BGNET.ACP.SETUP.SPD.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/RESP", "Steering Response [0=Normal, 1=Economic, 2=Downwind]", pCtrl->BGNET.PILOT.SETUP.RESP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.RESP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.RESP.source), pCtrl->BGNET.PILOT.SETUP.RESP.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/RESP", "Steering Response [0=Normal, 1=Economic, 2=Downwind]", pCtrl->BGNET.ACP.SETUP.RESP.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.RESP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.RESP.source), pCtrl->BGNET.ACP.SETUP.RESP.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WIND", "Wind Select Type [0=Appearent, 1=True]", pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WIND_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WIND_SEL.source), pCtrl->BGNET.PILOT.SETUP.WIND_SEL.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WIND", "Wind Select Type [0=Appearent, 1=True]", pCtrl->BGNET.ACP.SETUP.WIND_SEL.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.WIND_SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.WIND_SEL.source), pCtrl->BGNET.ACP.SETUP.WIND_SEL.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm interval [1-360 Minutes]", pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_MIN.source), pCtrl->BGNET.PILOT.SETUP.WA_MIN.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm interval [1-360 Minutes]", pCtrl->BGNET.ACP.SETUP.WA_MIN.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.WA_MIN.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.WA_MIN.source), pCtrl->BGNET.ACP.SETUP.WA_MIN.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.WA_STAT.source), pCtrl->BGNET.PILOT.SETUP.WA_STAT.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/WA", "Watch Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.ACP.SETUP.WA_STAT.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.WA_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.WA_STAT.source), pCtrl->BGNET.ACP.SETUP.WA_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/WA", "Watch Alarm activity timer", pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.iCounter, t-pCtrl->BGNET.PILOT.ALARM.WA_ACTIVITY.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/ALARM/WA", "Watch Alarm activity timer", pCtrl->BGNET.ACP.ALARM.WA_ACTIVITY.iCounter, t-pCtrl->BGNET.ACP.ALARM.WA_ACTIVITY.tTimestamp, strSource(cSource, BGN_SOURCE_BLANK), "");
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm level [1-99 Deg]", pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_DEG.source), pCtrl->BGNET.PILOT.SETUP.OC_DEG.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm level [1-99 Deg]", pCtrl->BGNET.ACP.SETUP.OC_DEG.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.OC_DEG.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.OC_DEG.source), pCtrl->BGNET.ACP.SETUP.OC_DEG.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.OC_STAT.source), pCtrl->BGNET.PILOT.SETUP.OC_STAT.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/OC", "Off-Course Alarm status [0=OFF, 1=ON]", pCtrl->BGNET.ACP.SETUP.OC_STAT.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.OC_STAT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.OC_STAT.source), pCtrl->BGNET.ACP.SETUP.OC_STAT.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/OC", "Off-Course Error (Heading-CTS) [Deg]", pCtrl->BGNET.ACP.OCE.Counter.iCounter, t-pCtrl->BGNET.ACP.OCE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.OCE.source), pCtrl->BGNET.ACP.OCE.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/ALARM/OC", "Off-Course Delta (|Heading-CTS|) [Deg]", pCtrl->BGNET.ACP.ALARM.OC_DELTA.Counter.iCounter, t-pCtrl->BGNET.ACP.ALARM.OC_DELTA.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.ALARM.OC_DELTA.source), pCtrl->BGNET.ACP.ALARM.OC_DELTA.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/DMP", "Compass Damping [1-99 sec, 4=default]", pCtrl->BGNET.PILOT.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.DMP.source), pCtrl->BGNET.PILOT.SETUP.DMP.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/DMP", "Compass Damping [1-99 sec, 4=default]", pCtrl->BGNET.ACP.SETUP.DMP.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.DMP.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.DMP.source), pCtrl->BGNET.ACP.SETUP.DMP.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/JSM", "Joystick Steering Mode [0=NORMal, 1=PROPortional]", pCtrl->BGNET.PILOT.SETUP.JSM.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.JSM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.JSM.source), pCtrl->BGNET.PILOT.SETUP.JSM.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/JSM", "Joystick Steering Mode [0=NORMal, 1=PROPortional]", pCtrl->BGNET.ACP.SETUP.JSM.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.JSM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.JSM.source), pCtrl->BGNET.ACP.SETUP.JSM.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/FR", "Fault Reporting Disable [0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->BGNET.PILOT.SETUP.FR.Counter.iCounter, t-pCtrl->BGNET.PILOT.SETUP.FR.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SETUP.FR.source), pCtrl->BGNET.PILOT.SETUP.FR.value.nByte);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SETUP/FR", "Fault Reporting Disable [0=OFF/NOT Disabled, 1=ON/Disabled]", pCtrl->BGNET.ACP.SETUP.FR.Counter.iCounter, t-pCtrl->BGNET.ACP.SETUP.FR.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.SETUP.FR.source), pCtrl->BGNET.ACP.SETUP.FR.value.nByte);
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED/SETUP", "Manual Speed select [1=FST, 3=MED, 4=SLW]", pCtrl->BGNET.PILOT.SPEED.SEL.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.SEL.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.SEL.source), pCtrl->BGNET.PILOT.SPEED.SEL.value.nByte);

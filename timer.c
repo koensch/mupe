@@ -13,8 +13,9 @@ void *timer_thread(void *arg)
     time_t t;
 
     unsigned char RxBuf[BGNET_RXTXRAW_SIZE], TxBuf[BGNET_RXTXRAW_SIZE]; // local read buffer
-    size_t RxBufLen = 0, TxBufLen = 0;
+    size_t RxBufLen = 0, TxBufLen = 0, Counter;
 
+    Counter = 0;
     while (g_running) {
 
         // get time, update our system time 
@@ -77,8 +78,21 @@ void *timer_thread(void *arg)
             - The 'timer-thread' will trigger the 'frame decoder' to make sure it also runs where there is no incoming
               messages. When the IO bus has only 'passive' units, no data is send and the heartbeat has to come from us.
             */
-            bgnet_decode_frame(pCtrl, RxBuf, RxBufLen);
-            RxBufLen = 0; // dump contents of local readbuffer, assume all was processed
+           if (Counter < 1) {
+              // we throw out the first message; usually the first message we only have the last fragment
+              // and we get checksum error. So we skip the first message
+              Counter++;
+           } else {
+              switch (pCtrl->pCfg->fastnet.handler) {
+                  case BGNET_HANDLER_NETIO:
+                    bgnet_decode_frame(pCtrl, RxBuf, RxBufLen);
+                  break;
+               default:
+                  log_error("Timer: This should never happen");
+                  break;
+              }
+           }
+           RxBufLen = 0; // dump contents of local readbuffer, assume all was processed
         }
 
         // we do NOT do this every msec, but after some count-down was expired.

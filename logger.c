@@ -40,7 +40,7 @@ void log_init(const char *filename, const char *level)
     }
     log = g_n2kdata.cfg.log_level.value.nByte;
     g_n2kdata.cfg.log_level.value.nByte = LOGGER_LEVEL_INFO;
-    log_info("***** Logging started (level %d), output to %s", log, filename);
+    log_info("***** Logging started (level %d), output to %s, git reference: %s", log, filename, GIT_VER);
     g_n2kdata.cfg.log_level.value.nByte = log;
 }
 

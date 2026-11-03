@@ -6,8 +6,8 @@
     "databits": 8,
     "stopbits": 2,
     "parity": "odd",
-    "mode": "readwrite",
-    "protocol": "bgnet"
+    "mode": "readonly",
+    "protocol": "netio"
   },
   "ethernet": {
     "comment": "Ethernet interface SignalK",
@@ -16,6 +16,17 @@
     "remote_ip": "192.168.0.10",
     "remote_port": 12345,
     "local_port": 1957
+  },
+  "nmea0183": {
+    "comment": "Serial interface NMEA 0183 v1.5 (APA, APB, RMB, XTE, VTG, BWR, BWC) output to PILOT",
+    "port1": "/dev/ttyUSB1",
+    "nav1": "RMB, VTG",
+    "port2": "/dev/ttyUSB2",
+    "nav2": "XTE, BWC",
+    "baudrate": 4800,
+    "databits": 8,
+    "stopbits": 1,
+    "parity": "none"
   },
   "nmea2000": {
     "comment": "CAN bus interface NMEA 2000",
@@ -32,7 +43,7 @@
   },
   "logger": {
     "comment": "Logfile",
-    "file": "marine_gateway.log",
+    "file": "mupe.log",
     "level": "debug"
   }
 }

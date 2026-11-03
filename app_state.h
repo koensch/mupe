@@ -4,32 +4,35 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#define ApplicationName "Marine Gateway"
+#define ApplicationName "mupe"
 // the lower the usleep, the higher the CPU load. 1000 (1 msec) works Ok, 5000 (5 msec) also works OK,
-// but 10000 (10 msec) lo longer works. Use this to tune behaviour vs resources.
-// for the time being, i'll leave it to 1000 (1 msec) 
-#define MSEC1           2500 // usleep 2.5msec
+// but 10000 (10 msec) lo longer works. Use this to balance behaviour/performance vs resources.
+// for the time being, i'll leave it to 2500 (2.5 msec) 
+#define MSEC1           2500 // usleep 2.5 msec
 
 // generic defines
-//#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+// convert double to int/long (not roundoff, just cutoff the fractional part)
 #define DTOIROUND(d)                    ((int)(d))
+// convert int/long to double
 #define ITOD(i)                         ((double)i)
+// if we need PI
 #define BGNET_PI                        3.14159
+// get the lowest of 2 values
 #define BGNET_MIN(a, b) (((a) < (b)) ? (a) : (b))
+// get the highest of 2 values
 #define BGNET_MAX(a, b) (((a) > (b)) ? (a) : (b))
+// get the high-byte from a int/long
 #define BGNET_HIBYTE(w) (((uint16_t)(w) >> 8) & 0xFF)
+// get the low-byte from a int/long
 #define BGNET_LOBYTE(w) ((uint8_t)((w) & 0xFF))
+// combine 2 bytes (high- and low byte) to a 16 bits register
 #define BGNET_BYTES2WORD(a, b) ((uint8_t)(a)*0xFF+(uint8_t)(b))
-//#define BGNET_REMAINDER(a, b) ((a) % (b))
 // WRAP and increment around a range. a= value, b= increment, c= range 
 #define BGNET_INCREMENTWRAP(a, b, c, d) ( (a) + (b) + ((d)-(c)) ) % ( (d)-(c) )
+// whereever we need a time-formatted string
 #define BGNET_TIME_FMT                 "%Y-%m-%d %H:%M:%S" 
 
-
-
-// an incoming stream is captured every 1 msec. This buffer in only to
-// hold what 11008 baud can produce (= ca 1100 bytes/sec). 256 bytes should be OK
-#define BGNET_RXTXRAW_SIZE            1024    // max size readbuffer 
+#define BGNET_RXTXRAW_SIZE              1024    // max size read/write buffer (ethernet, fastnet) to hold the complete frames
 
 // ASCII characters
 #define BGNET_ASC_NULL                  0x00

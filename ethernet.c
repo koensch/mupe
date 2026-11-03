@@ -82,7 +82,7 @@ static char *build_signalk_delta(
     cJSON_AddItemToArray(updates, upd);
 
     cJSON *source = cJSON_CreateObject();
-    cJSON_AddStringToObject(source, "label", "marine-gateway");
+    cJSON_AddStringToObject(source, "label", ApplicationName);
     cJSON_AddItemToObject(upd, "source", source);
 
     cJSON *values = cJSON_AddArrayToObject(upd, "values");

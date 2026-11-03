@@ -5,6 +5,10 @@
 
 #include <stdint.h>
 
+#define BGNET_HANDLER_UNDEF         0
+#define BGNET_HANDLER_NETIO         1
+#define BGNET_HANDLER_TYPE_NETIO    "netio"
+
 typedef struct {
     struct {
         char  port[128];
@@ -14,6 +18,7 @@ typedef struct {
         char  parity[16];
         char  mode[16];
         char  protocol[16];
+        int   handler;
     } fastnet;
 
     struct {
@@ -23,6 +28,33 @@ typedef struct {
         int   remote_port;
         int   local_port;
     } ethernet;
+
+    // In our test setup, only PILOT has NMEA input capabilities. It accepts a limited set of sentences
+    // We use a bitpattern to select for 1 or both ports. Leave the 'nav' field empty to disable the port
+    #define BGNET_NMEA0183_OFF          0x00
+    #define BGNET_NMEA0183_APA          0x01
+    #define BGNET_NMEA0183_APB          0x02
+    #define BGNET_NMEA0183_RMB          0x04
+    #define BGNET_NMEA0183_XTE          0x08
+    #define BGNET_NMEA0183_VTG          0x10
+    #define BGNET_NMEA0183_BWR          0x20
+    #define BGNET_NMEA0183_BWC          0x40
+    struct {
+        int   baudrate;
+        int   databits;
+        int   stopbits;
+        char  parity[16];
+        struct {
+            char  port[128];
+            char  nav[16];
+            int   enable;
+        } port1;
+        struct {
+            char  port[128];
+            char  nav[16];
+            int   enable;
+        } port2;
+    } nmea0183;
 
     struct {
         char  can_interface[16]; // don't make this bigger; you might get compiler warnings, 16 bytes should be big enough.

@@ -46,6 +46,10 @@ int load_config(const char *filename, Config *cfg)
     cJSON *webserver = cJSON_GetObjectItem(root, "webserver");
     cJSON *logger    = cJSON_GetObjectItem(root, "logger");
 
+    // I know that netio is not fastnet, but fastnet was developed out netio. Fastnet shares lots of channels, different
+    // communication parameters (totally incompatible bus), but it seems that the same approach we use for netio could
+    // also be used for fastnet based productlines (Hydra, Hercules, H1000, H2000 and H3000)
+    // With other communications parameters and a other protocol handler, that would be possible.
     if (fastnet) {
         snprintf(cfg->fastnet.port, sizeof(cfg->fastnet.port), "%s", cJSON_GetObjectItem(fastnet, "port")->valuestring);
         cfg->fastnet.baudrate = cJSON_GetObjectItem(fastnet, "baudrate")->valueint;
