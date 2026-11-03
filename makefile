@@ -1,10 +1,14 @@
 # 2026-09-20 KS renamed serial.* fastnet.*
+#      10-21 KS added GIT_VERSION stuff
+#      11-01 KS renamed application binary 
+#
 CC      = gcc
+GIT_VERSION = \"$(shell git describe --abbrev=4 --dirty --always --tags)\"
+
 #CFLAGS  = -Wall -Wextra -std=c11 -pthread
-CFLAGS  = -Wall -Wextra -std=gnu99 -pthread 
+CFLAGS  = -Wall -Wextra -std=gnu99 -pthread -D GIT_VER=$(GIT_VERSION)
 #LDFLAGS = -pthread -lcjson
 LDFLAGS = -pthread -lcjson -lcrypto
-GIT_VERSION := "$(shell git describe --abbrev=4 --dirty --always --tags)"
 
 SRC = main.c \
       config.c \
@@ -29,10 +33,10 @@ H = config.h \
 
 OBJ = $(SRC:.c=.o)
 
-all: app
+all: mupe
 
-app: $(OBJ) $(H)
-	$(CC) $(CFLAGS) -DGIT_VER=\"$(GIT_VERSION)\" -o app $(OBJ) $(LDFLAGS)
+mupe: $(OBJ) $(H)
+	$(CC) $(CFLAGS) -o mupe $(OBJ) $(LDFLAGS)
 
 clean:
 	rm -f $(OBJ) app
