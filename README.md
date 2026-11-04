@@ -5,8 +5,10 @@ This is history or nautical archeology. Stuff from 1985-2005. Nobody has this st
 
 This is not my invention, just a gathering of public information packed in a nice executable, verified against some dusted-off pieces of boating instruments that was scraped from ebay and the like for only a few bucks. I don't have the cash to buy the newer stuff to evaluate. So i just leave ith with the NETWORK series equipment.
 
-Work in progress, still finding particularities every day. Do not expect a full-working application. This is not a full-time project. I spend about 4-8 hours per week and progress is slow but steady.
+Work in progress, still finding particularities every day. Do not expect a full-working application yet. This is not a full-time project. I spend about 4-8 hours per week and progress is slow but steady.
 
 My ultimate goal is to allow the PILOT unit to work with PyPilot.
 
-This is what you get if an instrumentation and software specialist with a sailing hobby is retired. 
+This is what you get if an instrumentation and software specialist with a sailing hobby is retired.
+
+If you are interested, you are free to access the source code.
