@@ -19,6 +19,15 @@ int  g_fastnet_data_lenTx = 0;
 int  g_fastnet_data_counter = SerialCounter_Reset;
 int  g_fastnet_mode = BGN_FASTNET_MODE_RO; // set default
 
+unsigned char g_last_nmea0183_dataRx1[BGNET_RXTXRAW_SIZE];
+unsigned char g_last_nmea0183_dataTx1[BGNET_RXTXRAW_SIZE];
+int  g_nmea0183_data_lenRx1 = 0;
+int  g_nmea0183_data_lenTx1 = 0;
+unsigned char g_last_nmea0183_dataRx2[BGNET_RXTXRAW_SIZE];
+unsigned char g_last_nmea0183_dataTx2[BGNET_RXTXRAW_SIZE];
+int  g_nmea0183_data_lenRx2 = 0;
+int  g_nmea0183_data_lenTx2 = 0;
+
 char g_last_ethernet_data[BGNET_RXTXRAW_SIZE];
 char g_last_signalk_delta[BGNET_RXTXRAW_SIZE];
 
@@ -31,12 +40,20 @@ void app_state_init(void)
 
     pthread_mutex_init(&g_data_mutex, NULL);
     memset(g_last_fastnet_dataRx, 0, sizeof(g_last_fastnet_dataRx));
-    memset(g_last_fastnet_dataTx, 0, sizeof(g_last_fastnet_dataRx));
+    memset(g_last_fastnet_dataTx, 0, sizeof(g_last_fastnet_dataTx));
     memset(g_last_ethernet_data, 0, sizeof(g_last_ethernet_data));
     memset(g_last_signalk_delta, 0, sizeof(g_last_signalk_delta));
     g_fastnet_data_lenRx = 0;
     g_fastnet_data_lenTx = 0;
     g_fastnet_data_counter = SerialCounter_Reset;
+    memset(g_last_nmea0183_dataRx1, 0, sizeof(g_last_nmea0183_dataRx1));
+    memset(g_last_nmea0183_dataTx1, 0, sizeof(g_last_nmea0183_dataTx1));
+    g_nmea0183_data_lenRx1 = 0;
+    g_nmea0183_data_lenTx1 = 0;
+    memset(g_last_nmea0183_dataRx2, 0, sizeof(g_last_nmea0183_dataRx2));
+    memset(g_last_nmea0183_dataTx2, 0, sizeof(g_last_nmea0183_dataTx2));
+    g_nmea0183_data_lenRx2 = 0;
+    g_nmea0183_data_lenTx2 = 0;
 
     // erase datablock
     memset(&g_n2kdata, 0, sizeof(g_n2kdata));

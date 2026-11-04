@@ -13,6 +13,7 @@
 #include "ethernet.h"
 #include "timer.h"
 #include "webserver.h"
+#include "nmea0183.h"
 #include "nmea2000.h"
 
 // signal handling to make a soft landing
@@ -616,7 +617,8 @@ BGNET_FMTDT FMTDT[16] = {       {BGN_FMT_00, 2, "0 data bytes, odd one (found on
 #define BGN_ENABLE_ETHERNET
 #define BGN_ENABLE_TIMER
 #define BGN_ENABLE_WEB
-#define BGN_ENABLE_NMEA2K
+#define BGN_ENABLE_NMEA0183
+#define BGN_ENABLE_NMEA2000
 
 int main(void)
 {
@@ -661,7 +663,7 @@ int main(void)
 
     // activate all out threads
     // we allow the threads to be excluded for diagnostic purposes
-    pthread_t th_serial, th_ethernet, th_timer, th_web, th_nmea2k;
+    pthread_t th_serial, th_ethernet, th_timer, th_web, th_nmea0183, th_nmea2000;
     if (
            (
 #ifdef BGN_ENABLE_SERIAL
@@ -676,8 +678,11 @@ int main(void)
 #ifdef BGN_ENABLE_WEB
             pthread_create(&th_web,    NULL, webserver_thread, pBGNET_ctrl) != 0 ||
 #endif
-#ifdef BGN_ENABLE_NMEA2K
-            pthread_create(&th_nmea2k,    NULL, nmea2000_thread, pBGNET_ctrl) != 0 ||
+#ifdef BGN_ENABLE_NMEA0183
+            pthread_create(&th_nmea0183, NULL, nmea0183_thread, pBGNET_ctrl) != 0 ||
+#endif
+#ifdef BGN_ENABLE_NMEA2000
+            pthread_create(&th_nmea2000,    NULL, nmea2000_thread, pBGNET_ctrl) != 0 ||
 #endif
             (0 != 0))
             ) {
@@ -708,8 +713,11 @@ int main(void)
 #ifdef BGN_ENABLE_WEB
     pthread_join(th_web, NULL);
 #endif
-#ifdef BGN_ENABLE_NMEA2K
-    pthread_join(th_nmea2k, NULL);
+#ifdef BGN_ENABLE_NMEA0183
+    pthread_join(th_nmea0183, NULL);
+#endif
+#ifdef BGN_ENABLE_NMEA2000
+    pthread_join(th_nmea2000, NULL);
 #endif
 
     // print close-out report. I used this before i got the webserver running, but i have no longer a need for this. Leave it in for the time being

@@ -41,6 +41,7 @@ int load_config(const char *filename, Config *cfg)
 
     cJSON *fastnet   = cJSON_GetObjectItem(root, "fastnet");
     cJSON *ethernet  = cJSON_GetObjectItem(root, "ethernet");
+    cJSON *nmea0183  = cJSON_GetObjectItem(root, "nmea0183");
     cJSON *nmea2000  = cJSON_GetObjectItem(root, "nmea2000");
     cJSON *timer     = cJSON_GetObjectItem(root, "timer");
     cJSON *webserver = cJSON_GetObjectItem(root, "webserver");
@@ -66,6 +67,19 @@ int load_config(const char *filename, Config *cfg)
         snprintf(cfg->ethernet.remote_ip, sizeof(cfg->ethernet.remote_ip), "%s", cJSON_GetObjectItem(ethernet, "remote_ip")->valuestring);
         cfg->ethernet.remote_port = cJSON_GetObjectItem(ethernet, "remote_port")->valueint;
         cfg->ethernet.local_port  = cJSON_GetObjectItem(ethernet, "local_port")->valueint;
+    }
+
+    if (nmea0183) {
+        snprintf(cfg->nmea0183.port1.port, sizeof(cfg->nmea0183.port1.port), "%s", cJSON_GetObjectItem(nmea0183, "port1")->valuestring);
+        snprintf(cfg->nmea0183.port1.nav, sizeof(cfg->nmea0183.port1.nav), "%s", cJSON_GetObjectItem(nmea0183, "nav1")->valuestring);
+        snprintf(cfg->nmea0183.port2.port, sizeof(cfg->nmea0183.port2.port), "%s", cJSON_GetObjectItem(nmea0183, "port2")->valuestring);
+        snprintf(cfg->nmea0183.port2.nav, sizeof(cfg->nmea0183.port2.nav), "%s", cJSON_GetObjectItem(nmea0183, "nav2")->valuestring);
+        cfg->nmea0183.baudrate = cJSON_GetObjectItem(nmea0183, "baudrate")->valueint;
+        cfg->nmea0183.databits  = cJSON_GetObjectItem(nmea0183, "databits")->valueint;
+        cfg->nmea0183.stopbits  = cJSON_GetObjectItem(nmea0183, "stopbits")->valueint;
+        snprintf(cfg->nmea0183.parity, sizeof(cfg->nmea0183.parity), "%s", cJSON_GetObjectItem(nmea0183, "parity")->valuestring);
+        cfg->nmea0183.port1.enable  = BGNET_NMEA0183_OFF;
+        cfg->nmea0183.port2.enable  = BGNET_NMEA0183_OFF;
     }
 
     if (nmea2000) {

@@ -15,6 +15,7 @@ SRC = main.c \
       logger.c \
       app_state.c \
       fastnet.c \
+      nmea0183.c \
       bgnet.c \
       ethernet.c \
       timer.c \
@@ -25,6 +26,7 @@ H = config.h \
 	logger.h \
 	app_state.h \
 	fastnet.h \
+	nmea0183.h \
 	bgnet.h \
 	ethernet.h \
 	timer.h \

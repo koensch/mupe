@@ -27,7 +27,7 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
     r = ioctl(fd, TCGETS2, &tty);
     if (r == 0) {
     } else {
-        log_error("Serial settings: ioctl error %d", r);
+        log_error("Fastnet serial settings: ioctl error %d", r);
         return -1;
     }
 
@@ -74,9 +74,9 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
 
     r = ioctl(fd, TCSETS2, &tty);
     if (r == 0) {
-        log_info("Serial settings: %d baud, %d databits, %d stopbits, %s parity, %s mode", speed, databits, stopbits, parity, mode);
+        log_info("Fastnet serial settings: %d baud, %d databits, %d stopbits, %s parity, %s mode", speed, databits, stopbits, parity, mode);
     } else {
-        log_error("Serial settings: ioctl error %d", r);
+        log_error("Fastnet serial settings: ioctl error %d", r);
         return -1;
     }
 
@@ -87,16 +87,16 @@ void *fastnet_thread(void *arg)
 {
     BGNET_CTRL *pCtrl= (BGNET_CTRL *)arg;
 
-    log_info("Serial opening %s", pCtrl->pCfg->fastnet.port);
+    log_info("Fastnet opening %s", pCtrl->pCfg->fastnet.port);
 
     int fd = open(pCtrl->pCfg->fastnet.port, O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd < 0) {
-        log_error("Serial: open(): %s", strerror(errno));
+        log_error("Fastnet serial: open(): %s", strerror(errno));
         return NULL;
     }
 
     if (set_interface_attribs(fd, pCtrl->pCfg->fastnet.baudrate, pCtrl->pCfg->fastnet.databits,pCtrl->pCfg->fastnet.stopbits, pCtrl->pCfg->fastnet.parity, pCtrl->pCfg->fastnet.mode) != 0) {
-        log_error("Serial: set_interface_attribs(): %s", strerror(errno));
+        log_error("Fastnet serial: set_interface_attribs(): %s", strerror(errno));
         close(fd);
         return NULL;
     }
@@ -111,7 +111,7 @@ void *fastnet_thread(void *arg)
         case BGNET_HANDLER_NETIO:
             break;
         default:
-            log_error("Serial: protocol '%s' is not supported. Implemented protocol(s): 'netio'", pCtrl->pCfg->fastnet.protocol);
+            log_error("Fastnet serial: protocol '%s' is not supported. Implemented protocol(s): 'netio'", pCtrl->pCfg->fastnet.protocol);
             close(fd);
             g_running = 0;
             return NULL;
@@ -176,7 +176,7 @@ void *fastnet_thread(void *arg)
             // 11000 baud, 12bits/character (8 data, 1 start, 1 parity, 2 stop) => ~1000 bytes per second => 1 byte/msec (with 1024
             // bytes we are totalloy safe and the overflow should never occur)
             if (nRx > (ssize_t)(sizeof(RxBuf) - 1)) {
-                log_debug("Serial read: possible overflow of receive buffer");
+                log_debug("Fastnet serial read: possible overflow of receive buffer");
             } else {
                 // if any input received; append to buffer; contents is processed by routine kick-off by timer process
                 pthread_mutex_lock(&g_data_mutex);
@@ -188,7 +188,7 @@ void *fastnet_thread(void *arg)
         } else if (nRx < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 continue;
-            log_error("serial read: %s", strerror(errno));
+            log_error("Fastnet serial read: %s", strerror(errno));
             break;
         } else {
             // If there is no input (n=0) and the counter is below the mark (ie. there was some silence), we may send someting.
@@ -214,10 +214,10 @@ void *fastnet_thread(void *arg)
                     nWx = write(fd, TxBuf, nTx);
                     if (nWx == nTx) {
                         // nothing wrong here, everything was written
-                        //log_info("serial write: %d bytes output", nTx);
+                        //log_info("Fastnet serial write: %d bytes output", nTx);
                     } else {
                         // for some obscure reason we we unable to write all data
-                        log_error("serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), nTx, nWx);
+                        log_error("Fastnet serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), nTx, nWx);
                     }
                 }
             }
@@ -225,6 +225,6 @@ void *fastnet_thread(void *arg)
         usleep(MSEC1);
     }
     close(fd);
-    log_info("Serial: thread exiting");
+    log_info("Fastnet Serial: thread exiting");
     return NULL;
 }

@@ -8,7 +8,8 @@
 // the lower the usleep, the higher the CPU load. 1000 (1 msec) works Ok, 5000 (5 msec) also works OK,
 // but 10000 (10 msec) lo longer works. Use this to balance behaviour/performance vs resources.
 // for the time being, i'll leave it to 2500 (2.5 msec) 
-#define MSEC1           2500 // usleep 2.5 msec
+#define MSEC1           3000    // usleep 3 msec
+#define MSEC2500        250000  // usleep 2500 msec
 
 // generic defines
 // convert double to int/long (not roundoff, just cutoff the fractional part)
@@ -77,18 +78,27 @@ extern unsigned char g_last_fastnet_dataRx[BGNET_RXTXRAW_SIZE];
 extern unsigned char g_last_fastnet_dataTx[BGNET_RXTXRAW_SIZE];
 extern char g_last_ethernet_data[BGNET_RXTXRAW_SIZE];
 extern char g_last_signalk_delta[BGNET_RXTXRAW_SIZE];
+extern unsigned char g_last_nmea0183_dataRx1[BGNET_RXTXRAW_SIZE];
+extern unsigned char g_last_nmea0183_dataTx1[BGNET_RXTXRAW_SIZE];
+extern unsigned char g_last_nmea0183_dataRx2[BGNET_RXTXRAW_SIZE];
+extern unsigned char g_last_nmea0183_dataTx2[BGNET_RXTXRAW_SIZE];
 
 /* Serial Protocol timing */
 #define SerialCounter_Reset     0
 #define SerialCounter_Set       10
 #define SerialCounter_Bottom    -999
-extern int  g_fastnet_data_lenRx;      // number of bytes in serial buffer
-extern int  g_fastnet_data_lenTx;      // number of bytes in serial buffer
+extern int  g_fastnet_data_lenRx;      // number of bytes in serial buffer fastnet
+extern int  g_fastnet_data_lenTx;      // number of bytes in serial buffer fastnet
 extern int  g_fastnet_data_counter;    // receive counter
 #define BGN_FASTNET_MODE_RO      0
 #define BGN_FASTNET_MODE_RW      1
 #define BGN_FASTNET_MODE_PASSIVE 2
 extern int  g_fastnet_mode;
+
+extern int  g_nmea0183_data_lenRx1;      // number of bytes in serial buffer nmea0183
+extern int  g_nmea0183_data_lenTx1;      // number of bytes in serial buffer nmea0183
+extern int  g_nmea0183_data_lenRx2;      // number of bytes in serial buffer nmea0183
+extern int  g_nmea0183_data_lenTx2;      // number of bytes in serial buffer nmea0183
 
 // NMEA2K value definition. We keep a timestamp for every individual value as we can not predict
 // that all parameters come from a sensor at the same time, from the same sensor, or how the sensor

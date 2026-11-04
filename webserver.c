@@ -794,9 +794,11 @@ static char* html_interface_top(char *Buffer) {
 }
 static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
-    const char *cInfRow =
+    const char *cInfRowFastnet =
         "<tr><td>%s</td><td>RS232 (inverted Rx/Tx)</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>\r\n";
-    snprintf(cLine, sizeof(cLine), cInfRow,
+    const char *cInfRowNMEA =
+        "<tr><td>%s</td><td>RS232</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>NMEA0183 (V1.5)</td><td></td><td>0x%02X</td><td></td></tr>\r\n";
+    snprintf(cLine, sizeof(cLine), cInfRowFastnet,
                                             pCtrl->pCfg->fastnet.port,
                                             pCtrl->pCfg->fastnet.baudrate,
                                             pCtrl->pCfg->fastnet.parity,
@@ -809,6 +811,35 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_TYPE_NETACP)].sProdName
                                         );
     strcpy(Buffer, cLine);
+    if (pCtrl->pCfg->nmea0183.port1.enable == BGNET_NMEA0183_OFF) {
+    } else {
+        snprintf(cLine, sizeof(cLine), cInfRowNMEA,
+                                            pCtrl->pCfg->nmea0183.port1.port,
+                                            pCtrl->pCfg->nmea0183.baudrate,
+                                            pCtrl->pCfg->nmea0183.parity,
+                                            pCtrl->pCfg->nmea0183.databits,
+                                            pCtrl->pCfg->nmea0183.stopbits,
+                                            pCtrl->pCfg->nmea0183.port1.nav,
+                                            pCtrl->pCfg->nmea0183.port1.enable
+                                        );
+
+        strcat(Buffer, cLine);
+    }
+    if (pCtrl->pCfg->nmea0183.port2.enable == BGNET_NMEA0183_OFF) {
+    } else {
+        snprintf(cLine, sizeof(cLine), cInfRowNMEA,
+                                            pCtrl->pCfg->nmea0183.port2.port,
+                                            pCtrl->pCfg->nmea0183.baudrate,
+                                            pCtrl->pCfg->nmea0183.parity,
+                                            pCtrl->pCfg->nmea0183.databits,
+                                            pCtrl->pCfg->nmea0183.stopbits,
+                                            pCtrl->pCfg->nmea0183.port2.nav,
+                                            pCtrl->pCfg->nmea0183.port2.enable
+                                        );
+
+        strcat(Buffer, cLine);
+    }
+    
     return(Buffer);
 }
 static char* html_interface_end(char *Buffer) {
