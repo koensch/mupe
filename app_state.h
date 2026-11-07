@@ -13,9 +13,9 @@
 
 // generic defines
 // convert double to int/long (not roundoff, just cutoff the fractional part)
-#define DTOIROUND(d)                    ((int)(d))
+#define BGNET_DTOIROUND(d)              ((int)(d))
 // convert int/long to double
-#define ITOD(i)                         ((double)i)
+#define BGNET_ITOD(i)                   ((double)i)
 // if we need PI
 #define BGNET_PI                        3.14159
 // get the lowest of 2 values

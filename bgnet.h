@@ -93,7 +93,7 @@
 //   advantage is that you do not have to worry aboud cross-over between Tx and Rx. It does not matter if
 //   you have a DTE or DCE adapter (male or female).
 // - Command 01 = used to communicated DATA (values from instruments). Data is send as "Channel". The length of the channel (number of bytes)
-//   depends on the DataType. The same channel could me send as different DataTypes. If that DataType has another length, sometimes the channels
+//   depends on the Da1taType. The same channel could me send as different DataTypes. If that DataType has another length, sometimes the channels
 //   may have different length in one case or another.
 // - Command 02 = is used by some (QUAD, WIND) to advertise their values (with their used memnonic/units)
 // - Command 03 = used to communicate DATA (lat/lon in ASCII, by NAV module), could not be tested
@@ -170,11 +170,12 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 // FROM/TO address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA is 0xD6, another time it's 0x60.
 // The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51. As long as you have 1 of each it's simple. I do not have multiple
 // units of the same type, so i was never able to reverse-engineer the address negotiations.
+#define BGNET_ACP_ID                    0xBA9E // the code send with the POWERUP message
+
 #define BGNET_TYPE_MASK                 0xF0 // mask the node type from the address
-#define BGNET_TYPE_NETACP               0x12 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
-#define BGNET_ACP_ID    0xBA9E
-//#define BGNET_ACP_ID    0x0000
+#define BGNET_TYPE_UNDEFINED            0x00 // undefined
 #define BGNET_TYPE_NETDEPTH             0x10 //?
+#define BGNET_TYPE_NETACP               0x12 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
 #define BGNET_TYPE_COMPASS              0x20 // used by COMPASS? (unconfirmed)
 #define BGNET_TYPE_NETQUAD              0x30 // confirmed
 #define BGNET_TYPE_NETSPEED             0x40 //?
@@ -184,6 +185,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_TYPE_NAV                  0xB0 // used by NAV/GPS? (unconfirmed)
 #define BGNET_TYPE_TACK                 0xD0 // used by TACK? (unconfirmed)
 #define BGNET_TYPE_ALL                  0xFF // used for broadcast (to ALL)
+#define BGNET_TYPE_MUPE                 0x1F // used by mupe application
 
 #define BGNET_COMMAND_MAX               0x0100 // 0x00-0xFF, both included
 #define BGNET_COMMAND_INIT              0x00
@@ -331,7 +333,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 //#define BGNET_CHN_47_LONLAT           0x47 //send in ASCII via CMD03
 //#define BGNET_CHN_48_LONLAT           0x48 //send in ASCII via CMD03
 #define BGNET_CHN_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
-#define BGNET_CHN_4A_DEPTHM           0x4A // referenced by DATA via a LABEL/0x02 command, appears to be "DEPTH M", but seems incorrect
+#define BGNET_CHN_4A_COMPASS          0x4A // compass raw value 0x0000-0xFFFF, schaled 0-360 Deg
 #define BGNET_CHN_4D_AWS              0x4D // Appearent Wind Speed KT
 #define BGNET_CHN_4E_AWSRAW           0x4E // signal from the paddlewheel, prior correction or calibration 
 //#define BGNET_CHN_4F_AWINDSPEEDMS     0x4F
@@ -385,9 +387,9 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
                                            // When there are 2 NAV's, PILOT displays the nav data from the NMEA as NAV1, and the received (via the NETWORK) as NAV2. It appears
                                            // as if it disinghuis the NAV channels by it's FROM network address, but i am not sure.
                                            // If you have 1 PILOT with NMEA connection, that PILOT send that nav data via DATA/0x01 commands, but it does not react on (injected)
-                                           // DATA/0x01 commands. When PILOT sees 2 NAV connections. (via the nETWORK) but no longer transmits it  data after 60 second after the last NMEA message, the channel is no longer transmitted
+                                           // DATA/0x01 commands. When PILOT sees 2 NAV connections. (via the NETWORK) but no longer transmits it  data after 60 second after the last NMEA message, the channel is no longer transmitted
                                            // it seems this is some kind of 'nmea communication active' signal.
-                                           // it is observed with APB, RMB, XTE messages, possibly others too, but not fDATA/0x01 or VTG
+                                           // it is observed with APB, RMB, XTE messages, possibly others too, but not DATA/0x01 or VTG
 //#define BGNET_CHN_9A_HEADINGNEXTTACK  0x9A
 //#define BGNET_CHN_9B_FOREAFTTRIM      0x9B
 //#define BGNET_CHN_9C_MASTANGLE        0x9C
@@ -395,7 +397,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 //#define BGNET_CHN_9E_PITCHRATE        0x9E
 #define BGNET_CHN_A2_UNKNOWN          0xA2
 #define BGNET_CHN_A4_BOOMPOS          0xA4
-#define BGNET_CHN_A6_AP_TARGET        0xA6 // Target in AUTO (COMP/NAV= CTS, VANE= Headeing)
+#define BGNET_CHN_A6_AP_TARGET        0xA6 // Target in AUTO (COMP/NAV= CTS, VANE= Heading)
 #define BGNET_CHN_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
 #define BGNET_CHN_AF_AP_OC_ALARM      0xAF
 #define BGNET_CHN_B3_COMPASSCAL       0xB3
@@ -563,7 +565,7 @@ typedef struct {
 // 16 NETWORK devices exist
 // add 1 for index 0 = unidentified
 // add 1 because DATA sometimes is 0x60, sometimes 0xD4
-#define BGNET_TYPE_MAX            (16+1+1)
+#define BGNET_TYPE_MAX            (16+1+1+1)
 // Device Definition Table
 typedef struct {
     char sProdName[BGNET_CMD_LABEL_MAX];
@@ -754,7 +756,8 @@ typedef struct {
         NMEA2K_VALUE TARGET_AWA;    // Target AWA (Setpoint for AutoPilot in VANE mode)
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot in COMP/NAV mode)
         NMEA2K_VALUE CRS;           // Course Preset (Setpoint for AutoPilot)
-        NMEA2K_VALUE MEM;           // Course Memory (previous CTS)
+        NMEA2K_VALUE MEM_CRSE1;     // Course Memory#1 (previous CTS)
+        NMEA2K_VALUE MEM_CRSE2;     // Course Memory#2
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
         NMEA2K_VALUE SHA_ALARM;
         NMEA2K_VALUE DEEP_ALARM;    // WIND Selection Type (0=T, 1 =A)

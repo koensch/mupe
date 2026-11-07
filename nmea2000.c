@@ -147,7 +147,7 @@ static void parse_pgn_127245(BGNET_CTRL *pCtrl, const struct can_frame *f)
         case BGN_SOURCE_NONE:
         case BGN_SOURCE_ACP:
         case BGN_SOURCE_NMEA:
-            pCtrl->BGNET.ACP.Rudder.value.nLong = DTOIROUND(rudder_rad * 180/M_PI);
+            pCtrl->BGNET.ACP.Rudder.value.nLong = BGNET_DTOIROUND(rudder_rad * 180/M_PI);
             pCtrl->BGNET.ACP.Rudder.source = BGN_SOURCE_NMEA;
             CounterUp(&pCtrl->BGNET.ACP.Rudder.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
             break;
@@ -195,13 +195,13 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(heading * 180/M_PI);
+                pCtrl->BGNET.ACP.Heading.value.nLong = BGNET_DTOIROUND(heading * 180/M_PI);
                 pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_NMEA;
                 CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 break;
         }
     }
-    log_debug("N2K 127250: Heading= %d, Deviation= %d, Variation= %d", DTOIROUND(heading * 180/M_PI), DTOIROUND(deviation * 180/M_PI), DTOIROUND(variation * 180/M_PI));
+    log_debug("N2K 127250: Heading= %d, Deviation= %d, Variation= %d", BGNET_DTOIROUND(heading * 180/M_PI), BGNET_DTOIROUND(deviation * 180/M_PI), BGNET_DTOIROUND(variation * 180/M_PI));
 }
 
 /* 128259 – Speed, Water Referenced (STW, Speed Through Water)

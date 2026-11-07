@@ -32,23 +32,24 @@ void handle_sigint(int sig) {
 BGNET_DEVDT DEVDT[BGNET_TYPE_MAX] = { \
 // ProdName     Model       ModelNr       SerialNr       Version Enable DeviceType
 {"??????",      "??????",   "??????",     "??????",      "????", 0,     0xFF},\
-{"NET ACP",     "NET-ACP",  "360-00-002", "NP1CB15613",  "0000", 0,     BGNET_TYPE_NETACP},\
+{"NET ACP",     "NET-ACP",  "360-00-002", "NP1CB15613",  "0000", 1,     BGNET_TYPE_MUPE},\
+{"NET ACP",     "NET-ACP",  "360-00-002", "NP1CB15613",  "0000", 1,     BGNET_TYPE_NETACP},\
 {"NET DEPTH",   "NET-DPDU", "610-00-021", "NDEP9410109", "0000", 0,     BGNET_TYPE_NETDEPTH},\
 {"NET SPEED",   "NET-SPDU", "610-00-020", "NSPDG485015", "0000", 0,     BGNET_TYPE_NETSPEED},\
 {"NET WIND",    "NET-WDDU", "611-00-007", "NWINB06505",  "0000", 1,     BGNET_TYPE_NETWIND},\
-{"NET GPSplus", "NET-GPDU", "615-00-021", "",            "0000", 0,     BGNET_TYPE_NETACP},\
-{"NET LORAN",   "NET-LORAN","",           "",            "0000", 0,     BGNET_TYPE_NETACP},\
-{"NET CHART",   "NET-CHART","",           "CHT350327",   "0000", 0,     BGNET_TYPE_NETACP},\
-{"NET COMPASS", "NET-CPDU", "545-00-031", "",            "0000", 0,     BGNET_TYPE_NETACP},\
-{"NET TACK",    "NET-TADU", "610-00-086", "",            "0000", 0,     BGNET_TYPE_NETACP},\
+{"NET GPSplus", "NET-GPDU", "615-00-021", "",            "0000", 0,     BGNET_TYPE_UNDEFINED},\
+{"NET LORAN",   "NET-LORAN","",           "",            "0000", 0,     BGNET_TYPE_UNDEFINED},\
+{"NET CHART",   "NET-CHART","",           "CHT350327",   "0000", 0,     BGNET_TYPE_UNDEFINED},\
+{"NET COMPASS", "NET-CPDU", "545-00-031", "",            "0000", 0,     BGNET_TYPE_UNDEFINED},\
+{"NET TACK",    "NET-TADU", "610-00-086", "",            "0000", 0,     BGNET_TYPE_UNDEFINED},\
 {"NET PILOT",   "NET-PLDU", "610-00-010", "NPLDB06217",  "0000", 1,     BGNET_TYPE_NETPILOT},\
 {"NET QUAD",    "NET-QDDU", "610-00-023", "NQDUB08432",  "0000", 1,     BGNET_TYPE_NETQUAD},\
 {"NET DATA",    "NET-DTDU", "610-00-024", "NDAT9417101", "0000", 1,     BGNET_TYPE_NETDATA},\
 {"NET DATA",    "NET-DTDU", "610-00-024", "NDAT9417101", "0000", 1,     0xD4},\
-{"NET NAV",     "NET-NADU", "610-00-086", "",            "0000", 0,     BGNET_TYPE_NETACP},\
-{"NET ENGINE",  "NET-ENGI", "610-00-132", "",            "0000", 0,     BGNET_TYPE_NETACP},\
-{"NET QUAD-R",  "NET-QDRU", "610-00-022", "",            "0000", 0,     BGNET_TYPE_NETACP},\
-{"NET VHF",     "NET-VHF",  "613-10-003", "",            "0000", 0,     BGNET_TYPE_NETACP}};
+{"NET NAV",     "NET-NADU", "610-00-086", "",            "0000", 0,     BGNET_TYPE_UNDEFINED},\
+{"NET ENGINE",  "NET-ENGI", "610-00-132", "",            "0000", 0,     BGNET_TYPE_UNDEFINED},\
+{"NET QUAD-R",  "NET-QDRU", "610-00-022", "",            "0000", 0,     BGNET_TYPE_UNDEFINED},\
+{"NET VHF",     "NET-VHF",  "613-10-003", "",            "0000", 0,     BGNET_TYPE_UNDEFINED}};
 
 
 
@@ -144,8 +145,8 @@ BGNET_CHNDT CHNDT[BGNET_CHANNEL_MAX] = { \
     {BGNET_CHN_46_AP_SPEED,      "AP SPEED SEL",    BGN_FMT_01, BGNET_TYPE_NETPILOT,0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 47",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 48",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_49_HEADING,       "HEADING",         BGN_FMT_08, BGNET_TYPE_NETACP  ,0,     0,     0,  "",            BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
-    {BGNET_CHN_4A_DEPTHM,        "DEPTH",           BGN_FMT_01, BGNET_TYPE_MASK,    0,     0,     0,  "DEPTH  M",    0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_49_HEADING,       "HEADING",         BGN_FMT_08, BGNET_TYPE_NETACP,  0,     0,     0,  "",            BGNET_TYPE_NETDATA, BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
+    {BGNET_CHN_4A_COMPASS,       "COMPASS",         BGN_FMT_08, BGNET_TYPE_NETACP,  0,     0,     0,  "COMPASS",     0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 4B",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {0,                          "UNKNOWN 4C",      0x00,       BGNET_TYPE_MASK,    0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\
     {BGNET_CHN_4D_AWS,           "AWS",             BGN_FMT_08, BGNET_TYPE_NETWIND, 0,     0,     0,  "",            0,      BGNET_CHN_IMPEXP_NONE,  BGNET_CHN_IMPEXP_NONE, BGNET_CHN_IMPEXP_NONE, 0,  ""},\

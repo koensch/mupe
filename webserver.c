@@ -402,7 +402,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.boat.headingM.value.dValue = headingM->valuedouble;
         g_n2kdata.boat.headingM.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.headingM.Counter, t);
-        pCtrl->BGNET.ACP.Heading.value.nLong = DTOIROUND(headingM->valuedouble);
+        pCtrl->BGNET.ACP.Heading.value.nLong = BGNET_DTOIROUND(headingM->valuedouble);
         pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, t);
     }
@@ -439,7 +439,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.wind.awa.value.dValue = awa->valuedouble;
         g_n2kdata.wind.awa.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.awa.Counter, t);
-        pCtrl->BGNET.WIND.AWA.value.nLong = DTOIROUND(awa->valuedouble);
+        pCtrl->BGNET.WIND.AWA.value.nLong = BGNET_DTOIROUND(awa->valuedouble);
         pCtrl->BGNET.WIND.AWA.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.WIND.AWA.Counter, t);
     }
@@ -463,7 +463,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.wind.vmg.value.dValue = vmg->valuedouble;
         g_n2kdata.wind.vmg.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.vmg.Counter, t);
-        pCtrl->BGNET.WIND.VMG.value.nLong = DTOIROUND(vmg->valuedouble);
+        pCtrl->BGNET.WIND.VMG.value.nLong = BGNET_DTOIROUND(vmg->valuedouble);
         pCtrl->BGNET.WIND.VMG.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.WIND.VMG.Counter, t);
     }
@@ -475,7 +475,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.pilot.cts.value.dValue = cts->valuedouble;
         g_n2kdata.pilot.cts.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pilot.cts.Counter, t);
-        pCtrl->BGNET.ACP.CTS.value.nLong = DTOIROUND(cts->valuedouble);
+        pCtrl->BGNET.ACP.CTS.value.nLong = BGNET_DTOIROUND(cts->valuedouble);
         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
     }
@@ -572,7 +572,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
             case 2:
             case 1:
                 payload[0] = lights->valueint;
-                len_msg = bgnet_encode_frame(&FTx, BGNET_TYPE_ALL, BGNET_TYPE_NETACP, BGNET_CMD_C9_BACKLIGHT, payload, 1);
+                len_msg = bgnet_encode_frame(&FTx, BGNET_TYPE_ALL, BGNET_TYPE_MUPE, BGNET_CMD_C9_BACKLIGHT, payload, 1);
                 // register command send
                 memcpy(pCtrl->CMD[BGNET_CMD_C9_BACKLIGHT].Tx.ucFrame, &FTx, len_msg);
                 CounterUp(&pCtrl->CMD[BGNET_CMD_C9_BACKLIGHT].CounterTx, t);
@@ -722,8 +722,10 @@ static char* html_head(BGNET_CTRL *pCtrl, char *Buffer, size_t MaxBuf) {
             "<meta name=\"format-detection\" content=\"telephone=no\" >\r\n"
             "%s"
             "<style>\r\n"
-            "body, table, td, h1, h2, h3 {font-family: Verdana; font-size: 11px; border: 0px}\r\n"
-            "h3 {margin-left: 20px;}\r\n"
+            "body, table, th, td {font-family: Verdana; font-size: 10px}\r\n"
+            "h1 {font-family: Verdana; font-size: 17px; margin-left: 20px;}\r\n"
+            "h2 {font-family: Verdana; font-size: 15px; margin-left: 20px;}\r\n"
+            "h3 {font-family: Verdana; font-size: 13px; margin-left: 20px;}\r\n"
             "table {border-collapse: collapse; width: 100%; margin: 3px auto;}\r\n"
             "th, td {border:2px solid gray; padding: 3px; text-align: left;}\r\n"
             ".no-tel-detect {pointer-events: none; text-decoration: none; color: inherit;}\r\n"
@@ -807,8 +809,8 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->fastnet.mode,
                                             pCtrl->pCfg->fastnet.protocol,
                                             (pCtrl->BGNET.SERVICE.PILOTWD.value.nLong>0?"<text style='color:green;'><b>OK</b></text>":"<text style='color:red;'><b>FLUNK</b></text>"),
-                                            BGNET_TYPE_NETACP,
-                                            pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_TYPE_NETACP)].sProdName
+                                            BGNET_TYPE_MUPE,
+                                            pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, BGNET_TYPE_MUPE)].sProdName
                                         );
     strcpy(Buffer, cLine);
     if (pCtrl->pCfg->nmea0183.port1.enable == BGNET_NMEA0183_OFF) {
@@ -859,6 +861,14 @@ static char* html_device_top(char *Buffer) {
     return(Buffer);
 }
 
+// this routine checks if a device has reveived or transmitted and data (i.e. is active)
+// realise that initially (at startup) everything is 'InActive' and that only after some time you are
+// safe to assess that a device is present/not present
+// it return "TRUE/1" if inactive or "FALSE/0" when active
+int bgnet_DeviceInactive(BGNET_CTRL *pCtrl, int DeviceAddress) {
+    return ((pCtrl->DEV[DeviceAddress].CounterRx.iCounter < 1) & (pCtrl->DEV[DeviceAddress].CounterTx.iCounter < 1));
+}
+
 static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     int i, x;
     time_t t;
@@ -870,7 +880,8 @@ static char* html_device_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcpy(Buffer, "");
     time(&t);
     for (i=0; i<BGNET_DEVICE_MAX; i++) {
-        if ((pCtrl->DEV[i].CounterRx.iCounter < 1) & (pCtrl->DEV[i].CounterTx.iCounter < 1)) {
+        if (bgnet_DeviceInactive(pCtrl, i)) {
+        //if ((pCtrl->DEV[i].CounterRx.iCounter < 1) & (pCtrl->DEV[i].CounterTx.iCounter < 1)) {
             // it was never touched
         } else {
             x = bgnet_deviceindex(pCtrl, i);
@@ -948,7 +959,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: WATCHDOG", "Countdown by timer, reset by PILOT 'HELLO' command", pCtrl->BGNET.SERVICE.PILOTWD.Counter.iCounter, t-pCtrl->BGNET.SERVICE.PILOTWD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.PILOTWD.source), pCtrl->BGNET.SERVICE.PILOTWD.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: FAULT", "Fault code (0x00-0x0F, 0xFF= no fault)", pCtrl->BGNET.ACP.FAULT.Counter.iCounter, t-pCtrl->BGNET.ACP.FAULT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.FAULT.source), pCtrl->BGNET.ACP.FAULT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: FAULT", "Fault code (0x00-0x0F, 0xFF= no fault, channel 0x07 not send)", pCtrl->BGNET.ACP.FAULT.Counter.iCounter, t-pCtrl->BGNET.ACP.FAULT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.FAULT.source), pCtrl->BGNET.ACP.FAULT.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Joystick", "External switch [0=OFF, 1=ON]", pCtrl->BGNET.ACP.Joystick.Counter.iCounter, t-pCtrl->BGNET.ACP.Joystick.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Joystick.source), pCtrl->BGNET.ACP.Joystick.value.nByte);
     strcat(Buffer, cLine);
@@ -970,7 +981,9 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: CRS", "Course Preset [0-359 DegM]", pCtrl->BGNET.ACP.CRS.Counter.iCounter, t-pCtrl->BGNET.ACP.CRS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CRS.source), pCtrl->BGNET.ACP.CRS.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: MEM", "Course Memory [0-359 DegM]", pCtrl->BGNET.ACP.MEM.Counter.iCounter, t-pCtrl->BGNET.ACP.MEM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MEM.source), pCtrl->BGNET.ACP.MEM.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: MEM1", "Course Memory 1 [0-359 DegM]", pCtrl->BGNET.ACP.MEM_CRSE1.Counter.iCounter, t-pCtrl->BGNET.ACP.MEM_CRSE1.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MEM_CRSE1.source), pCtrl->BGNET.ACP.MEM_CRSE1.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: MEM2", "Course Memory 2 [0-359 DegM]", pCtrl->BGNET.ACP.MEM_CRSE2.Counter.iCounter, t-pCtrl->BGNET.ACP.MEM_CRSE2.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MEM_CRSE2.source), pCtrl->BGNET.ACP.MEM_CRSE2.value.nLong);
     strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP/COMMIS: BTYPE", "Boat Type (1=Sail, 2=Power/Plane, 3=Power/Displacement)", pCtrl->BGNET.ACP.COMMIS.BTYPE.Counter.iCounter, t-pCtrl->BGNET.ACP.COMMIS.BTYPE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.COMMIS.BTYPE.source), pCtrl->BGNET.ACP.COMMIS.BTYPE.value.nByte);
@@ -1058,7 +1071,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "PILOT/SPEED/SETUP", "Manual Speed SLW [1-990] x10", pCtrl->BGNET.PILOT.SPEED.SLW.Counter.iCounter, t-pCtrl->BGNET.PILOT.SPEED.SLW.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.SPEED.SLW.source), pCtrl->BGNET.PILOT.SPEED.SLW.value.nLong);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED: LOG", "Log (QUAD or SPEED), stored in EEPROM, no reset [NM]", pCtrl->BGNET.SPEED.StoredLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.StoredLogNM.source), DTOIROUND(ITOD(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "SPEED: LOG", "Log (QUAD or SPEED), stored in EEPROM, no reset [NM]", pCtrl->BGNET.SPEED.StoredLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.StoredLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.StoredLogNM.source), BGNET_DTOIROUND(BGNET_ITOD(pCtrl->BGNET.SPEED.StoredLogNM.value.nLong)/BGNET_DIVISOR_STORLOG));
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "SPEED: TRIPLOG", "Trip log (QUAD or SPEED), stored in EEPROM, with reset [NM]", pCtrl->BGNET.SPEED.TripLogNM.Counter.iCounter, t-pCtrl->BGNET.SPEED.TripLogNM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SPEED.TripLogNM.source), pCtrl->BGNET.SPEED.TripLogNM.value.dValue/BGNET_DIVISOR_TRIPLOG);
     strcat(Buffer, cLine);
@@ -1211,7 +1224,7 @@ static char* html_command_top(char *Buffer) {
     const char *cDevTop =
         "<h3>Commands</h3>\r\n"
         "<table style='width:100%'>\r\n"
-        "<tr><th colspan='2'>Command</th><th colspan='3'>Rx (ACP input FROM node)</th><th colspan='3'>Tx (ACP output TO node)</th></tr>\r\n"
+        "<tr><th colspan='2'>Command</th><th colspan='3'>Rx (input FROM node)</th><th colspan='3'>Tx (output TO node)</th></tr>\r\n"
         "<tr><th>ID</th><th>Label</th><th>Count</th><th>Sec</th><th>LastRaw</th><th>Count</th><th>Sec</th><th>LastRaw</th></tr>\r\n";
     strcpy(Buffer, cDevTop);
     return(Buffer);
