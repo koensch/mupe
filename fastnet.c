@@ -18,7 +18,7 @@
 
 #include "bgnet.h"
 
-static int set_interface_attribs(int fd, int speed, int databits, int stopbits, const char *parity, const char *mode)
+static int set_interface_attribs(char *cPort, int fd, int speed, int databits, int stopbits, const char *parity, const char *mode)
 {
     struct termios2 tty;
     int r;
@@ -74,7 +74,7 @@ static int set_interface_attribs(int fd, int speed, int databits, int stopbits, 
 
     r = ioctl(fd, TCSETS2, &tty);
     if (r == 0) {
-        log_info("Fastnet serial settings: %d baud, %d databits, %d stopbits, %s parity, %s mode", speed, databits, stopbits, parity, mode);
+        log_info("Fastnet serial settings: port %s, %d baud, %d databits, %d stopbits, %s parity, %s mode", cPort, speed, databits, stopbits, parity, mode);
     } else {
         log_error("Fastnet serial settings: ioctl error %d", r);
         return -1;
@@ -95,7 +95,7 @@ void *fastnet_thread(void *arg)
         return NULL;
     }
 
-    if (set_interface_attribs(fd, pCtrl->pCfg->fastnet.baudrate, pCtrl->pCfg->fastnet.databits,pCtrl->pCfg->fastnet.stopbits, pCtrl->pCfg->fastnet.parity, pCtrl->pCfg->fastnet.mode) != 0) {
+    if (set_interface_attribs(pCtrl->pCfg->fastnet.port, fd, pCtrl->pCfg->fastnet.baudrate, pCtrl->pCfg->fastnet.databits,pCtrl->pCfg->fastnet.stopbits, pCtrl->pCfg->fastnet.parity, pCtrl->pCfg->fastnet.mode) != 0) {
         log_error("Fastnet serial: set_interface_attribs(): %s", strerror(errno));
         close(fd);
         return NULL;

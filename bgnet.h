@@ -332,8 +332,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_46_AP_SPEED         0x46 // SPEED selected (0=TRAnsmitter, 1= MANual, 2=SOG); send by PILOT using command 0x4D/46 
 //#define BGNET_CHN_47_LONLAT           0x47 //send in ASCII via CMD03
 //#define BGNET_CHN_48_LONLAT           0x48 //send in ASCII via CMD03
-#define BGNET_CHN_49_HEADING          0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
-#define BGNET_CHN_4A_COMPASS          0x4A // compass raw value 0x0000-0xFFFF, schaled 0-360 Deg
+#define BGNET_CHN_49_COMP             0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
+#define BGNET_CHN_4A_COMP_RAW         0x4A // compass raw value 0x0000-0xFFFF, schaled 0-360 Deg
 #define BGNET_CHN_4D_AWS              0x4D // Appearent Wind Speed KT
 #define BGNET_CHN_4E_AWSRAW           0x4E // signal from the paddlewheel, prior correction or calibration 
 //#define BGNET_CHN_4F_AWINDSPEEDMS     0x4F
@@ -404,13 +404,14 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_B4_JSM              0xB4 // Joystick Steering Mode
     #define BGNET_JSM_NORM          0x00
     #define BGNET_JSM_PROP          0x01
-#define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
+#define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2 bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
                                            // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
                                            // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
     #define BGN_AP_MODE1_MASK_STATE 0x03   // DATA1 - 0-1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO, 2=not used, 3=not used)
     #define BGN_AP_MODE1_STBY       0x00   //         2   makes "MEM 000" displayed (when in COMP mode), locks AUTO key (OFF key is operational)
     #define BGN_AP_MODE1_AUTO       0x01   //             Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
     #define BGN_AP_MODE1_MEM        0x04   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
+                                            //            bit 03 also comes high when power is send to the steering motor
     #define BGN_AP_MODE1_LOCK1      0x08   //         4   enables VANE mode (is set if an ACP is enabled for a sailing boat)    
     #define BGN_AP_MODE1_ENABLEVANE 0x10   //         5   DISPLAY, SPEED, SETUP buttons are deactivated    
     #define BGN_AP_MODE1_LOCK2      0x20   //         6   not used
@@ -426,7 +427,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGN_AP_MODE2_MEM        0x20   //         7   resereved
 
 #define BGNET_CHN_B6_BOATTYPE         0xB6  // Commisioning, Boattype
-#define BGNET_CHN_BA_TRIP             0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A) or RUDDER LIMIT?
+#define BGNET_CHN_BA_TRIP             0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A) or RUDDER LIMIT or MOB alarm
 #define BGNET_CHN_BB_LATITUDE         0xBB
 #define BGNET_CHN_BC_LONGITUDE        0xBC
 #define BGNET_CHN_C1_DEPTHRAW         0xC1 // i assume that this is the RAW depth value, but i am not sure
@@ -757,7 +758,7 @@ typedef struct {
         NMEA2K_VALUE CTS;           // Course To Steer (Setpoint for AutoPilot in COMP/NAV mode)
         NMEA2K_VALUE CRS;           // Course Preset (Setpoint for AutoPilot)
         NMEA2K_VALUE MEM_CRSE1;     // Course Memory#1 (previous CTS)
-        NMEA2K_VALUE MEM_CRSE2;     // Course Memory#2
+        NMEA2K_VALUE MEM_CRSE2;     // Course Memory#2 behaviour is explained in COMPASSS manual
         NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
         NMEA2K_VALUE SHA_ALARM;
         NMEA2K_VALUE DEEP_ALARM;    // WIND Selection Type (0=T, 1 =A)

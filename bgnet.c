@@ -561,7 +561,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.TARGET_AWA.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.TARGET_AWA.Counter, t);
 
-        pCtrl->BGNET.ACP.CTS.value.nLong = 123; // Course To Steer (calculated by the Autopilot, range 0-359)
+#define BGNET_TEST_CTS  333
+
+        pCtrl->BGNET.ACP.CTS.value.nLong = BGNET_TEST_CTS; // Course To Steer (calculated by the Autopilot, range 0-359)
         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.CTS.Counter, t);
 
@@ -1107,7 +1109,7 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
                 //    sprintf(pStr, "%.1f", ITOD(iRawValue)/BGNET_DIVISOR_TRIPLOG);
                 //    iValid = 2;
                 //    break;
-                case BGNET_CHN_4A_COMPASS:
+                case BGNET_CHN_4A_COMP_RAW:
                     // 0-65535 equals 0-360 Deg
                     dRawValue = (BGNET_ITOD(decode_channel_numeric(puCH)))/BGNET_ITOD(0xFFFF)*360.0;
                     sprintf(pStr,"%.1f", dRawValue);
@@ -1670,7 +1672,7 @@ size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
                     r = r + bgnet_sizeof_channel(pCtrl, puCH);
                     break;
                 default:
-                    // COMPASS and NAV mode => show Course To Steer
+                    // COMP and NAV mode => show Course To Steer
                     puCH = (union CH *)&(payload[r]);
                     c = BGNET_CHN_A6_AP_TARGET;
                     puCH->s.CH = c;
@@ -1693,15 +1695,35 @@ size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
     return(r);
 }
 
+// i have no idea what COMPASS is sending, just some experiments to see what ACP might accept
+size_t makeCOMPASSresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0;
+    unsigned char c;
+    union CH *puCH;
+
+    puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_49_COMP;
+    puCH->s.CH = c;
+    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    puCH->s.cv.uL[0] = htons(BGNET_TEST_CTS);
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
+    puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_4A_COMP_RAW;
+    puCH->s.CH = c;
+    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    puCH->s.cv.uL[0] = htons((0xFFFF*BGNET_TEST_CTS)/360); // 65535 * 123/360
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
+    return(r);
+}
+
 // this response is meant to give the PILOT node sufficient information
 // to display. Keep this small with frequent update 
 size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     size_t r = 0;
     unsigned char c;
     union CH *puCH;
-
-#define KOEN
-#ifdef KOEN
 
     r = makeACPresponseSTATUSONLY(pCtrl, payload);
 
@@ -1712,16 +1734,12 @@ size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-#endif
-
     puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_49_HEADING;
+    c = BGNET_CHN_49_COMP;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-#ifdef KOEN
 
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_BA_TRIP;
@@ -1752,8 +1770,6 @@ size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
         puCH->s.FMT = BGNET_FMT_OFF;
     }
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-#endif
 
     return(r);
 }
@@ -1974,12 +1990,18 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
 
     // erase output buffer (to prevent compiler warnings about unused arguments)
     memset(buffer, 0, size);
+    // we start at the beginning of the output buffer. Is incremented
+    // as we append more and more to the buffer.
     r = 0;
 
     // check if initialisation is required
     bgnet_initialize(pCtrl);
 
-    // device received new data
+    // next 3 section scan the CMD, CHN and DEV structures for new data. This might come handy
+    // if we have to do something with that new data. At this moment, that is not the case, so we only
+    // loop around and reset the 'New' flag only.
+
+    // new data is present in CMD structure
     if ((pCtrl->iNewCommand == BGN_NEW_RESET)) {
         // nothing to do
     } else {
@@ -1998,6 +2020,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         pCtrl->iNewCommand = BGN_NEW_RESET;
     }
 
+    // new data is present in CHN structure
     if (pCtrl->iNewChannel == BGN_NEW_RESET) {
         // nothing to do
     } else {
@@ -2014,6 +2037,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         pCtrl->iNewChannel = BGN_NEW_RESET; // reset
     }
 
+    // new data is present in DEV structure
     if ((pCtrl->iNewDevice == BGN_NEW_RESET)) {
         // nothing to do
     } else {
@@ -2030,7 +2054,8 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         pCtrl->iNewDevice = BGN_NEW_RESET; // reset
     }
 
-    // update effective boatspeed (used for navigation purposes)
+    // Calculate "Effectiev Boat Speed". If we have to do calculation for navigational purposes,
+    // we will use EBS. At this moment, EBS is not used, only displayed so we can chack that it ise correct
     ebs_sel = EffectiveBoatSpeed(pCtrl, &pCtrl->BGNET.ACP.EBS);
     //log_debug("EBS_SEL= %d (%d), EBS= %f", ebs_sel, pCtrl->BGNET.ACP.EBS_SEL.value.nByte, pCtrl->BGNET.ACP.EBS.value.dValue);
     if (ebs_sel == pCtrl->BGNET.ACP.EBS_SEL.value.nByte) {
@@ -2044,42 +2069,43 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
     // here we will output our DATA commands, simulating the WIND and QUAD nodes.
     // note: using the routine 'register_DATA_frame' these DATA commands will appear as 'Received', altough
     // they are effectively 'Transmitted'. I do not see the need to change that. 
+    size_t len_msg;
+    size_t len_pl;
+    unsigned char payload[BGNET_FRAME_PAYLOAD_MAX];
+    FRAME_H FTx, *pFTx;
+    pFTx = &FTx;
     if (g_fastnet_mode == BGN_FASTNET_MODE_RW) {
-#define BGNET_ENABLE_QUAD_TX
-#ifdef BGNET_ENABLE_QUAD_TX
+        // Send DEPTH data if QUAD or DEPTH are enabled
+        if ((pCtrl->pDEVDT[BGNET_TYPE_NETQUAD & BGNET_TYPE_MASK].iEnable) | (pCtrl->pDEVDT[BGNET_TYPE_NETDEPTH & BGNET_TYPE_MASK].iEnable)) {
+            len_pl = makeDEPTHresponse(pCtrl, payload);
+            len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
+            register_DATA_frame(pCtrl, pFTx);
+            // put it for transmission
+            memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+            r = r + len_msg; // increment byte counter in TX buffer
 
-        size_t len_msg;
-        size_t len_pl;
-        unsigned char payload[BGNET_FRAME_PAYLOAD_MAX];
-        FRAME_H FTx, *pFTx;
-        pFTx = &FTx;
+            // update statistics
+            memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+            CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+            memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
+            CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
+        }
 
-        len_pl = makeDEPTHresponse(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
-        register_DATA_frame(pCtrl, pFTx);
-        // put it for transmission
-        memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
-        r = r + len_msg; // increment byte counter in TX buffer
+        // Send SPEED data if QUAD or SPEED are enabled
+        if ((pCtrl->pDEVDT[BGNET_TYPE_NETQUAD & BGNET_TYPE_MASK].iEnable) | (pCtrl->pDEVDT[BGNET_TYPE_NETSPEED & BGNET_TYPE_MASK].iEnable)) {
+            len_pl = makeSPEEDresponse(pCtrl, payload);
+            len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
+            register_DATA_frame(pCtrl, pFTx);        
+            // put it for transmission
+            memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+            r = r + len_msg; // increment byte counter in TX buffer
 
-        // update statistics
-        memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-        memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
-        CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
-
-        len_pl = makeSPEEDresponse(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
-        register_DATA_frame(pCtrl, pFTx);        
-        // put it for transmission
-        memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
-        r = r + len_msg; // increment byte counter in TX buffer
-
-        // update statistics
-        memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-        memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
-        CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
-#endif
+            // update statistics
+            memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+            CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+            memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
+            CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
+        }
 
         // note: this routine can also return "nothing to send"
         len_pl = makeACPresponseALARM(pCtrl, payload);
@@ -2097,22 +2123,22 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
             CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
         }
 
-#define BGNET_ENABLE_WIND_TX
-#ifdef BGNET_ENABLE_WIND_TX
+        // Send WIND data if WIND is enabled
+        if (pCtrl->pDEVDT[BGNET_TYPE_NETWIND & BGNET_TYPE_MASK].iEnable) {
+            len_pl = makeWINDresponseLONG(pCtrl, payload);
+            len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETWIND, BGNET_CMD_01_DATA, payload, len_pl);
+            register_DATA_frame(pCtrl, pFTx);
+            // put it for transmission
+            memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+            r = r + len_msg; // increment byte counter in TX buffer
 
-        len_pl = makeWINDresponseLONG(pCtrl, payload);
-        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETWIND, BGNET_CMD_01_DATA, payload, len_pl);
-        register_DATA_frame(pCtrl, pFTx);        
-        // put it for transmission
-        memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
-        r = r + len_msg; // increment byte counter in TX buffer
+          // update statistics
+            memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+            CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+            memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
+            CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
+        }
 
-        // update statistics
-        memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-        memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
-        CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
-#endif
         // we want to be able to enable/disable navigation data in our reverse engineering efforts
         switch (pCtrl->BGNET.PILOT.ucNAV_SIM & BGNET_TYPE_MASK) {
             case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
@@ -2131,7 +2157,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
                 memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
                 CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
 
-                len_pl= makePILOTresponseNAV(pCtrl, payload);
+                len_pl = makePILOTresponseNAV(pCtrl, payload);
                 len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, pCtrl->BGNET.PILOT.ucNAV_SIM, BGNET_CMD_01_DATA, payload, len_pl);
                 register_DATA_frame(pCtrl, pFTx);
                 // put it for transmission
@@ -2155,8 +2181,26 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
     if (g_fastnet_mode == BGN_FASTNET_MODE_RW) {
         // leave output data
     } else {
-        r = 0; // destroy what we have in the buffer
+        r = 0; // destroy what we have in the buffer; sorry for the wasted efforts, but this is much easier
     }
+
+#define KOEN
+// in this case we want to send something experimental when we are in readonly mode
+#ifdef KOEN
+        len_pl = makeCOMPASSresponse(pCtrl, payload);
+        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_MUPE, BGNET_CMD_01_DATA, payload, len_pl);
+        register_DATA_frame(pCtrl, pFTx);
+        // put it for transmission
+        memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
+        r = r + len_msg; // increment byte counter in TX buffer
+
+        // update statistics
+        memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+        memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
+        CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
+#endif
+
     // if you want to send data, return the number of bytes in the output buffer
     return(r);
 };
@@ -2360,7 +2404,7 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                         CounterUp(&pCtrl->BGNET.SPEED.STW.Counter, t);
                     }
                     break;
-                case BGNET_CHN_49_HEADING:
+                case BGNET_CHN_49_COMP:
                     pCtrl->BGNET.ACP.Heading.value.nLong = ntohs(pCH->s.cv.uW[0]);
                     pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_BGNET;
                     CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, t);
@@ -2567,7 +2611,7 @@ void decode_command_SUBSCRIBE(BGNET_CTRL *pCtrl, FRAME_H *pFRx) {
                         // this seems channels that have "text" 'distance' related data
                         case BGNET_CHN_20_SEATEMPQ:
                         case BGNET_CHN_42_STWRAW:
-                        case BGNET_CHN_4A_COMPASS:
+                        case BGNET_CHN_4A_COMP_RAW:
                         case BGNET_CHN_50_AWS:
                         case BGNET_CHN_57_TWS:
                         case BGNET_CHN_7F_VMG:
@@ -2950,52 +2994,6 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 pCtrl->BGNET.NETWORK.BackLight.value.nByte = pFRx->payload[0]; // first byte is the LIGHTS state
                                 pCtrl->BGNET.NETWORK.BackLight.source = BGN_SOURCE_BGNET;
                                 CounterUp(&pCtrl->BGNET.NETWORK.BackLight.Counter, t);
-
-//#define BGNET_ENABLE_RESET_LOG
-#ifdef BGNET_ENABLE_RESET_LOG
-                                // exprimental: send a command when press <LIGHTS> on NETDATA 
-                                if (pFRx->FROM == BGNET_TYPE_NETDATA) {
-                                    unsigned char ucCMD, ucTO, ucFROM;
-                                    // send QUAD RESET LOG to QUAD
-                                    //payload[BGNET_FRAME_ACKSEQ] = 0x00;
-                                    //payload[1] = BGNET_CHN_CF_TRIPNM;
-                                    //len_pl = 2;
-                                    //ucCMD = BGNET_CMD_CD_PILOT_DMPREQ;
-                                    //ucTO = BGNET_TYPE_NETQUAD;
-                                    //ucFROM = BGNET_TYPE_NETACP;
-
-                                    // send QUAD RESET DRDNM to QUAD
-                                    //payload[BGNET_FRAME_ACKSEQ] = 0x00;
-                                    //payload[1] = BGNET_CHN_81_DRDNM;
-                                    //len_pl = 2;
-                                    //ucCMD = BGNET_CMD_CB_QUAD_RESET;
-                                    //ucTO = BGNET_TYPE_NETQUAD;
-                                    //ucFROM = BGNET_TYPE_NETACP;
-
-                                    // QUAD/SPEED/SETUP/#1
-                                    payload[BGNET_FRAME_ACKSEQ] = 0x00;
-                                    payload[1] = BGNET_CHN_41_STW;
-                                    len_pl = 2;
-                                    ucCMD = BGNET_CMD_CD_PILOT_DMPREQ;
-                                    ucTO = BGNET_TYPE_NETQUAD;
-                                    ucFROM = BGNET_TYPE_NETACP;
-
-                                    pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                    len_msg = bgnet_encode_frame(pFTx, ucTO, ucFROM, ucCMD, payload, len_pl);
-                                                        
-                                    memcpy(pCtrl->CMD[BGNET_CMD_CD_PILOT_DMPREQ].Tx.ucFrame, pFTx, len_msg);
-                                    CounterUp(&pCtrl->CMD[BGNET_CMD_CD_PILOT_DMPREQ].CounterTx, t);
-                                    memcpy(pCtrl->DEV[BGNET_TYPE_NETQUAD].Tx.ucFrame, pFTx, len_msg);
-                                    CounterUp(&pCtrl->DEV[BGNET_TYPE_NETQUAD].CounterTx, t);
-                                    TxSize = TxSize + len_msg;
-                                    log_info("Experimental - QUAD RESET COMMAND: TRIPLOG");
-                                    log_debug_frame(pFTx);
-                                }
-                                // exprimental: initialize ACP memory when press <LIGHTS> on NETWIND
-                                if (pFRx->FROM == BGNET_TYPE_NETWIND) {
-                                    bgnet_initialize_reset(pCtrl);
-                                }
-#endif
                                 break;
                             case BGNET_CMD_E7_ALARM_SILENCE:
                                 // an ALARM SILENCE was received. Note that a ALARM SILENCE can be send from every node (that has alarm capabilities). Like the others
@@ -3043,24 +3041,6 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                     memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
                                     CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
                                     TxSize = TxSize + len_msg;
-
-                                    // experiment koen
-#ifdef EXPERIMENT
-                                    // broadcast a SILENCE command to all
-                                    payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                    payload[1] = pFRx->payload[1];
-                                    len_pl = 2;
-                                    pFTx = (FRAME_H *)&TxBuf[TxSize];
-                                    // send reply where it came from (FROM) with the originator who that node think we are (TO), except if that was a broadcast
-                                    len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETPILOT, BGNET_CMD_E7_ALARM_SILENCE, payload, len_pl);
-
-                                    memcpy(pCtrl->CMD[BGNET_CMD_E7_ALARM_SILENCE].Tx.ucFrame, pFTx, len_msg);
-                                    CounterUp(&pCtrl->CMD[BGNET_CMD_E7_ALARM_SILENCE].CounterTx, t);
-                                    memcpy(pCtrl->DEV[pFRx->FROM].Tx.ucFrame, pFTx, len_msg);
-                                    CounterUp(&pCtrl->DEV[pFRx->FROM].CounterTx, t);
-                                    TxSize = TxSize + len_msg;
-#endif
-
                                     // put it for transmission
                                     pthread_mutex_lock(&g_data_mutex);
                                     memcpy(&g_last_fastnet_dataTx[g_fastnet_data_lenTx], &TxBuf, TxSize); // put output message in write buffer
@@ -3783,10 +3763,10 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 // in PILOT/SETUP, the COMPASS DMP is configured, 2 bytes payload
                                                 // 0=ACKSEQ, 1=0x49
                                                 switch(pCHRx->s.CH) {
-                                                    case BGNET_CHN_49_HEADING:
+                                                    case BGNET_CHN_49_COMP:
                                                         // create command with current DMP setting
                                                         payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                        payload[1] = BGNET_CHN_49_HEADING;
+                                                        payload[1] = BGNET_CHN_49_COMP;
                                                         payload[2] = BGN_FMT_01;
                                                         payload[3] = 0;
                                                         payload[4] = pCtrl->BGNET.ACP.SETUP.DMP.value.nByte; // (0-99)                                                        len_pl = 5;
@@ -3805,7 +3785,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 // in PILOT/SETUP, when COMPASS DMP setting is entered, 5 bytes payload
                                                 // 0=ACKSEQ, 1=0x49, 2=FMT_01, 3=0, 4=DMP in seconds (1-99, 4=default)
                                                 switch(pCHRx->s.CH) {
-                                                    case BGNET_CHN_49_HEADING:
+                                                    case BGNET_CHN_49_COMP:
                                                         // update the channel value 
                                                         pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                         pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
@@ -4067,7 +4047,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
                                                         decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
                                                         CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-                                                        if (pCtrl->CHN[BGNET_CHN_49_HEADING].x01.CounterRx.iCounter == 0) {
+                                                        if (pCtrl->CHN[BGNET_CHN_49_COMP].x01.CounterRx.iCounter == 0) {
                                                             // HEADING was never touched, do not go to AUTO
                                                         } else {
                                                             // i'm not going to make things more complicated at this point. But realise that when

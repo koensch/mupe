@@ -14,7 +14,7 @@
 
 #include "bgnet.h"
 
-static int set_interface_attribs(int *fd, struct termios *ptty, int speed, int databits, int stopbits, const char *parity)
+static int set_interface_attribs(char *chPort, int *fd, struct termios *ptty, int speed, int databits, int stopbits, const char *parity)
 {
     int r;
 
@@ -80,7 +80,7 @@ static int set_interface_attribs(int *fd, struct termios *ptty, int speed, int d
 
     r = ioctl(*fd, TCSETS, ptty);
     if (r == 0) {
-        log_info("NMEA0183 serial settings: %d baud, %d databits, %d stopbits, %s parity", speed, databits, stopbits, parity);
+        log_info("NMEA0183 serial settings: port %s, %d baud, %d databits, %d stopbits, %s parity", chPort, speed, databits, stopbits, parity);
     } else {
         log_error("NMEA0183 serial settings: ioctl error %d", r);
         return -1;
@@ -176,7 +176,7 @@ void *nmea0183_thread(void *arg)
             log_error("NMEA0183 serial port1: open(): %s", strerror(errno));
         }
 
-        if (set_interface_attribs(&fd1, &tty1, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
+        if (set_interface_attribs(pCtrl->pCfg->nmea0183.port1.port, &fd1, &tty1, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
             log_error("NMEA0183 serial port1: set_interface_attribs(): %s", strerror(errno));
             close(fd1);
         }
@@ -200,7 +200,7 @@ void *nmea0183_thread(void *arg)
             log_error("NMEA0183 serial port2: open(): %s", strerror(errno));
         }
 
-        if (set_interface_attribs(&fd2, &tty2, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
+        if (set_interface_attribs(pCtrl->pCfg->nmea0183.port2.port, &fd2, &tty2, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
             log_error("NMEA0183 serial port2: set_interface_attribs(): %s", strerror(errno));
             close(fd2);
         }
