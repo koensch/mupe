@@ -130,6 +130,15 @@ void *timer_thread(void *arg)
           // reset device processing counter (we do not want to run every MSEC1)
           pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
 
+          //timer(s)
+          int a = TimerDone(&pCtrl->BGNET.ACP.AUTO, t);
+          if (a < 0) {
+            // timer running
+          } else {
+            // timer expired, reset MEM bit
+            pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & (!BGN_AP_MODE1_MEM));
+          }
+
           // increment a run counter, wrap around to avoid overruns
           pCtrl->iDeviceRun++;
           if (pCtrl->iDeviceRun > 999) {

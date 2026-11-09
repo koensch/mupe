@@ -6,7 +6,7 @@
     "databits": 8,
     "stopbits": 2,
     "parity": "odd",
-    "mode": "readonly",
+    "mode": "readwrite",
     "protocol": "netio"
   },
   "ethernet": {

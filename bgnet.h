@@ -332,8 +332,9 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_46_AP_SPEED         0x46 // SPEED selected (0=TRAnsmitter, 1= MANual, 2=SOG); send by PILOT using command 0x4D/46 
 //#define BGNET_CHN_47_LONLAT           0x47 //send in ASCII via CMD03
 //#define BGNET_CHN_48_LONLAT           0x48 //send in ASCII via CMD03
-#define BGNET_CHN_49_COMP             0x49 // prominently displayed on PILOT (when in STBY, copied to CTARGET when switched to AUTO)
-#define BGNET_CHN_4A_COMP_RAW         0x4A // compass raw value 0x0000-0xFFFF, schaled 0-360 Deg
+#define BGNET_CHN_49_HEADING          0x49 // prominently displayed on PILOT. Depending on the state (STBY, AUTO) and mode (COM, NAV, VANE) different
+                                           // values can be displayed here (Compass, CTS).The name 'heading' can be misleading, somtimes its something else.
+#define BGNET_CHN_4A_COMP_RAW         0x4A // compass raw value 0x0000-0xFFFF, scaled 0-360 Deg
 #define BGNET_CHN_4D_AWS              0x4D // Appearent Wind Speed KT
 #define BGNET_CHN_4E_AWSRAW           0x4E // signal from the paddlewheel, prior correction or calibration 
 //#define BGNET_CHN_4F_AWINDSPEEDMS     0x4F
@@ -403,13 +404,13 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_CHN_B3_COMPASSCAL       0xB3
 #define BGNET_CHN_B4_JSM              0xB4 // Joystick Steering Mode
     #define BGNET_JSM_NORM          0x00
-    #define BGNET_JSM_PROP          0x01
+    #define BGNET_JSM_PROP          0x01    // used with variable JS (resistance, )
 #define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2 bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
                                            // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
                                            // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
     #define BGN_AP_MODE1_MASK_STATE 0x03   // DATA1 - 0-1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO, 2=not used, 3=not used)
     #define BGN_AP_MODE1_STBY       0x00   //         2   makes "MEM 000" displayed (when in COMP mode), locks AUTO key (OFF key is operational)
-    #define BGN_AP_MODE1_AUTO       0x01   //             Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
+    #define BGN_AP_MODE1_AUTO       0x01   //             The value displayed is channel 0xA7. Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
     #define BGN_AP_MODE1_MEM        0x04   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
                                             //            bit 03 also comes high when power is send to the steering motor
     #define BGN_AP_MODE1_LOCK1      0x08   //         4   enables VANE mode (is set if an ACP is enabled for a sailing boat)    
@@ -747,8 +748,12 @@ typedef struct {
     struct {
         NMEA2K_VALUE ID;            // ID send with POWERUP command
         NMEA2K_VALUE STATE;
+        BGNET_TIMER AUTO;           // AUTO timer; when we transition from STBY to AUTO, during 5 seconds the "MEM xxx" must
+                                    // be displayed. At the moment of transition from STBY TO AUTO, we set the counter to 5 + timestamp to current time.
+                                    // in the timer thread we check if the current time is greater that the stored time + counter value; if so, initialize the counter again
         NMEA2K_VALUE MODE;
-        NMEA2K_VALUE Heading;       // Compass Heading
+        NMEA2K_VALUE Compass;       // Compass Reading
+        NMEA2K_VALUE CompassRaw;    // Fluxgate sensor reading 0-65.535
 #define BGN_JOYSTICK_ON     1
 #define BGN_JOYSTICK_OFF    0
         NMEA2K_VALUE Joystick;      // 0=Off, 1=ON, overrides control mode (COMP/NAV/VANE)
@@ -804,10 +809,11 @@ typedef struct {
         struct {
             BGNET_ALARM FAULT;          // ACP FAULT " PILOT "/" FAULT", channel 0x07
             BGNET_ALARM WA;             // WA Alarm control block, channel 0x76
-            BGNET_COUNT WA_ACTIVITY;    // Used to track KEY activity, when WA is enabled and this timer was not reset (within the WA limit), the WA alarm is fired
             BGNET_ALARM OC;             // OC Alarm control block, channel 0xAF
-            NMEA2K_VALUE OC_DELTA;      // OffCourse Delta (absolute difference between heading and CTS)
             BGNET_ALARM TRIP;           // Unknown Alarm control block, channel 0xBA (TRIP/Overcurrent?, Steeringmoter endstop?)
+            // for some alarms we need additional variables
+            BGNET_COUNT WA_ACTIVITY;    // Used to track KEY activity, when WA is enabled and this timer was not reset (within the WA limit), the WA alarm is fired
+            NMEA2K_VALUE OC_DELTA;      // OffCourse Delta (absolute difference between heading and CTS)
         } ALARM;
     } ACP;
     // parameters, usually hosted by PILOT
@@ -964,6 +970,8 @@ char *strTimerCalc(BGNET_CTRL *, char *);
 void CounterInit(BGNET_COUNT*, time_t);
 void CounterUp(BGNET_COUNT*, time_t);
 void NMEAinit(NMEA2K_VALUE*, time_t);
+
+int TimerDone(BGNET_TIMER *, time_t);
 
 // convert Command Frame to ASCII for display purposes
 #define BGN_CMD_ASCII              52

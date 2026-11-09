@@ -123,10 +123,15 @@ union VALUE {
 };
 
 typedef struct {
-    int iCounter;
+    size_t iCounter;
     time_t tTimestamp;
     time_t tCounterReset;
 } BGNET_COUNT;
+
+typedef struct {
+    time_t tPreset;
+    time_t tTimestamp;
+} BGNET_TIMER;
 
 // some values are stored as bytes, double, long, string of time, please be consistent
 typedef struct {

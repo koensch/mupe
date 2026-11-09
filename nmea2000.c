@@ -16,6 +16,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <arpa/inet.h>
+#include <limits.h>
 
 /* notes on NMEA 2000 interfaces
     if you use a CANable interface (like i do), you will observe the phenomenon that when your CANable experiense a short power-down (<5sec, like
@@ -190,14 +191,24 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
             pthread_mutex_unlock(&g_data_mutex);
         }
 
-        // heading is DegM
-        switch(pCtrl->BGNET.ACP.Heading.source) {
+        // compass (corrected)
+        switch(pCtrl->BGNET.ACP.Compass.source) {
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.ACP.Heading.value.nLong = BGNET_DTOIROUND(heading * 180/M_PI);
-                pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_DTOIROUND((heading * 180)/M_PI);
+                pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.ACP.Compass.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                break;
+        }
+        // compass (raw)
+        switch(pCtrl->BGNET.ACP.CompassRaw.source) {
+            case BGN_SOURCE_NONE:
+            case BGN_SOURCE_ACP:
+            case BGN_SOURCE_NMEA:
+                pCtrl->BGNET.ACP.CompassRaw.value.nLong = BGNET_DTOIROUND((((heading * 180)/M_PI)*USHRT_MAX)/360);
+                pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.ACP.CompassRaw.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 break;
         }
     }

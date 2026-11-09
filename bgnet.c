@@ -233,6 +233,21 @@ void CounterUp(BGNET_COUNT *Counter, time_t t) {
     }
     Counter->tTimestamp = t;
 }
+void TimerReset(BGNET_TIMER *Timer, time_t t) {
+    Timer->tPreset = 0;
+    Timer->tTimestamp = t;
+}
+void TimerSet(BGNET_TIMER *Timer, time_t t, size_t iSec) {
+    Timer->tPreset = t + iSec;
+    Timer->tTimestamp = t;
+}
+// <0   : timer running (not expired, return 'seconds to go')
+// else : timer is done
+int TimerDone(BGNET_TIMER *Timer, time_t t) {
+    int r;
+    r = t - Timer->tPreset;
+    return(r);
+}
 // initialize a NMEA value
 void NMEAinit(NMEA2K_VALUE *pNMEA, time_t t) {
     pNMEA->source = BGN_SOURCE_NONE;
@@ -412,6 +427,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.STATE.value.nByte = BGN_AP_MODE1_STBY;
         pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.STATE.Counter, t);
+        TimerReset(&pCtrl->BGNET.ACP.AUTO, t); // transition counter STBY>AUTO
 
         pCtrl->BGNET.ACP.MODE.value.nByte = BGN_AP_MODE2_COMP;
         pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_ACP;
@@ -561,15 +577,20 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.TARGET_AWA.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.TARGET_AWA.Counter, t);
 
-#define BGNET_TEST_CTS  333
+#define BGNET_TEST_CTS   333
+#define BGNET_TEST_COMP  321
 
         pCtrl->BGNET.ACP.CTS.value.nLong = BGNET_TEST_CTS; // Course To Steer (calculated by the Autopilot, range 0-359)
         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.CTS.Counter, t);
 
-        pCtrl->BGNET.ACP.Heading.value.nLong = 321; // Heading from compass (0-359)
-        pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.ACP.Heading.Counter, t);
+        pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_TEST_COMP; // Heading from compass (0-359)
+        pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.Compass.Counter, t);
+
+        pCtrl->BGNET.ACP.CompassRaw.value.nLong = (BGNET_TEST_COMP*USHRT_MAX)/360; // Heading from compass (0-359)
+        pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.CompassRaw.Counter, t);
 
         pCtrl->BGNET.ACP.Rudder.value.nLong = -2; // Rudder position (-45-+45)
         pCtrl->BGNET.ACP.Rudder.source = BGN_SOURCE_ACP;
@@ -667,18 +688,18 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
 
         // Alarms
 
-        ALARM_Init(&pCtrl->BGNET.ACP.ALARM.FAULT, BGNET_CHN_07_AP_FAULT,    " PILOT  ", " FAULT  ", t);
-        ALARM_Init(&pCtrl->BGNET.ACP.ALARM.WA,    BGNET_CHN_76_AP_WA_ALARM, " WATCH  ", " ALARM  ", t);
+        ALARM_Init(&pCtrl->BGNET.ACP.ALARM.FAULT, BGNET_CHN_07_AP_FAULT, " PILOT  ", " FAULT  ", t);
+        ALARM_Init(&pCtrl->BGNET.ACP.ALARM.WA, BGNET_CHN_76_AP_WA_ALARM, " WATCH  ", " ALARM  ", t);
         // everytime a button is pressed (= Watch Activity), the counter gets reset. WA ALARM is triggered
         // when a) WA alarm is enabled, b) WA_Activity > WA_limit
         CounterInit(&pCtrl->BGNET.ACP.ALARM.WA_ACTIVITY, t);
-        ALARM_Init(&pCtrl->BGNET.ACP.ALARM.OC,    BGNET_CHN_AF_AP_OC_ALARM, "  OFF   ", "COURSE  ", t);
+        ALARM_Init(&pCtrl->BGNET.ACP.ALARM.OC, BGNET_CHN_AF_AP_OC_ALARM, "  OFF   ", " COURSE ", t);
         // OC_DELTA is continously calculated based on heading and CTS. OC ALARM is triggered
         // when: a) OC alarm is enabled, b) abs(OC_DELTA) > OC_limit
         pCtrl->BGNET.ACP.ALARM.OC_DELTA.value.nLong = 0;
         pCtrl->BGNET.ACP.ALARM.OC_DELTA.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.ALARM.OC_DELTA.Counter, t);
-        ALARM_Init(&pCtrl->BGNET.ACP.ALARM.TRIP,  BGNET_CHN_BA_TRIP,        "  NOT   ", "SURE    ", t);
+        ALARM_Init(&pCtrl->BGNET.ACP.ALARM.TRIP, BGNET_CHN_BA_TRIP,      "  NOT   ", "  SURE  ", t);
 
         // initialize key counters (we need them to detect double-key presses and simultaneous key presses)
 
@@ -1111,7 +1132,7 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
                 //    break;
                 case BGNET_CHN_4A_COMP_RAW:
                     // 0-65535 equals 0-360 Deg
-                    dRawValue = (BGNET_ITOD(decode_channel_numeric(puCH)))/BGNET_ITOD(0xFFFF)*360.0;
+                    dRawValue = (BGNET_ITOD(decode_channel_numeric(puCH)))/BGNET_ITOD(USHRT_MAX)*360.0;
                     sprintf(pStr,"%.1f", dRawValue);
                     iValid = 2;
                     break;
@@ -1183,7 +1204,6 @@ char *decode_channel_string(char *pStr, union CH *puCH) {
             pStr[3] = BGNET_ASC_NULL;
             iValid = 0;
     }
-    
     switch(iValid) {
         case 0: // invalue format, result already there
             break;
@@ -1668,7 +1688,7 @@ size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
                     c = BGNET_CHN_A6_AP_TARGET;
                     puCH->s.CH = c;
                     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-                    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
+                    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
                     r = r + bgnet_sizeof_channel(pCtrl, puCH);
                     break;
                 default:
@@ -1679,6 +1699,17 @@ size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
                     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
                     puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
                     r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
+                    // check if MEM bit is set, if so, MEMnnn is displayed for 5 sec and we need to send the memory channel)
+                    if (pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MEM) {
+                        // COMP and NAV mode => show Course To Steer
+                        puCH = (union CH *)&(payload[r]);
+                        c = BGNET_CHN_A7_AP_WPB;
+                        puCH->s.CH = c;
+                        puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+                        puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.MEM_CRSE1.value.nLong);
+                        r = r + bgnet_sizeof_channel(pCtrl, puCH);                        
+                    }
                     break;
             }
 
@@ -1691,7 +1722,6 @@ size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
             break;
     }
-
     return(r);
 }
 
@@ -1702,17 +1732,17 @@ size_t makeCOMPASSresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     union CH *puCH;
 
     puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_49_COMP;
+    c = BGNET_CHN_49_HEADING;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uL[0] = htons(BGNET_TEST_CTS);
+    puCH->s.cv.uL[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_4A_COMP_RAW;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uL[0] = htons((0xFFFF*BGNET_TEST_CTS)/360); // 65535 * 123/360
+    puCH->s.cv.uL[0] = htons((pCtrl->BGNET.ACP.Compass.value.nLong*USHRT_MAX)/360); // (123 * 65535) / 360
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     return(r);
@@ -1735,10 +1765,10 @@ size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_49_COMP;
+    c = BGNET_CHN_49_HEADING;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Heading.value.nLong);
+    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     puCH = (union CH *)&(payload[r]);
@@ -1819,7 +1849,7 @@ size_t makeACPresponseALARM(BGNET_CTRL *pCtrl, unsigned char *payload) {
     } else {
 
         // calculate OffCourse Delta
-        pCtrl->BGNET.ACP.ALARM.OC_DELTA.value.nLong = labs(pCtrl->BGNET.ACP.Heading.value.nLong - pCtrl->BGNET.ACP.CTS.value.nLong);
+        pCtrl->BGNET.ACP.ALARM.OC_DELTA.value.nLong = labs(pCtrl->BGNET.ACP.Compass.value.nLong - pCtrl->BGNET.ACP.CTS.value.nLong);
         pCtrl->BGNET.ACP.ALARM.OC_DELTA.source = BGN_SOURCE_BGNET;
         CounterUp(&pCtrl->BGNET.ACP.ALARM.OC_DELTA.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
 
@@ -2076,7 +2106,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
     pFTx = &FTx;
     if (g_fastnet_mode == BGN_FASTNET_MODE_RW) {
         // Send DEPTH data if QUAD or DEPTH are enabled
-        if ((pCtrl->pDEVDT[BGNET_TYPE_NETQUAD & BGNET_TYPE_MASK].iEnable) | (pCtrl->pDEVDT[BGNET_TYPE_NETDEPTH & BGNET_TYPE_MASK].iEnable)) {
+        //if ((pCtrl->pDEVDT[BGNET_TYPE_NETQUAD & BGNET_TYPE_MASK].iEnable) | (pCtrl->pDEVDT[BGNET_TYPE_NETDEPTH & BGNET_TYPE_MASK].iEnable)) {
             len_pl = makeDEPTHresponse(pCtrl, payload);
             len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
             register_DATA_frame(pCtrl, pFTx);
@@ -2089,10 +2119,10 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
             CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
             memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
             CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
-        }
+        //}
 
         // Send SPEED data if QUAD or SPEED are enabled
-        if ((pCtrl->pDEVDT[BGNET_TYPE_NETQUAD & BGNET_TYPE_MASK].iEnable) | (pCtrl->pDEVDT[BGNET_TYPE_NETSPEED & BGNET_TYPE_MASK].iEnable)) {
+        //if ((pCtrl->pDEVDT[BGNET_TYPE_NETQUAD & BGNET_TYPE_MASK].iEnable) | (pCtrl->pDEVDT[BGNET_TYPE_NETSPEED & BGNET_TYPE_MASK].iEnable)) {
             len_pl = makeSPEEDresponse(pCtrl, payload);
             len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETQUAD, BGNET_CMD_01_DATA, payload, len_pl);
             register_DATA_frame(pCtrl, pFTx);        
@@ -2105,7 +2135,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
             CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
             memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
             CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
-        }
+        //}
 
         // note: this routine can also return "nothing to send"
         len_pl = makeACPresponseALARM(pCtrl, payload);
@@ -2124,7 +2154,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         }
 
         // Send WIND data if WIND is enabled
-        if (pCtrl->pDEVDT[BGNET_TYPE_NETWIND & BGNET_TYPE_MASK].iEnable) {
+        //if (pCtrl->pDEVDT[BGNET_TYPE_NETWIND & BGNET_TYPE_MASK].iEnable) {
             len_pl = makeWINDresponseLONG(pCtrl, payload);
             len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_NETWIND, BGNET_CMD_01_DATA, payload, len_pl);
             register_DATA_frame(pCtrl, pFTx);
@@ -2132,12 +2162,12 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
             memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
             r = r + len_msg; // increment byte counter in TX buffer
 
-          // update statistics
+            // update statistics
             memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
             CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
             memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
             CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
-        }
+        //}
 
         // we want to be able to enable/disable navigation data in our reverse engineering efforts
         switch (pCtrl->BGNET.PILOT.ucNAV_SIM & BGNET_TYPE_MASK) {
@@ -2404,10 +2434,15 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                         CounterUp(&pCtrl->BGNET.SPEED.STW.Counter, t);
                     }
                     break;
-                case BGNET_CHN_49_COMP:
-                    pCtrl->BGNET.ACP.Heading.value.nLong = ntohs(pCH->s.cv.uW[0]);
-                    pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, t);
+                case BGNET_CHN_49_HEADING:
+                    pCtrl->BGNET.ACP.Compass.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.ACP.Compass.Counter, t);
+                    break;
+                case BGNET_CHN_4A_COMP_RAW:
+                    pCtrl->BGNET.ACP.CompassRaw.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.ACP.CompassRaw.Counter, t);
                     break;
                 case  BGNET_CHN_7F_VMG:
                     pCtrl->BGNET.WIND.VMG.value.dValue = decode_channel_double(pCH, 0);
@@ -2714,13 +2749,13 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
             case BGN_FASTNET_MODE_RW:
                 // in RW mode, do not log any DATA command (except what comes from PILOT devices)
                 switch (pFRx->CMD) {
-                    case BGNET_CMD_01_DATA:
-                        switch (pFRx->FROM & BGNET_TYPE_MASK) {
-                            case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
-                                log_debug_frame(pFRx);
-                                break;
-                        }
-                        break;
+                    //case BGNET_CMD_01_DATA:
+                    //    switch (pFRx->FROM & BGNET_TYPE_MASK) {
+                    //        case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
+                    //            log_debug_frame(pFRx);
+                    //            break;
+                    //    }
+                    //    break;
                     default:
                         log_debug_frame(pFRx);
                         break;
@@ -3746,10 +3781,14 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 break;
                                             case BGNET_CMD_CB_QUAD_RESET:
                                                 switch (pCHRx->s.CH) {
+                                                    // after going from STBY to AUTO, for 5 seconds "MEM nnn" is displayed. If
+                                                    // you press AUTO in this 5 seconds, this command is received:
+                                                    // 1F 5A 02 CB BA 05 A6 FF
+                                                    // this means that the MEM value must be copied to the CTS value
                                                     case BGNET_CHN_A6_AP_TARGET:
-                                                        // happens when PILOT wants the stored CTS from the ACP. I do not know
-                                                        // what command to use, so i do not do anything. At least is makes the PILOT
-                                                        // to receive the CMDACK, preventing an error beep
+                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.MEM_CRSE1.value.nLong;
+                                                        pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
+                                                        CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
                                                         break;
                                                     case BGNET_CHN_A7_AP_WPB:
                                                         // happens when PILOT wants 'some unknown value' from the ACP. I do not know
@@ -3763,10 +3802,10 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 // in PILOT/SETUP, the COMPASS DMP is configured, 2 bytes payload
                                                 // 0=ACKSEQ, 1=0x49
                                                 switch(pCHRx->s.CH) {
-                                                    case BGNET_CHN_49_COMP:
+                                                    case BGNET_CHN_49_HEADING:
                                                         // create command with current DMP setting
                                                         payload[BGNET_FRAME_ACKSEQ] = pFRx->payload[BGNET_FRAME_ACKSEQ];
-                                                        payload[1] = BGNET_CHN_49_COMP;
+                                                        payload[1] = BGNET_CHN_49_HEADING;
                                                         payload[2] = BGN_FMT_01;
                                                         payload[3] = 0;
                                                         payload[4] = pCtrl->BGNET.ACP.SETUP.DMP.value.nByte; // (0-99)                                                        len_pl = 5;
@@ -3785,7 +3824,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 // in PILOT/SETUP, when COMPASS DMP setting is entered, 5 bytes payload
                                                 // 0=ACKSEQ, 1=0x49, 2=FMT_01, 3=0, 4=DMP in seconds (1-99, 4=default)
                                                 switch(pCHRx->s.CH) {
-                                                    case BGNET_CHN_49_COMP:
+                                                    case BGNET_CHN_49_HEADING:
                                                         // update the channel value 
                                                         pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                         pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
@@ -4038,7 +4077,6 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                     // set the AUTO/STBY & MODE
                                                     case BGNET_CHN_B5_AP_STATUS:
                                                         // update the channel value
-                                                        // Upon entering the COMMISS state, the PILOT sets the ACP to MAN/COMP (0x00, 0x00)
                                                         pCtrl->CHN[pCHRx->s.CH].iNewChannel = BGN_NEW_SET;
                                                         pCtrl->CHN[pCHRx->s.CH].x00.ucTO = pFRx->TO;
                                                         pCtrl->CHN[pCHRx->s.CH].x00.ucFROM = pFRx->FROM;
@@ -4047,7 +4085,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         memcpy(pCtrl->CHN[pCHRx->s.CH].x00.ucRAW, pCHRx->ucRAW, y);
                                                         decode_channel_string(pCtrl->CHN[pCHRx->s.CH].x00.cValue, pCHRx);
                                                         CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
-                                                        if (pCtrl->CHN[BGNET_CHN_49_COMP].x01.CounterRx.iCounter == 0) {
+                                                        if (pCtrl->CHN[BGNET_CHN_49_HEADING].x01.CounterRx.iCounter == 0) {
                                                             // HEADING was never touched, do not go to AUTO
                                                         } else {
                                                             // i'm not going to make things more complicated at this point. But realise that when
@@ -4067,10 +4105,18 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 switch (pCtrl->BGNET.ACP.MODE.value.nByte & BGN_AP_MODE2_MASK_MODE) {
                                                                     case BGN_AP_MODE2_COMP:
                                                                     case BGN_AP_MODE2_NAV:
+                                                                        // save the current CTS into the course memory
+                                                                        pCtrl->BGNET.ACP.MEM_CRSE1.value.nLong = pCtrl->BGNET.ACP.CTS.value.nLong;
+                                                                        pCtrl->BGNET.ACP.MEM_CRSE1.source = BGN_SOURCE_BGNET;
+                                                                        CounterUp(&pCtrl->BGNET.ACP.MEM_CRSE1.Counter, t);
                                                                         // initialize CTS from current heading (to avoid course change due to AP going into AUTO)
-                                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.Heading.value.nLong;
+                                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.Compass.value.nLong;
                                                                         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
                                                                         CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
+                                                                        // set the MEM bit
+                                                                        pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte | BGN_AP_MODE1_MEM);
+                                                                        // set the STBY to AUTO timer (5 seconds)
+                                                                        TimerSet(&pCtrl->BGNET.ACP.AUTO, t, 5);
                                                                         break;
                                                                     case BGN_AP_MODE2_VANE:
                                                                         // initialize TARGET AWA from current AWA (to avoid course change due to AP going into AUTO)
@@ -4081,6 +4127,8 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                 }
                                                                 // set the AUTO state
                                                                 pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE) | (pCHRx->s.cv.uB[1] & BGN_AP_MODE1_MASK_STATE);
+                                                                pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_BGNET;
+                                                                CounterUp(&pCtrl->BGNET.ACP.STATE.Counter, t);
                                                                 break;
                                                             default:
                                                                 // OFF key was pressed

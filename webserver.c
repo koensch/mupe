@@ -402,9 +402,12 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.boat.headingM.value.dValue = headingM->valuedouble;
         g_n2kdata.boat.headingM.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.headingM.Counter, t);
-        pCtrl->BGNET.ACP.Heading.value.nLong = BGNET_DTOIROUND(headingM->valuedouble);
-        pCtrl->BGNET.ACP.Heading.source = BGN_SOURCE_API;
-        CounterUp(&pCtrl->BGNET.ACP.Heading.Counter, t);
+        pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_DTOIROUND(headingM->valuedouble);
+        pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.ACP.Compass.Counter, t);
+        pCtrl->BGNET.ACP.CompassRaw.value.nLong = BGNET_DTOIROUND((headingM->valuedouble*USHRT_MAX)/360);
+        pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.ACP.CompassRaw.Counter, t);
     }
     if (headingT) {
         g_n2kdata.boat.headingT.value.dValue = headingT->valuedouble;
@@ -967,7 +970,9 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "Autopilot Mode [0x01=COMPass, 0x03=NAVigation, 0x04=VANE]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Heading", "Compass reading (from Fluxgate) [0-359 DegM]", pCtrl->BGNET.ACP.Heading.Counter.iCounter, t-pCtrl->BGNET.ACP.Heading.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Heading.source), pCtrl->BGNET.ACP.Heading.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (after correction) [0-359 DegM]", pCtrl->BGNET.ACP.Compass.Counter.iCounter, t-pCtrl->BGNET.ACP.Compass.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Compass.source), pCtrl->BGNET.ACP.Compass.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (fuxgate sensor) [0-65.535]", pCtrl->BGNET.ACP.CompassRaw.Counter.iCounter, t-pCtrl->BGNET.ACP.CompassRaw.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CompassRaw.source), pCtrl->BGNET.ACP.CompassRaw.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Rudder", "Rudder position (from RRU) [-40/+40 Deg]", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
     strcat(Buffer, cLine);
