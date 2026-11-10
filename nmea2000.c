@@ -76,7 +76,7 @@ static uint32_t n2k_u32(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
 
 //============================== PGN handling
 
-/* 126992 – System Time
+/* 126992 - System Time
  * byte 0       Sequence ID     to sync with other fast data
  * byte 1       Reserved
  * byte 2-3     Date            days since 1970-01-01
@@ -111,7 +111,7 @@ static void parse_pgn_126992(BGNET_CTRL *pCtrl, const struct can_frame *f)
     }
 }
 
-/* 126993 – Heartbeat
+/* 126993 - Heartbeat
  * byte 0       Reserved        no data
  */
 static void parse_pgn_126993()
@@ -119,21 +119,21 @@ static void parse_pgn_126993()
     //log_debug("N2K 126993: Heartbeat");
 }
 
-/* 127245 – Rudder Angle
+/* 127245 - Rudder Angle
  * Angle: -PI (-180) to +Pi (+180) degrees, range 0-30000
  * mechanical limits are restricted between +/-45 and +/-90 degrees
- * byte 0       instance        in case you have multiple rudders (0x00=Main/Single, 0xFC=Port, 0xFD=Starboard)
- * byte 1       order           ordered direction (0x00=No Order, 0x01=Move to Port, 0x02=Move to Starboard
+ * byte 0       instance        in case you have multiple rudders (0x00= Main/Single, 0xFC=Port, 0xFD=Starboard)
+ * byte 1       order           ordered direction (0x00=No Order, 0x01= Move to Port, 0x02= Move to Starboard
  * byte 2       not used
  * byte 3-4     order position  angle order, 0.0001 rad/bit or 0xFFFF (no order)
  * byte 5-6     position        measured position, 0.0001 rad/bit, += starboard, -=port
  */
 static void parse_pgn_127245(BGNET_CTRL *pCtrl, const struct can_frame *f)
 {
-    //int16_t order_raw = (int16_t)(ntohs(ntohs(n2k_i16(f->data[4], f->data[3])))); 
+    int16_t order_raw = (int16_t)(ntohs(ntohs(n2k_i16(f->data[4], f->data[3])))); 
     int16_t rudder_raw = (int16_t)(ntohs(ntohs(n2k_i16(f->data[6], f->data[5])))); 
 
-    //double order_rad  = order_raw * 1e-4;  /* devide by 1000 to get rads */
+    double order_rad  = order_raw * 1e-4;  /* devide by 1000 to get rads */
     double rudder_rad  = rudder_raw * 1e-4;  /* devide by 1000 to get rads */
 
     pthread_mutex_lock(&g_data_mutex);
@@ -142,41 +142,39 @@ static void parse_pgn_127245(BGNET_CTRL *pCtrl, const struct can_frame *f)
     CounterUp(&g_n2kdata.boat.rudder.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
     pthread_mutex_unlock(&g_data_mutex);
 
-    //log_debug("N2K 127245: rudder %d, Order/Dir= %x, Order/Pos= %d, Actual/Pos %d [deg]", f->data[0], (f->data[1] & 0x03), (int)(order_rad*180/M_PI), (int)(rudder_rad*180/M_PI));
+    log_debug("N2K 127245: rudder %d, Order/Dir= %x, Order/Pos= %d, Actual/Pos %d [deg]", f->data[0], (f->data[1] & 0x03), (int)BGNET_RAD2DEG(order_rad), (int)BGNET_RAD2DEG(rudder_rad));
 
     switch(pCtrl->BGNET.ACP.Rudder.source) {
         case BGN_SOURCE_NONE:
         case BGN_SOURCE_ACP:
         case BGN_SOURCE_NMEA:
-            pCtrl->BGNET.ACP.Rudder.value.nLong = BGNET_DTOIROUND(rudder_rad * 180/M_PI);
+            pCtrl->BGNET.ACP.Rudder.value.nLong = BGNET_DTOIROUND(BGNET_RAD2DEG(rudder_rad));
             pCtrl->BGNET.ACP.Rudder.source = BGN_SOURCE_NMEA;
             CounterUp(&pCtrl->BGNET.ACP.Rudder.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
             break;
     }
 }
 
-/* 127250 – Heading
+/* 127250 - Heading
  */
 static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
 {
-    //u_int16_t heading_raw = ntohs(n2k_i16(f->data[3], f->data[2])); // heading, magnetic, range 0-2PI rad, 0-259 Deg
-    //int16_t deviation_raw = (int16_t)ntohs(n2k_i16(f->data[5], f->data[4])); // deviation, range -PI-+PI, -180/+180 Deg
-    //int16_t variation_raw = (int16_t)ntohs(n2k_i16(f->data[7], f->data[6])); // deviation, range -PI-+PI, -180/+180 Deg
-    u_int16_t heading_raw = ntohs(n2k_i16(f->data[2], f->data[1])); // heading, magnetic, range 0-2PI rad, 0-259 Deg
+    u_int16_t compass_raw = ntohs(n2k_i16(f->data[2], f->data[1])); // heading, magnetic, range 0-2PI rad, 0-359 Deg
     int16_t deviation_raw = (int16_t)ntohs(n2k_i16(f->data[4], f->data[3])); // deviation, range -PI-+PI, -180/+180 Deg
     int16_t variation_raw = (int16_t)ntohs(n2k_i16(f->data[6], f->data[5])); // deviation, range -PI-+PI, -180/+180 Deg
 
-    double heading = 0.0;
+    double compass = 0.0;
     double deviation = 0.0;
     double variation = 0.0;
-    if (heading_raw == 0xFFFF) {
+    
+    if (compass_raw == 0xFFFF) {
         // no data do not update
     } else {
-        heading = heading_raw * 1e-4;  /* devide by 1000 to get rads */
+        compass = compass_raw * 1e-4;  /* devide by 1000 to get rads */
         pthread_mutex_lock(&g_data_mutex);
-        g_n2kdata.boat.headingM.value.dValue = heading; // Magnetic (no compensation)
-        g_n2kdata.boat.headingM.source = BGN_SOURCE_NMEA;
-        CounterUp(&g_n2kdata.boat.headingM.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+        g_n2kdata.boat.compass.value.dValue = compass; // Magnetic (no compensation)
+        g_n2kdata.boat.compass.source = BGN_SOURCE_NMEA;
+        CounterUp(&g_n2kdata.boat.compass.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
         if ((deviation_raw == 0x7FFF) | (variation_raw == 0x7FFF)) {
@@ -184,11 +182,11 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
         } else {
             deviation = deviation_raw * 1e-4; /* devide by 1000 to get rads */
             variation = variation_raw * 1e-4; /* devide by 1000 to get rads */
-            pthread_mutex_lock(&g_data_mutex);
-            g_n2kdata.boat.headingT.value.dValue = (heading + deviation + variation); // True (with compensation)
-            g_n2kdata.boat.headingT.source = BGN_SOURCE_NMEA;
-            CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-            pthread_mutex_unlock(&g_data_mutex);
+            //pthread_mutex_lock(&g_data_mutex);
+            //g_n2kdata.boat.headingT.value.dValue = (heading + deviation + variation); // True (with compensation)
+            //g_n2kdata.boat.headingT.source = BGN_SOURCE_NMEA;
+            //CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+            //pthread_mutex_unlock(&g_data_mutex);
         }
 
         // compass (corrected)
@@ -196,7 +194,7 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_DTOIROUND((heading * 180)/M_PI);
+                pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_DTOIROUND(BGNET_RAD2DEG(compass));
                 pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_NMEA;
                 CounterUp(&pCtrl->BGNET.ACP.Compass.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 break;
@@ -206,16 +204,16 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.ACP.CompassRaw.value.nLong = BGNET_DTOIROUND((((heading * 180)/M_PI)*USHRT_MAX)/360);
+                pCtrl->BGNET.ACP.CompassRaw.value.nLong = (pCtrl->BGNET.ACP.Compass.value.nLong * USHRT_MAX)/360;
                 pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_NMEA;
                 CounterUp(&pCtrl->BGNET.ACP.CompassRaw.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 break;
         }
     }
-    log_debug("N2K 127250: Heading= %d, Deviation= %d, Variation= %d", BGNET_DTOIROUND(heading * 180/M_PI), BGNET_DTOIROUND(deviation * 180/M_PI), BGNET_DTOIROUND(variation * 180/M_PI));
+    log_debug("N2K 127250: Compass= %d, Deviation= %d, Variation= %d", BGNET_DTOIROUND(BGNET_RAD2DEG(compass)), BGNET_DTOIROUND(BGNET_RAD2DEG(deviation)), BGNET_DTOIROUND(BGNET_RAD2DEG(variation)));
 }
 
-/* 128259 – Speed, Water Referenced (STW, Speed Through Water)
+/* 128259 - Speed, Water Referenced (Speed Through Water)
  * Water speed: 0.01 m/s
  */
 static void parse_pgn_128259(BGNET_CTRL *pCtrl, const struct can_frame *f)
@@ -247,7 +245,7 @@ static void parse_pgn_128259(BGNET_CTRL *pCtrl, const struct can_frame *f)
     }
 }
 
-/* 128267 – Water Depth
+/* 128267 - Water Depth
  * Depth: 0.01 m, Offset: 0.01 m
  * We publish depth below transducer (no offset correction here).
  */
@@ -272,8 +270,8 @@ static void parse_pgn_128267(BGNET_CTRL *pCtrl, const struct can_frame *f)
     }
 }
 
-/* 129025 – Position, Rapid Update (only included lat/lon, no other parameters)
- * Lat/Lon in 1e-7 degrees, signed 32-bit
+/* 129025 - Position, Rapid Update (only included lat/lon, no other parameters)
+ * LAT/LON in 1e-7 degrees, signed 32-bit
  */
 static void parse_pgn_129025(BGNET_CTRL *pCtrl, const struct can_frame *f)
 {
@@ -301,7 +299,7 @@ static void parse_pgn_129025(BGNET_CTRL *pCtrl, const struct can_frame *f)
     }
 }
 
-/* 129026 – COG & SOG, Rapid Update
+/* 129026 - COG & SOG, Rapid Update
  * COG: 0.0001 rad, SOG: 0.01 m/s
  */
 static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
@@ -343,7 +341,7 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
     }
 
 }
-/* 129029 – GNSS position data
+/* 129029 - GNSS position data
  * byte 0       SID             Sequence ID to group 'fast packages'
  * byte 1,2     Position Date   days since 1970-01-01
  * byte 3,6     Position Time   seconds since midnight, 0.0001s/bit
@@ -370,7 +368,7 @@ static void parse_pgn_129029(BGNET_CTRL *pCtrl, const struct can_frame *f)
     }
 }
 
-/* 130306 – Wind Data
+/* 130306 - Wind Data
  * Wind speed: 0.01 m/s
  * Wind angle: 0.0001 rad
  * Reference:
@@ -416,6 +414,41 @@ static void parse_pgn_130306(BGNET_CTRL *pCtrl, const struct can_frame *f)
         pthread_mutex_unlock(&g_data_mutex);
 
         log_debug("N2K 130306: ref=%u speed=%.2f m/s angle=%.4f rad", ref, speed, angle);
+    }
+}
+/* 130316 - Temperature data (in Kelvin)
+ * byte 0       SID             Sequence ID to group 'fast packages'
+ * byte 1       Instance        Unique ID for sensor (if you have multiple sensors of the same source)
+ * byte 2       Source          Source (0= Seawater, 1= Outside Air, 4= Engineroom, 5= Exhaustgas
+ * byte 3-6     Measurement     long interger (1=0.001K)
+ * byte 7       Setpoint        reseved (0xFF) or used by thermostat
+ */
+static void parse_pgn_130316(BGNET_CTRL *pCtrl, const struct can_frame *f)
+{
+    uint8_t source          = f->data[2] & 0x07;
+    int32_t temperature_raw = (int32_t)n2k_u32(f->data[3], f->data[4], f->data[5], f->data[6]);
+
+    if (temperature_raw == 0x7FFFFFFF) {
+        // no data do not update
+    } else{
+        double temperature = temperature_raw * 1e-3 - 273.15;
+        switch (source) {
+            case 0: // seawater
+                pthread_mutex_lock(&g_data_mutex);
+                g_n2kdata.boat.seatemp.value.dValue = temperature;
+                g_n2kdata.boat.seatemp.source = BGN_SOURCE_NMEA;
+                CounterUp(&g_n2kdata.boat.seatemp.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                pthread_mutex_unlock(&g_data_mutex);
+                break;
+            case 1: // outside air
+                pthread_mutex_lock(&g_data_mutex);
+                g_n2kdata.wind.airtemp.value.dValue = temperature;
+                g_n2kdata.wind.airtemp.source = BGN_SOURCE_NMEA;
+                CounterUp(&g_n2kdata.wind.airtemp.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                pthread_mutex_unlock(&g_data_mutex);
+                break;
+        }
+        log_debug("N2K 130316: Temperature: source= %d, Measurement= %.1f DegC", temperature);
     }
 }
 
@@ -486,14 +519,15 @@ void *nmea2000_thread(void *arg)
                     switch (pgn) {  // ADD: SEATEMP, HEADING
                         case 126992: parse_pgn_126992(pCtrl, &frame); break;   // system time
                         case 126993: parse_pgn_126993(); break;   // heartbeat, no data
-                        case 127245: parse_pgn_127245(pCtrl, &frame); break;   // rudder position
-                        case 127250: parse_pgn_127250(pCtrl, &frame); break;   // Heading and Deviation (Magnetic Heading, True Heading)
-                        case 128259: parse_pgn_128259(pCtrl, &frame); break;   // STW (Speed Through Water)
+                        case 127245: parse_pgn_127245(pCtrl, &frame); break;   // Rudder position and Commands
+                        case 127250: parse_pgn_127250(pCtrl, &frame); break;   // Compass and Deviation
+                        case 128259: parse_pgn_128259(pCtrl, &frame); break;   // Speed Through Water
                         case 128267: parse_pgn_128267(pCtrl, &frame); break;   // Depth
-                        case 129025: parse_pgn_129025(pCtrl, &frame); break;   // GPS/LAT, LON (can not be handled by NETWORK devices)
-                        case 129026: parse_pgn_129026(pCtrl, &frame); break;   // GPS/COG, SOG
-                        case 129029: parse_pgn_129029(pCtrl, &frame); break;   // GNSS position data
-                        case 130306: parse_pgn_130306(pCtrl, &frame); break;   // AWS, AWA, TWS, TWA
+                        case 129025: parse_pgn_129025(pCtrl, &frame); break;   // GPS - LAT/LON (can not be handled by NETWORK devices, used for NMEA0183 output)
+                        case 129026: parse_pgn_129026(pCtrl, &frame); break;   // GPS - COG/SOG (only SOG handled by NETWORK, others also used for NMEA0183 output)
+                        case 129029: parse_pgn_129029(pCtrl, &frame); break;   // GNSS - DATE/TIME/LON/LAT/ALT (can not be handled by NETWORK devices, used for NMEA0183 output)
+                        case 130306: parse_pgn_130306(pCtrl, &frame); break;   // Wind - AWS/AWA/TWS/TWA
+                        case 130316: parse_pgn_130316(pCtrl, &frame); break;   // Temperature (seawater, wind)
                         default:
                             iValid = 0;
                         break;
@@ -508,7 +542,7 @@ void *nmea2000_thread(void *arg)
                 // no data received from device
             }
         }
-        usleep(MSEC1);
+        usleep(MSEC10);
     }
     close(s);
     log_info("NMEA2000: thread exiting");

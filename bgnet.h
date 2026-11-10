@@ -170,7 +170,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 // FROM/TO address range (0x?0-0x?F) for device types. There is some address negotiations going on. At one point the NETDATA is 0xD6, another time it's 0x60.
 // The same with NETPILOT. Normally 0x50, but if another NETPILOT is detected, it's 0x51. As long as you have 1 of each it's simple. I do not have multiple
 // units of the same type, so i was never able to reverse-engineer the address negotiations.
-#define BGNET_ACP_ID                    0xBA9E // the code send with the POWERUP message
+#define BGNET_ACP_ID                    0xBA9E // the code send with the POWERUP message. Everytime an ACP sends a POWERUP, the ID is different
 
 #define BGNET_TYPE_MASK                 0xF0 // mask the node type from the address
 #define BGNET_TYPE_UNDEFINED            0x00 // undefined
@@ -418,14 +418,15 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     #define BGN_AP_MODE1_LOCK2      0x20   //         6   not used
     #define BGN_AP_MODE1_UNKNOWN    0x80   //         7   unknown (set by ACP when there is an error)
                                            //        
-    #define BGN_AP_MODE2_MASK_MODE  0x0F   // DATA2 - 0-3 CORE MODE (0, UNDEF, 1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
+    #define BGN_AP_MODE2_MASK_MODE  0x07   // DATA2 - 0-2 CORE MODE (0, UNDEF, 1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
     #define BGN_AP_MODE2_NONE       0x00   // set by COMMIS procedure      
     #define BGN_AP_MODE2_COMP       0x01   //                                   note: if there is no WIND signal, you can not select VANE mode
-    #define BGN_AP_MODE2_NAV        0x03   //         
+    #define BGN_AP_MODE2_NAV        0x03   //         3   unknown
     #define BGN_AP_MODE2_VANE       0x04   //         4   PILOT SETUP option appears: "WIND A/T" (Appearent/True), used in VANE mode (0=TWA/1=AWA)
     #define BGN_AP_MODE2_JOYSTICK   0x06   //         5   makes "MEM 000" displayed, but no command observed
-    #define BGN_AP_MODE2_WINDTYPE   0x10   //         6   1=in calibration mode
-    #define BGN_AP_MODE2_MEM        0x20   //         7   resereved
+                                           //         6   1=in calibration mode
+    #define BGN_AP_MODE2_WINDTYPE   0x10   //         7   resereved
+    #define BGN_AP_MODE2_MEM        0x20   
 
 #define BGNET_CHN_B6_BOATTYPE         0xB6  // Commisioning, Boattype
 #define BGNET_CHN_BA_TRIP             0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A) or RUDDER LIMIT or MOB alarm

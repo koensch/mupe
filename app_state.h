@@ -6,32 +6,41 @@
 
 #define ApplicationName "mupe"
 // the lower the usleep, the higher the CPU load. 1000 (1 msec) works Ok, 5000 (5 msec) also works OK,
-// but 10000 (10 msec) lo longer works. Use this to balance behaviour/performance vs resources.
-// for the time being, i'll leave it to 2500 (2.5 msec) 
-#define MSEC1           3000    // usleep 3 msec
+// but 10000 (10 msec) no longer works. Use this to balance behaviour/performance vs resources.
+// for the time being, i'll leave it to 2500 (2.5 msec). Lowered it to 1500 because of collisions when ACP is present 
+#define MSEC1           1500     // usleep 1.5 msec
+// for the NMEA2000 pacemaker 
+#define MSEC10          10000    // usleep 10 msec
+// for the NMEA0183 pacemaker, i do'n want to send data too fast. 
 #define MSEC2500        250000  // usleep 2500 msec
+// for the main() 
+#define SEC5            5       // sleep 5 sec
 
 // generic defines
 // convert double to int/long (not roundoff, just cutoff the fractional part)
-#define BGNET_DTOIROUND(d)              ((int)(d))
+#define BGNET_DTOIROUND(d)                  ((int)(d))
 // convert int/long to double
-#define BGNET_ITOD(i)                   ((double)i)
+#define BGNET_ITOD(i)                       ((double)i)
 // if we need PI
-#define BGNET_PI                        3.14159
+#define BGNET_PI                            3.14159
 // get the lowest of 2 values
-#define BGNET_MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define BGNET_MIN(a, b)                     (((a) < (b)) ? (a) : (b))
 // get the highest of 2 values
-#define BGNET_MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define BGNET_MAX(a, b)                     (((a) > (b)) ? (a) : (b))
 // get the high-byte from a int/long
-#define BGNET_HIBYTE(w) (((uint16_t)(w) >> 8) & 0xFF)
+#define BGNET_HIBYTE(w)                     (((uint16_t)(w) >> 8) & 0xFF)
 // get the low-byte from a int/long
-#define BGNET_LOBYTE(w) ((uint8_t)((w) & 0xFF))
+#define BGNET_LOBYTE(w)                     ((uint8_t)((w) & 0xFF))
 // combine 2 bytes (high- and low byte) to a 16 bits register
-#define BGNET_BYTES2WORD(a, b) ((uint8_t)(a)*0xFF+(uint8_t)(b))
+#define BGNET_BYTES2WORD(a, b)              ((uint8_t)(a)*0x100+(uint8_t)(b))
 // WRAP and increment around a range. a= value, b= increment, c= range 
-#define BGNET_INCREMENTWRAP(a, b, c, d) ( (a) + (b) + ((d)-(c)) ) % ( (d)-(c) )
+#define BGNET_INCREMENTWRAP(a, b, c, d)     ( (a) + (b) + ((d)-(c)) ) % ( (d)-(c) )
 // whereever we need a time-formatted string
-#define BGNET_TIME_FMT                 "%Y-%m-%d %H:%M:%S" 
+#define BGNET_TIME_FMT                      "%Y-%m-%d %H:%M:%S"
+// convert RAD to DEG
+#define BGNET_RAD2DEG(r)                    (r * 180.0/M_PI)
+// convert DEG to RAD
+#define BGNET_DEG2RAD(r)                    ((d * M_PI)/180.0)
 
 #define BGNET_RXTXRAW_SIZE              1024    // max size read/write buffer (ethernet, fastnet) to hold the complete frames
 
@@ -155,8 +164,7 @@ typedef struct {
     NMEA2K_VALUE depth;
     NMEA2K_VALUE seatemp;
     NMEA2K_VALUE rudder;
-    NMEA2K_VALUE headingM;
-    NMEA2K_VALUE headingT;
+    NMEA2K_VALUE compass;
     NMEA2K_VALUE time;  // absolute time
     NMEA2K_VALUE timer; // countdown/countup timer
 } NMEA2K_BOAT;

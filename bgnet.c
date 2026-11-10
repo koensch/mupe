@@ -600,11 +600,11 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.CRS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.CRS.Counter, t);
 
-        pCtrl->BGNET.ACP.MEM_CRSE1.value.nLong = 0; // Memorized Course To Steer
+        pCtrl->BGNET.ACP.MEM_CRSE1.value.nLong = 0; // Course memory 1 = preset memory (while in STBY)
         pCtrl->BGNET.ACP.MEM_CRSE1.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.MEM_CRSE1.Counter, t);
 
-        pCtrl->BGNET.ACP.MEM_CRSE2.value.nLong = 0;
+        pCtrl->BGNET.ACP.MEM_CRSE2.value.nLong = 0; // Course memory 2 = memory to go back to your original course
         pCtrl->BGNET.ACP.MEM_CRSE2.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.MEM_CRSE2.Counter, t);
 
@@ -1665,6 +1665,44 @@ unsigned char getAP_MODE(BGNET_CTRL *pCtrl) {
     return(r);
 }
 
+// if ACP uses internal compass, HEADING must be send by ACP
+// if ACP uses external compasss (because there is a COMPASS unit), HEADING must be send by COMPASS
+// so, sometimes it's send by ACP, sometimes by COMPASS. Because the parameter we put in the HEADING
+// may vary by AP mode.
+// so we make one routine to generate the HEADING channel with the correct value
+size_t makeHEADINGresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
+    size_t r = 0;
+    unsigned char c;
+    union CH *puCH;
+
+    puCH = (union CH *)&(payload[r]);
+    c = BGNET_CHN_49_HEADING;
+    puCH->s.CH = c;
+    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
+    switch (pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) {
+        case BGN_AP_MODE1_STBY:
+            // in STBY we show COMPASS value
+            puCH->s.cv.uL[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
+            break;
+        case BGN_AP_MODE1_AUTO:
+            // in AUTO, it depends on the MODE
+            switch (pCtrl->BGNET.ACP.MODE.value.nByte & BGN_AP_MODE2_MASK_MODE) {
+                case BGN_AP_MODE2_COMP:
+                case BGN_AP_MODE2_NAV:
+                    puCH->s.cv.uL[0] = htons(pCtrl->BGNET.ACP.CTS.value.nLong);
+                    break;
+                case BGN_AP_MODE2_VANE:
+                case BGN_AP_MODE2_JOYSTICK:
+                default:
+                    puCH->s.cv.uL[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
+                    break;
+            }
+            break;
+    }
+    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    return(r);
+}
+
 size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
     size_t r = 0;
     unsigned char c;
@@ -1731,19 +1769,16 @@ size_t makeCOMPASSresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     unsigned char c;
     union CH *puCH;
 
-    puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_49_HEADING;
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uL[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
+    // when COMPASS sends this channel, ACP switches from "INT CMP" (internal compass) to "EXT CMP" (external compass)
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_4A_COMP_RAW;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.cv.uL[0] = htons((pCtrl->BGNET.ACP.Compass.value.nLong*USHRT_MAX)/360); // (123 * 65535) / 360
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
+
+    // add HEADING
+    r = r + makeHEADINGresponse(pCtrl, &payload[r]);
 
     return(r);
 }
@@ -1764,12 +1799,8 @@ size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
-    puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_49_HEADING;
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
+    // add HEADING
+    r = r + makeHEADINGresponse(pCtrl, &payload[r]);
 
     puCH = (union CH *)&(payload[r]);
     c = BGNET_CHN_BA_TRIP;
@@ -2896,8 +2927,9 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                             // At startup, a lot of initial messages are being send (command 0x02, 0x06) and if we reset our structure
                             // we erase all of that in the process. Better not resetting.
                             //bgnet_initialize_reset(pCtrl);
+                            // i left this comment to warn you not to do this
 
-                            // if this device was enabled for use
+                            // if this device type was enabled for use
                             if (pCtrl->pDEVDT[bgnet_deviceindex(pCtrl, pFRx->FROM)].iEnable == 0) {
                                 // sorry, never had this type of device in my hands and could not guarentee predictable outcome. forget it for the time being
                             } else {
@@ -2966,12 +2998,12 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                 // other nodes (like DATA) do not require initialisation
                                                 pCtrl->DEV[pFRx->FROM].PowerUp_InitDone = 1;
                                                 break;
-                                        }
+                                        } /* switch () */
                                     } else {
                                         // node is already initialized, nothing to do
-                                    }
-                                }
-                            } 
+                                    } /* endif (PowerUp_InitDone == 0) */
+                                } /* endif (PowerUp_InitSeen == 0) */
+                            }
                             break;
                         default:
                             log_info("  Command %02X (header only) IGNORED (from %02X %s)", pFRx->CMD, pFRx->FROM, pCtrl->pDEVDT[x].sModelName);
@@ -3013,14 +3045,10 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                 decode_command_SUBSCRIBE(pCtrl, pFRx);
                                 break;
                             case BGNET_CMD_0A_POWERUP:
-                                // in theory a 0A command with payload could be received. This is because 0A command with data is send by ACP
-                                // however, our application more-or-less emulates the ACP and a system with 2 ACP's is not a thing in the B&G
-                                // NETWORK product.
-                                // We we handle the 0A command with data, just to be correct and complete when this application is used to monitor
-                                // a NETWORK system with ACP.
-                                // Realise we do not know what purpose the 0A data is and how it is used. It is a firmware version? configuration bits?
-                                // who knows.....
-                                // Realise that (because we are behaving as some kind of ACP ourselves) we DO send a POWERUP command with 2 bytes data.
+                                // our mupe application and ACP have the same 'device type', we might come here in case we connect our application
+                                // to a network that has a ACP in it.
+                                // Realise we do not know what purpose the 0A data is and how it is used. It seems to be different everytime the ACP
+                                // restarts. Unlikely to be a firmware version or configuration bits. Unknown what it might be, who knows.....
                                 pCtrl->BGNET.ACP.ID.value.nLong = BGNET_BYTES2WORD(pFRx->payload[0], pFRx->payload[1]);
                                 pCtrl->BGNET.ACP.ID.source = BGN_SOURCE_BGNET;
                                 CounterUp(&pCtrl->BGNET.ACP.ID.Counter, t);
@@ -3785,10 +3813,22 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                     // you press AUTO in this 5 seconds, this command is received:
                                                     // 1F 5A 02 CB BA 05 A6 FF
                                                     // this means that the MEM value must be copied to the CTS value
+                                                    // ACP replies with CMD-ACK, followed by FF 12 0C 01 E2 B5 08 05 01 A6 08 01 45 A7 08 01 45 FE
                                                     case BGNET_CHN_A6_AP_TARGET:
                                                         pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.MEM_CRSE1.value.nLong;
                                                         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
                                                         CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
+                                                        // send DATA command to update PILOT display
+                                                        len_pl = makeACPresponseSTATUSONLY(pCtrl, payload);
+                                                        // create frame
+                                                        pFTx = (FRAME_H *)&TxBuf[TxSize];
+                                                        len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_MUPE, BGNET_CMD_01_DATA, payload, len_pl);
+                                                        register_DATA_frame(pCtrl, pFTx);
+                                                        memcpy(pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
+                                                        memcpy(pCtrl->DEV[BGNET_TYPE_MUPE].Tx.ucFrame, pFTx, len_msg);
+                                                        CounterUp(&pCtrl->DEV[BGNET_TYPE_MUPE].CounterTx, t);
+                                                        TxSize = TxSize + len_msg;
                                                         break;
                                                     case BGNET_CHN_A7_AP_WPB:
                                                         // happens when PILOT wants 'some unknown value' from the ACP. I do not know

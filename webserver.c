@@ -271,8 +271,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *depth     = cJSON_GetObjectItem(root, "depth");     // water depth below transducer [M]
     cJSON *seatemp   = cJSON_GetObjectItem(root, "seatemp");   // temperature of seawater [degree C]
     cJSON *rudder    = cJSON_GetObjectItem(root, "rudder");    // rudder angle sensor [radian], -Pi/+Pi (equals to -180/+180)
-    cJSON *headingM  = cJSON_GetObjectItem(root, "headingM");  // heading [degree] (0-359, magnetic)
-    cJSON *headingT  = cJSON_GetObjectItem(root, "headingT");  // heading [degree] (0-359, magnetic)
+    cJSON *compass   = cJSON_GetObjectItem(root, "compass");   // compass reading [degree] (0-359, magnetic)
     cJSON *timer     = cJSON_GetObjectItem(root, "timer");     // timer value in seconds (+= count down, -=count up)
     // wind measured parameters
     cJSON *twa       = cJSON_GetObjectItem(root, "twa");       // True Wind Angle [degree] (-180/+180, derived from SOG, COG and AWA)
@@ -283,7 +282,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *baro      = cJSON_GetObjectItem(root, "baro");      // barometric airpressure [mbar]
     cJSON *vmg       = cJSON_GetObjectItem(root, "vmg");       // Velocity Made Good, derived from wind angle and boatspeed
     // pilot/trip parameters
-    cJSON *cts       = cJSON_GetObjectItem(root, "cts");       // Course To Steer (0-359, compass)
+    cJSON *cts       = cJSON_GetObjectItem(root, "cts");       // Course To Steer (0-359)
     cJSON *triplog   = cJSON_GetObjectItem(root, "triplog");   // triplog, distance covered [M]
     // autopilot remote control
     cJSON *ap_state  = cJSON_GetObjectItem(root, "ap_state");  // "auto" or "off"
@@ -397,22 +396,17 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.boat.rudder.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.rudder.Counter, t);
     }
-    // curl --data "{\"headingM\":123.4}" http://localhost:8080/api/update
-    if (headingM) {
-        g_n2kdata.boat.headingM.value.dValue = headingM->valuedouble;
-        g_n2kdata.boat.headingM.source = BGN_SOURCE_API;
-        CounterUp(&g_n2kdata.boat.headingM.Counter, t);
-        pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_DTOIROUND(headingM->valuedouble);
+    // curl --data "{\"compass\":123.4}" http://localhost:8080/api/update
+    if (compass) {
+        g_n2kdata.boat.compass.value.dValue = compass->valuedouble;
+        g_n2kdata.boat.compass.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.compass.Counter, t);
+        pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_DTOIROUND(compass->valuedouble);
         pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.ACP.Compass.Counter, t);
-        pCtrl->BGNET.ACP.CompassRaw.value.nLong = BGNET_DTOIROUND((headingM->valuedouble*USHRT_MAX)/360);
+        pCtrl->BGNET.ACP.CompassRaw.value.nLong = BGNET_DTOIROUND((compass->valuedouble*USHRT_MAX)/360);
         pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.ACP.CompassRaw.Counter, t);
-    }
-    if (headingT) {
-        g_n2kdata.boat.headingT.value.dValue = headingT->valuedouble;
-        g_n2kdata.boat.headingT.source = BGN_SOURCE_API;
-        CounterUp(&g_n2kdata.boat.headingT.Counter, t);
     }
     // curl --data "{\"timer\":-60}" http://localhost:8080/api/update
     // timervalue set in minutes (+ is count up, -=count down)
@@ -1211,9 +1205,7 @@ static char* html_NMEA_row(char *Buffer) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "RUDDER", "Rudder position, starboard(+) or port(-) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudder.Counter.iCounter, (t - g_n2kdata.boat.rudder.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudder.source), g_n2kdata.boat.rudder.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING M", "Magnetic Heading (Compass reading) [0-359 DegM]", g_n2kdata.boat.headingM.Counter.iCounter, (t - g_n2kdata.boat.headingM.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.headingM.source), g_n2kdata.boat.headingM.value.dValue);
-    strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "HEADING T", "True Heading (corrected with Variation and Deviation) [0-359 DegT]", g_n2kdata.boat.headingT.Counter.iCounter, (t - g_n2kdata.boat.headingT.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.headingT.source), g_n2kdata.boat.headingT.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "COMPASS", "Compass reading [0-359 DegM]", g_n2kdata.boat.compass.Counter.iCounter, (t - g_n2kdata.boat.compass.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.compass.source), g_n2kdata.boat.compass.value.dValue);
     strcat(Buffer, cLine);
 
     return(Buffer);
@@ -1515,7 +1507,7 @@ void *webserver_thread(void *arg)
         int client_fd = accept(server_fd, NULL, NULL);
         if (client_fd < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                usleep(MSEC1);
+                usleep(MSEC10);
                 continue;
             }
             if (!g_running) break;
@@ -1587,7 +1579,7 @@ void *webserver_thread(void *arg)
                 handle_root_html(client_fd, pCtrl);
             }
         }
-        usleep(MSEC1);
+        usleep(MSEC10);
         close(client_fd);
     }
 

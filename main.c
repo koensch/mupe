@@ -697,7 +697,7 @@ int main(void)
 
     // Run forever. If needed, we can do some bookkeeping now and then. Loop exit via signal handler
     while(g_running) {
-        sleep(1);
+        sleep(SEC5);
         // at this moment we have no need for doing someting here
     }
 
