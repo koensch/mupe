@@ -158,7 +158,7 @@ void *ethernet_thread(void *arg)
             double tws   = g_n2kdata.wind.tws.value.dValue;
             double awa   = g_n2kdata.wind.awa.value.dValue;
             double aws   = g_n2kdata.wind.aws.value.dValue;
-            double rudder= g_n2kdata.boat.rudder.value.dValue;
+            double rudder= g_n2kdata.boat.rudderpos.value.dValue;
             pthread_mutex_unlock(&g_data_mutex);
 
             // build json string
@@ -214,7 +214,7 @@ void *ethernet_thread(void *arg)
                 break;
             }
         }
-        usleep(MSEC1);
+        usleep(MSEC10);
     }
     close(sockfd);
     log_info("Ethernet: thread exiting");

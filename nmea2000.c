@@ -84,9 +84,10 @@ static uint32_t n2k_u32(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
  */
 static void parse_pgn_126992(BGNET_CTRL *pCtrl, const struct can_frame *f)
 {
-    uint16_t days = ntohs(n2k_u16(f->data[3], f->data[2])); // days since 1970-01-01
-    uint32_t seconds = ntohl(n2k_u32(f->data[7], f->data[6],f->data[5], f->data[4])) * 1e-4; // seconds since midnight * 1000
-    time_t time_raw = days * 86400 + seconds;
+    uint16_t days    = ntohs(n2k_u16(f->data[3], f->data[2])); // days since 1970-01-01
+    uint32_t seconds = ntohl(n2k_u32(f->data[7], f->data[6],f->data[5], f->data[4])); // seconds since midnight * 1000
+
+    time_t time_raw  = days * 86400 + seconds * 1e-4;
 
     pthread_mutex_lock(&g_data_mutex);
     g_n2kdata.boat.time.value.tTime = time_raw;
@@ -130,29 +131,45 @@ static void parse_pgn_126993()
  */
 static void parse_pgn_127245(BGNET_CTRL *pCtrl, const struct can_frame *f)
 {
-    int16_t order_raw = (int16_t)(ntohs(ntohs(n2k_i16(f->data[4], f->data[3])))); 
-    int16_t rudder_raw = (int16_t)(ntohs(ntohs(n2k_i16(f->data[6], f->data[5])))); 
+    int16_t order_raw = ntohs(ntohs(n2k_i16(f->data[4], f->data[3]))); 
+    int16_t rudder_raw = ntohs(ntohs(n2k_i16(f->data[6], f->data[5]))); 
 
     double order_rad  = order_raw * 1e-4;  /* devide by 1000 to get rads */
     double rudder_rad  = rudder_raw * 1e-4;  /* devide by 1000 to get rads */
 
-    pthread_mutex_lock(&g_data_mutex);
-    g_n2kdata.boat.rudder.value.dValue = rudder_rad;
-    g_n2kdata.boat.rudder.source = BGN_SOURCE_NMEA;
-    CounterUp(&g_n2kdata.boat.rudder.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-    pthread_mutex_unlock(&g_data_mutex);
-
-    log_debug("N2K 127245: rudder %d, Order/Dir= %x, Order/Pos= %d, Actual/Pos %d [deg]", f->data[0], (f->data[1] & 0x03), (int)BGNET_RAD2DEG(order_rad), (int)BGNET_RAD2DEG(rudder_rad));
-
-    switch(pCtrl->BGNET.ACP.Rudder.source) {
-        case BGN_SOURCE_NONE:
-        case BGN_SOURCE_ACP:
-        case BGN_SOURCE_NMEA:
-            pCtrl->BGNET.ACP.Rudder.value.nLong = BGNET_DTOIROUND(BGNET_RAD2DEG(rudder_rad));
-            pCtrl->BGNET.ACP.Rudder.source = BGN_SOURCE_NMEA;
-            CounterUp(&pCtrl->BGNET.ACP.Rudder.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-            break;
+    if (order_raw == 0x07FFF) {
+        // no data do not update
+    } else {
+        switch(pCtrl->BGNET.ACP.RRU_Cmd.source) {
+            case BGN_SOURCE_NONE:
+            case BGN_SOURCE_ACP:
+            case BGN_SOURCE_NMEA:
+                pCtrl->BGNET.ACP.RRU_Cmd.value.nLong = BGNET_DTOIROUND(BGNET_RAD2DEG(order_rad));
+                pCtrl->BGNET.ACP.RRU_Cmd.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.ACP.RRU_Cmd.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                break;
+        }
     }
+    if (rudder_raw == 0x07FFF) {
+        // no data do not update
+    } else {
+        pthread_mutex_lock(&g_data_mutex);
+        g_n2kdata.boat.rudderpos.value.dValue = rudder_rad;
+        g_n2kdata.boat.rudderpos.source = BGN_SOURCE_NMEA;
+        CounterUp(&g_n2kdata.boat.rudderpos.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+        pthread_mutex_unlock(&g_data_mutex);
+
+        switch(pCtrl->BGNET.ACP.RRU_Pos.source) {
+            case BGN_SOURCE_NONE:
+            case BGN_SOURCE_ACP:
+            case BGN_SOURCE_NMEA:
+                pCtrl->BGNET.ACP.RRU_Pos.value.nLong = BGNET_DTOIROUND(BGNET_RAD2DEG(rudder_rad));
+                pCtrl->BGNET.ACP.RRU_Pos.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.ACP.RRU_Pos.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                break;
+        }
+    }
+    //log_debug("N2K 127245: rudder %d, Order/Dir= %x, Order/Pos= %d, Actual/Pos %d [deg]", f->data[0], (f->data[1] & 0x03), (int)BGNET_RAD2DEG(order_rad), (int)BGNET_RAD2DEG(rudder_rad));
 }
 
 /* 127250 - Heading
@@ -177,26 +194,14 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
         CounterUp(&g_n2kdata.boat.compass.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
 
-        if ((deviation_raw == 0x7FFF) | (variation_raw == 0x7FFF)) {
-            // no data do not update
-        } else {
-            deviation = deviation_raw * 1e-4; /* devide by 1000 to get rads */
-            variation = variation_raw * 1e-4; /* devide by 1000 to get rads */
-            //pthread_mutex_lock(&g_data_mutex);
-            //g_n2kdata.boat.headingT.value.dValue = (heading + deviation + variation); // True (with compensation)
-            //g_n2kdata.boat.headingT.source = BGN_SOURCE_NMEA;
-            //CounterUp(&g_n2kdata.boat.headingT.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-            //pthread_mutex_unlock(&g_data_mutex);
-        }
-
         // compass (corrected)
-        switch(pCtrl->BGNET.ACP.Compass.source) {
+        switch(pCtrl->BGNET.ACP.CompassM.source) {
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_DTOIROUND(BGNET_RAD2DEG(compass));
-                pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_NMEA;
-                CounterUp(&pCtrl->BGNET.ACP.Compass.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                pCtrl->BGNET.ACP.CompassM.value.nLong = BGNET_DTOIROUND(BGNET_RAD2DEG(compass));
+                pCtrl->BGNET.ACP.CompassM.source = BGN_SOURCE_NMEA;
+                CounterUp(&pCtrl->BGNET.ACP.CompassM.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 break;
         }
         // compass (raw)
@@ -204,11 +209,29 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.ACP.CompassRaw.value.nLong = (pCtrl->BGNET.ACP.Compass.value.nLong * USHRT_MAX)/360;
+                pCtrl->BGNET.ACP.CompassRaw.value.nLong = (pCtrl->BGNET.ACP.CompassM.value.nLong * USHRT_MAX)/360;
                 pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_NMEA;
                 CounterUp(&pCtrl->BGNET.ACP.CompassRaw.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 break;
         }
+
+        if ((deviation_raw == 0x7FFF) | (variation_raw == 0x7FFF)) {
+            // no data do not update
+        } else {
+            deviation = deviation_raw * 1e-4; /* devide by 1000 to get rads */
+            variation = variation_raw * 1e-4; /* devide by 1000 to get rads */
+
+            switch(pCtrl->BGNET.ACP.CompassT.source) {
+                case BGN_SOURCE_NONE:
+                case BGN_SOURCE_ACP:
+                case BGN_SOURCE_NMEA:
+                    pCtrl->BGNET.ACP.CompassT.value.nLong = BGNET_DTOIROUND(BGNET_RAD2DEG(compass + deviation + variation));
+                    pCtrl->BGNET.ACP.CompassT.source = BGN_SOURCE_NMEA;
+                    CounterUp(&pCtrl->BGNET.ACP.CompassT.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                    break;
+            }
+        }
+
     }
     log_debug("N2K 127250: Compass= %d, Deviation= %d, Variation= %d", BGNET_DTOIROUND(BGNET_RAD2DEG(compass)), BGNET_DTOIROUND(BGNET_RAD2DEG(deviation)), BGNET_DTOIROUND(BGNET_RAD2DEG(variation)));
 }
@@ -425,13 +448,13 @@ static void parse_pgn_130306(BGNET_CTRL *pCtrl, const struct can_frame *f)
  */
 static void parse_pgn_130316(BGNET_CTRL *pCtrl, const struct can_frame *f)
 {
-    uint8_t source          = f->data[2] & 0x07;
-    int32_t temperature_raw = (int32_t)n2k_u32(f->data[3], f->data[4], f->data[5], f->data[6]);
+    uint8_t source           = f->data[2] & 0x07;
+    uint32_t temperature_raw = ntohl(n2k_u32(f->data[6], f->data[5],f->data[4], f->data[3]));
 
-    if (temperature_raw == 0x7FFFFFFF) {
+    if (temperature_raw == 0xFFFFFFFF) {
         // no data do not update
     } else{
-        double temperature = temperature_raw * 1e-3 - 273.15;
+        double temperature = BGNET_K2C(temperature_raw * 1e-4);
         switch (source) {
             case 0: // seawater
                 pthread_mutex_lock(&g_data_mutex);
@@ -439,6 +462,7 @@ static void parse_pgn_130316(BGNET_CTRL *pCtrl, const struct can_frame *f)
                 g_n2kdata.boat.seatemp.source = BGN_SOURCE_NMEA;
                 CounterUp(&g_n2kdata.boat.seatemp.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 pthread_mutex_unlock(&g_data_mutex);
+                log_debug("N2K 130316: Temperature: source= seawater, Measurement= %.1f DegC", temperature);
                 break;
             case 1: // outside air
                 pthread_mutex_lock(&g_data_mutex);
@@ -446,9 +470,12 @@ static void parse_pgn_130316(BGNET_CTRL *pCtrl, const struct can_frame *f)
                 g_n2kdata.wind.airtemp.source = BGN_SOURCE_NMEA;
                 CounterUp(&g_n2kdata.wind.airtemp.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
                 pthread_mutex_unlock(&g_data_mutex);
+                log_debug("N2K 130316: Temperature: source= outside air, Measurement= %.1f DegC", temperature);
+                break;
+            default:
+                log_debug("N2K 130316: Temperature: source= 0x%02X, Measurement= %.1f DegC", source, temperature);
                 break;
         }
-        log_debug("N2K 130316: Temperature: source= %d, Measurement= %.1f DegC", temperature);
     }
 }
 
@@ -461,11 +488,8 @@ void *nmea2000_thread(void *arg)
 
     struct ifreq ifr;
 
-    // to resolve the phenomenon that the nmea2000 thread was 'hanging' and the application would not
-    // terminate with <Ctrl><C> i have made the socket non-blocking
-    // KS 2026-07-29
+    // we read the CAN bus non-blocking
     int s = socket(PF_CAN, SOCK_RAW | SOCK_NONBLOCK, CAN_RAW);
-    //int s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
     if (s < 0) {
         log_error("CAN socket: %s", strerror(errno));
         return NULL;
@@ -521,7 +545,7 @@ void *nmea2000_thread(void *arg)
                         case 126993: parse_pgn_126993(); break;   // heartbeat, no data
                         case 127245: parse_pgn_127245(pCtrl, &frame); break;   // Rudder position and Commands
                         case 127250: parse_pgn_127250(pCtrl, &frame); break;   // Compass and Deviation
-                        case 128259: parse_pgn_128259(pCtrl, &frame); break;   // Speed Through Water
+                        case 128259: parse_pgn_128259(pCtrl, &frame); break;   // Speed - STW
                         case 128267: parse_pgn_128267(pCtrl, &frame); break;   // Depth
                         case 129025: parse_pgn_129025(pCtrl, &frame); break;   // GPS - LAT/LON (can not be handled by NETWORK devices, used for NMEA0183 output)
                         case 129026: parse_pgn_129026(pCtrl, &frame); break;   // GPS - COG/SOG (only SOG handled by NETWORK, others also used for NMEA0183 output)

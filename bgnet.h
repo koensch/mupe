@@ -396,37 +396,39 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 //#define BGNET_CHN_9C_MASTANGLE        0x9C
 //#define BGNET_CHN_9D_WANGLETOMAST     0x9D
 //#define BGNET_CHN_9E_PITCHRATE        0x9E
-#define BGNET_CHN_A2_UNKNOWN          0xA2
-#define BGNET_CHN_A4_BOOMPOS          0xA4
-#define BGNET_CHN_A6_AP_TARGET        0xA6 // Target in AUTO (COMP/NAV= CTS, VANE= Heading)
-#define BGNET_CHN_A7_AP_WPB           0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
-#define BGNET_CHN_AF_AP_OC_ALARM      0xAF
-#define BGNET_CHN_B3_COMPASSCAL       0xB3
-#define BGNET_CHN_B4_JSM              0xB4 // Joystick Steering Mode
+#define BGNET_CHN_A2_UNKNOWN            0xA2
+#define BGNET_CHN_A4_BOOMPOS            0xA4
+#define BGNET_CHN_A6_AP_TARGET          0xA6 // Target in AUTO (COMP/NAV= CTS, VANE= Heading)
+#define BGNET_CHN_A7_AP_WPB             0xA7 // send by PILOT upon change/button pressed, WayPoint Bearing, shown as "MEM xxx" (stored previous course), fmt=0x08
+#define BGNET_CHN_AF_AP_OC_ALARM        0xAF
+#define BGNET_CHN_B3_COMPASSCAL         0xB3
+#define BGNET_CHN_B4_JSM                0xB4 // Joystick Steering Mode
     #define BGNET_JSM_NORM          0x00
     #define BGNET_JSM_PROP          0x01    // used with variable JS (resistance, )
-#define BGNET_CHN_B5_AP_STATUS        0xB5 // send by PILOT upon change/button pressed, 2 bytes (byte0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
-                                           // 0x50 = STBY, 0x51= AUTO, 0x59=COMPASS steering
-                                           // 0x5001 = STBY/COMPASS, 0x5002=STBY/POWER, 0x5102=AUTO/POWER, 0x5901=COMPASS/POWER
-    #define BGN_AP_MODE1_MASK_STATE 0x03   // DATA1 - 0-1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO, 2=not used, 3=not used)
-    #define BGN_AP_MODE1_STBY       0x00   //         2   makes "MEM 000" displayed (when in COMP mode), locks AUTO key (OFF key is operational)
-    #define BGN_AP_MODE1_AUTO       0x01   //             The value displayed is channel 0xA7. Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
-    #define BGN_AP_MODE1_MEM        0x04   //         3   locks all keys, even the LIGHTS button (most likely to lockout ALARM ACK)
-                                            //            bit 03 also comes high when power is send to the steering motor
-    #define BGN_AP_MODE1_LOCK1      0x08   //         4   enables VANE mode (is set if an ACP is enabled for a sailing boat)    
-    #define BGN_AP_MODE1_ENABLEVANE 0x10   //         5   DISPLAY, SPEED, SETUP buttons are deactivated    
-    #define BGN_AP_MODE1_LOCK2      0x20   //         6   not used
-    #define BGN_AP_MODE1_UNKNOWN    0x80   //         7   unknown (set by ACP when there is an error)
-                                           //        
-    #define BGN_AP_MODE2_MASK_MODE  0x07   // DATA2 - 0-2 CORE MODE (0, UNDEF, 1=COMP(+MEM, when in AUTO), 3=NAV(+XTE), 4=VANE(+WND), 6=JOYSTICK)
-    #define BGN_AP_MODE2_NONE       0x00   // set by COMMIS procedure      
-    #define BGN_AP_MODE2_COMP       0x01   //                                   note: if there is no WIND signal, you can not select VANE mode
-    #define BGN_AP_MODE2_NAV        0x03   //         3   unknown
-    #define BGN_AP_MODE2_VANE       0x04   //         4   PILOT SETUP option appears: "WIND A/T" (Appearent/True), used in VANE mode (0=TWA/1=AWA)
-    #define BGN_AP_MODE2_JOYSTICK   0x06   //         5   makes "MEM 000" displayed, but no command observed
-                                           //         6   1=in calibration mode
-    #define BGN_AP_MODE2_WINDTYPE   0x10   //         7   resereved
-    #define BGN_AP_MODE2_MEM        0x20   
+#define BGNET_CHN_B5_AP_STATUS          0xB5   // AP STATUS, 2 bytes (byte 0: 0=STBY,1=AUTO; byte1: 1=VANE;3=COMP;4=NAV; 6=JOYSTICK), fmt=0x08
+    #define BGN_AP_MODE1_MASK_STATE   0x03   // DATA1 - 0-1 STATE, engaged/not enganged STATE (0=STBY, 1=AUTO, 2=not used, 3=not used)
+    #define BGN_AP_MODE1_STBY       0x00     //         2   "MEM 000" is displayed (when switching to AUTO), value displayed is 0xA7
+    #define BGN_AP_MODE1_AUTO       0x01     //             The value displayed is channel 0xA7. Normaly you would press AUTO 2x (within 4 seconds) to make the ACP accept the MEMorized course as CTS
+    #define BGN_AP_MODE1_MEM          0x04   //         3   steering control enabled
+    #define BGN_AP_MODE1_MOTOR        0x08   //
+
+    #define BGN_AP_MODE1_ENABLEVANE   0x10   //         4   enables VANE mode (is set if an ACP is enabled for a sailing boat)    
+    #define BGN_AP_MODE1_LOCK2        0x20   //         5   DISPLAY, SPEED, SETUP buttons are deactivated    
+    #define BGN_AP_MODE1_UNKNOWN1     0x40   //         6   not used
+    #define BGN_AP_MODE1_UNKNOWN2     0x80   //         7   unknown (set by ACP when there is an error)
+                                             //        
+    #define BGN_AP_MODE2_MASK_MODE    0x07   // DATA2 - 0-2 CORE MODE (0= COMMIS, 1=COMP, 3=NAV, 4=VANE, 6=JOYSTICK)
+    #define BGN_AP_MODE2_NONE       0x00     //
+    #define BGN_AP_MODE2_COMP       0x01     //
+    #define BGN_AP_MODE2_NAV        0x03     //
+    #define BGN_AP_MODE2_VANE       0x04     //
+    #define BGN_AP_MODE2_JOYSTICK   0x06     //
+    #define BGN_AP_MODE2_UNKNOWN1     0x08   //         3   unknown
+
+    #define BGN_AP_MODE2_WINDTYPE     0x10   //         4   PILOT SETUP option appears: "WIND A/T" (Appearent/True), used in VANE mode (0=TWA/1=AWA)
+    #define BGN_AP_MODE2_LOCK         0x20   //         5   lock, set for approx 1 sec after pressing a <1,<10,10>,1> key
+    #define BGN_AP_MODE2_UNKNOWN2     0x40   //         6   1= calibration mode
+    #define BGN_AP_MODE2_UNKNOWN3     0x80   //         7   unknown
 
 #define BGNET_CHN_B6_BOATTYPE         0xB6  // Commisioning, Boattype
 #define BGNET_CHN_BA_TRIP             0xBA  // possibly steeringmotor trip (overcurrent ACP1 > 15A; ACP2 > 25A) or RUDDER LIMIT or MOB alarm
@@ -717,17 +719,19 @@ typedef struct {
 typedef struct {
     int iNewACP;
     time_t tTimestamp;          // timestamp of startup
-    // we have observed weird behaviour......
-    // the ACKSEQ number goes from 00.....0C and then back to 0A when we would expect the 0D as the ACKSEQ.
-    // at the same time we get CS errors that are 3 off.... just the difference between 0A and 0D.
-    // realize we are dealing with unsigned char, we can not use negiative numbers.
-    // Normally a received ACKSEQ is the same (withing the current handshake), or the next one (1 bigger). But
-    // when a new received ACKSEQ is less then the previous one, it seems that we have to adjust the CS-SEED
-    // This is an experiment to see if it is what it seems to be.
+#define BGNET_TEST_INIT         0
+#define BGNET_TEST_COMPASS      1
+    int iTest;
     struct {
+        // we have observed weird behaviour......
+        // the ACKSEQ number goes from 00.....0C and then back to 0A when we would expect the 0D as the ACKSEQ.
+        // at the same time we get CS errors that are 3 off.... just the difference between 0A and 0D.
+        // realize we are dealing with unsigned char, we can not use negiative numbers.
+        // Normally a received ACKSEQ is the same (withing the current handshake), or the next one (1 bigger). But
+        // when a new received ACKSEQ is less then the previous one, it seems that we have to adjust the CS-SEED
+        // This is an experiment to see if it is what it seems to be.
         unsigned char ACKSEQprev; // last ACKSEQ received from PILOT
         unsigned char ACKSEQ; // last ACKSEQ received from PILOT
-        //unsigned char FRAME_SEED; // SEED to use
     } weird;
 
     // parameters, we need to manage our service
@@ -753,7 +757,8 @@ typedef struct {
                                     // be displayed. At the moment of transition from STBY TO AUTO, we set the counter to 5 + timestamp to current time.
                                     // in the timer thread we check if the current time is greater that the stored time + counter value; if so, initialize the counter again
         NMEA2K_VALUE MODE;
-        NMEA2K_VALUE Compass;       // Compass Reading
+        NMEA2K_VALUE CompassM;      // Compass Reading (magnetic)
+        NMEA2K_VALUE CompassT;      // Compass Reading (true)
         NMEA2K_VALUE CompassRaw;    // Fluxgate sensor reading 0-65.535
 #define BGN_JOYSTICK_ON     1
 #define BGN_JOYSTICK_OFF    0
@@ -765,7 +770,8 @@ typedef struct {
         NMEA2K_VALUE CRS;           // Course Preset (Setpoint for AutoPilot)
         NMEA2K_VALUE MEM_CRSE1;     // Course Memory#1 (previous CTS)
         NMEA2K_VALUE MEM_CRSE2;     // Course Memory#2 behaviour is explained in COMPASSS manual
-        NMEA2K_VALUE Rudder;        // Rudder position (-45/+45 degrees)   
+        NMEA2K_VALUE RRU_Pos;       // Rudder position (-45/+45 degrees)
+        NMEA2K_VALUE RRU_Cmd;       // Rudder command (-45/+45 degrees)
         NMEA2K_VALUE SHA_ALARM;
         NMEA2K_VALUE DEEP_ALARM;    // WIND Selection Type (0=T, 1 =A)
         NMEA2K_VALUE FAULT;         // FAULT code 0x00-0x0f (FF= no fault)

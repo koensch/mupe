@@ -38,9 +38,11 @@
 // whereever we need a time-formatted string
 #define BGNET_TIME_FMT                      "%Y-%m-%d %H:%M:%S"
 // convert RAD to DEG
-#define BGNET_RAD2DEG(r)                    (r * 180.0/M_PI)
+#define BGNET_RAD2DEG(r)                    (r * 180.0/BGNET_PI)
 // convert DEG to RAD
-#define BGNET_DEG2RAD(r)                    ((d * M_PI)/180.0)
+#define BGNET_DEG2RAD(d)                    ((d * BGNET_PI)/180.0)
+// convert from K to DegC
+#define BGNET_K2C(k)                        ((double)k + 273.15)
 
 #define BGNET_RXTXRAW_SIZE              1024    // max size read/write buffer (ethernet, fastnet) to hold the complete frames
 
@@ -163,7 +165,8 @@ typedef struct {
     NMEA2K_VALUE stw;
     NMEA2K_VALUE depth;
     NMEA2K_VALUE seatemp;
-    NMEA2K_VALUE rudder;
+    NMEA2K_VALUE rudderpos;
+    NMEA2K_VALUE ruddercmd;
     NMEA2K_VALUE compass;
     NMEA2K_VALUE time;  // absolute time
     NMEA2K_VALUE timer; // countdown/countup timer

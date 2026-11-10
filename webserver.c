@@ -258,6 +258,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     //log_debug("webserver: api_update: %s", body);
 
     // System
+    cJSON *test      = cJSON_GetObjectItem(root, "test");      // for testing purposes
     cJSON *reset     = cJSON_GetObjectItem(root, "reset");     // performs a software reset of the service (clear & initilalize memory structures)
     cJSON *log       = cJSON_GetObjectItem(root, "log");       // set log level (none, error, warn, info, debug)
     // GPS information
@@ -302,6 +303,14 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
  
     // System
 
+    // curl --data "{\"test\":0}" http://localhost:8080/api/update
+    if (test) {
+        if ((test->valueint < 0) | (test->valueint > 9)) {
+            // no action
+        } else {
+            pCtrl->BGNET.iTest = test->valueint;
+        }
+    }
     // curl --data "{\"reset\":\"IKnowWhatIDo\"}" http://localhost:8080/api/update
     if (reset) {
         if (strcmp(reset->valuestring, "IKnowWhatIDo") == 0) {
@@ -392,18 +401,18 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         CounterUp(&g_n2kdata.boat.seatemp.Counter, t);
     }
     if (rudder) {
-        g_n2kdata.boat.rudder.value.dValue = rudder->valuedouble;
-        g_n2kdata.boat.rudder.source = BGN_SOURCE_API;
-        CounterUp(&g_n2kdata.boat.rudder.Counter, t);
+        g_n2kdata.boat.rudderpos.value.dValue = rudder->valuedouble;
+        g_n2kdata.boat.rudderpos.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.boat.rudderpos.Counter, t);
     }
     // curl --data "{\"compass\":123.4}" http://localhost:8080/api/update
     if (compass) {
         g_n2kdata.boat.compass.value.dValue = compass->valuedouble;
         g_n2kdata.boat.compass.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.compass.Counter, t);
-        pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_DTOIROUND(compass->valuedouble);
-        pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_API;
-        CounterUp(&pCtrl->BGNET.ACP.Compass.Counter, t);
+        pCtrl->BGNET.ACP.CompassM.value.nLong = BGNET_DTOIROUND(compass->valuedouble);
+        pCtrl->BGNET.ACP.CompassM.source = BGN_SOURCE_API;
+        CounterUp(&pCtrl->BGNET.ACP.CompassM.Counter, t);
         pCtrl->BGNET.ACP.CompassRaw.value.nLong = BGNET_DTOIROUND((compass->valuedouble*USHRT_MAX)/360);
         pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.ACP.CompassRaw.Counter, t);
@@ -964,11 +973,13 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: AP MODE", "Autopilot Mode [0x01=COMPass, 0x03=NAVigation, 0x04=VANE]", pCtrl->BGNET.ACP.MODE.Counter.iCounter, t-pCtrl->BGNET.ACP.MODE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.MODE.source), pCtrl->BGNET.ACP.MODE.value.nByte);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (after correction) [0-359 DegM]", pCtrl->BGNET.ACP.Compass.Counter.iCounter, t-pCtrl->BGNET.ACP.Compass.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Compass.source), pCtrl->BGNET.ACP.Compass.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (Magnetic, after damping) [0-359 DegM]", pCtrl->BGNET.ACP.CompassM.Counter.iCounter, t-pCtrl->BGNET.ACP.CompassM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CompassM.source), pCtrl->BGNET.ACP.CompassM.value.nLong);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (Tue, after damping and variation/deviation) [0-359 DegT]", pCtrl->BGNET.ACP.CompassT.Counter.iCounter, t-pCtrl->BGNET.ACP.CompassT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CompassT.source), pCtrl->BGNET.ACP.CompassT.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (fuxgate sensor) [0-65.535]", pCtrl->BGNET.ACP.CompassRaw.Counter.iCounter, t-pCtrl->BGNET.ACP.CompassRaw.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CompassRaw.source), pCtrl->BGNET.ACP.CompassRaw.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Rudder", "Rudder position (from RRU) [-40/+40 Deg]", pCtrl->BGNET.ACP.Rudder.Counter.iCounter, t-pCtrl->BGNET.ACP.Rudder.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.Rudder.source), pCtrl->BGNET.ACP.Rudder.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Rudder", "Rudder position (from RRU) [-40/+40 Deg]", pCtrl->BGNET.ACP.RRU_Pos.Counter.iCounter, t-pCtrl->BGNET.ACP.RRU_Pos.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.RRU_Pos.source), pCtrl->BGNET.ACP.RRU_Pos.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "ACP: EBS", "Effective Boat Speed by source selection [KT]", pCtrl->BGNET.ACP.EBS.Counter.iCounter, t-pCtrl->BGNET.ACP.EBS.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.EBS.source), pCtrl->BGNET.ACP.EBS.value.dValue);
     strcat(Buffer, cLine);
@@ -1203,7 +1214,7 @@ static char* html_NMEA_row(char *Buffer) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "SEATEMP", "Temperature of the seawater at sensor depth [DegC]", g_n2kdata.boat.seatemp.Counter.iCounter, (t - g_n2kdata.boat.seatemp.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.seatemp.source), g_n2kdata.boat.seatemp.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "RUDDER", "Rudder position, starboard(+) or port(-) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudder.Counter.iCounter, (t - g_n2kdata.boat.rudder.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudder.source), g_n2kdata.boat.rudder.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARow, "RUDDER", "Rudder position, starboard(+) or port(-) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudderpos.Counter.iCounter, (t - g_n2kdata.boat.rudderpos.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudderpos.source), g_n2kdata.boat.rudderpos.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARow, "COMPASS", "Compass reading [0-359 DegM]", g_n2kdata.boat.compass.Counter.iCounter, (t - g_n2kdata.boat.compass.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.compass.source), g_n2kdata.boat.compass.value.dValue);
     strcat(Buffer, cLine);

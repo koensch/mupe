@@ -402,6 +402,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         // stage 2 - ACP initialize data structure
         pCtrl->BGNET.iNewACP = 0;
         pCtrl->BGNET.tTimestamp = t; // this timestamp is set on initialisation. this indicates when the application started
+        pCtrl->BGNET.iTest = BGNET_TEST_INIT;
 
         // SystemTime // this is the ACP time; the actual time of the computer this application is running on, set by timer-thread, used where we need the time
         pCtrl->BGNET.SERVICE.SystemTime.value.tTime = t;
@@ -584,17 +585,25 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.CTS.Counter, t);
 
-        pCtrl->BGNET.ACP.Compass.value.nLong = BGNET_TEST_COMP; // Heading from compass (0-359)
-        pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.ACP.Compass.Counter, t);
+        pCtrl->BGNET.ACP.CompassM.value.nLong = BGNET_TEST_COMP; // Compass reading (magnetic, 0-359)
+        pCtrl->BGNET.ACP.CompassM.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.CompassM.Counter, t);
+
+        pCtrl->BGNET.ACP.CompassT.value.nLong = BGNET_TEST_COMP; // Compass reading (true, 0-359)
+        pCtrl->BGNET.ACP.CompassT.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.CompassT.Counter, t);
 
         pCtrl->BGNET.ACP.CompassRaw.value.nLong = (BGNET_TEST_COMP*USHRT_MAX)/360; // Heading from compass (0-359)
         pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.ACP.CompassRaw.Counter, t);
 
-        pCtrl->BGNET.ACP.Rudder.value.nLong = -2; // Rudder position (-45-+45)
-        pCtrl->BGNET.ACP.Rudder.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.ACP.Rudder.Counter, t);
+        pCtrl->BGNET.ACP.RRU_Pos.value.nLong = -2; // Rudder position (-45-+45)
+        pCtrl->BGNET.ACP.RRU_Pos.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.RRU_Pos.Counter, t);
+
+        pCtrl->BGNET.ACP.RRU_Cmd.value.nLong = 0;  // Rudder command (-45-+45)
+        pCtrl->BGNET.ACP.RRU_Cmd.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.ACP.RRU_Cmd.Counter, t);
 
         pCtrl->BGNET.ACP.CRS.value.nLong = 0; // Preset Course To Steer
         pCtrl->BGNET.ACP.CRS.source = BGN_SOURCE_ACP;
@@ -899,7 +908,7 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
             CounterInit(&pCtrl->CHN[i].x00.CounterRx, t);
         }
         // Here we will setup some pointers for generating broadcasts
-        pCtrl->CHN[BGNET_CHN_0B_RRU].x01.pBGNET = &pCtrl->BGNET.ACP.Rudder;
+        pCtrl->CHN[BGNET_CHN_0B_RRU].x01.pBGNET = &pCtrl->BGNET.ACP.RRU_Pos;
         pCtrl->CHN[BGNET_CHN_0B_RRU].x01.BGNET_DATATYPE = BGNET_DATATYPE_LONG;
 
         pCtrl->CHN[BGNET_CHN_20_SEATEMPQ].x01.pBGNET = &pCtrl->BGNET.SPEED.Temperature;
@@ -1682,7 +1691,7 @@ size_t makeHEADINGresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     switch (pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MASK_STATE) {
         case BGN_AP_MODE1_STBY:
             // in STBY we show COMPASS value
-            puCH->s.cv.uL[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
+            puCH->s.cv.uL[0] = htons(pCtrl->BGNET.ACP.CompassM.value.nLong);
             break;
         case BGN_AP_MODE1_AUTO:
             // in AUTO, it depends on the MODE
@@ -1694,7 +1703,7 @@ size_t makeHEADINGresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
                 case BGN_AP_MODE2_VANE:
                 case BGN_AP_MODE2_JOYSTICK:
                 default:
-                    puCH->s.cv.uL[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
+                    puCH->s.cv.uL[0] = htons(pCtrl->BGNET.ACP.CompassM.value.nLong);
                     break;
             }
             break;
@@ -1726,7 +1735,7 @@ size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
                     c = BGNET_CHN_A6_AP_TARGET;
                     puCH->s.CH = c;
                     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-                    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.Compass.value.nLong);
+                    puCH->s.cv.uW[0] = htons(pCtrl->BGNET.ACP.CompassM.value.nLong);
                     r = r + bgnet_sizeof_channel(pCtrl, puCH);
                     break;
                 default:
@@ -1774,7 +1783,7 @@ size_t makeCOMPASSresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
     c = BGNET_CHN_4A_COMP_RAW;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uL[0] = htons((pCtrl->BGNET.ACP.Compass.value.nLong*USHRT_MAX)/360); // (123 * 65535) / 360
+    puCH->s.cv.uL[0] = htons((pCtrl->BGNET.ACP.CompassM.value.nLong*USHRT_MAX)/360); // (123 * 65535) / 360
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     // add HEADING
@@ -1796,7 +1805,7 @@ size_t makeACPresponseMINI(BGNET_CTRL *pCtrl, unsigned char *payload) {
     c = BGNET_CHN_0B_RRU;
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.Rudder.value.nLong);
+    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.ACP.RRU_Pos.value.nLong);
     r = r + bgnet_sizeof_channel(pCtrl, puCH);
 
     // add HEADING
@@ -1880,7 +1889,7 @@ size_t makeACPresponseALARM(BGNET_CTRL *pCtrl, unsigned char *payload) {
     } else {
 
         // calculate OffCourse Delta
-        pCtrl->BGNET.ACP.ALARM.OC_DELTA.value.nLong = labs(pCtrl->BGNET.ACP.Compass.value.nLong - pCtrl->BGNET.ACP.CTS.value.nLong);
+        pCtrl->BGNET.ACP.ALARM.OC_DELTA.value.nLong = labs(pCtrl->BGNET.ACP.CompassM.value.nLong - pCtrl->BGNET.ACP.CTS.value.nLong);
         pCtrl->BGNET.ACP.ALARM.OC_DELTA.source = BGN_SOURCE_BGNET;
         CounterUp(&pCtrl->BGNET.ACP.ALARM.OC_DELTA.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
 
@@ -2248,6 +2257,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
 #define KOEN
 // in this case we want to send something experimental when we are in readonly mode
 #ifdef KOEN
+    if (pCtrl->BGNET.iTest == BGNET_TEST_COMPASS) {
         len_pl = makeCOMPASSresponse(pCtrl, payload);
         len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_MUPE, BGNET_CMD_01_DATA, payload, len_pl);
         register_DATA_frame(pCtrl, pFTx);
@@ -2260,6 +2270,7 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
         memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
         CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
+    }
 #endif
 
     // if you want to send data, return the number of bytes in the output buffer
@@ -2421,9 +2432,9 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
             // sometimes we have to do something when some data comes in
             switch(pCH->s.CH) {
                 case BGNET_CHN_0B_RRU:
-                    pCtrl->BGNET.ACP.Rudder.value.nLong = (int16_t)(ntohs(pCH->s.cv.uW[0])); // make it signed
-                    pCtrl->BGNET.ACP.Rudder.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->BGNET.ACP.Rudder.Counter, t);
+                    pCtrl->BGNET.ACP.RRU_Pos.value.nLong = (int16_t)(ntohs(pCH->s.cv.uW[0])); // make it signed
+                    pCtrl->BGNET.ACP.RRU_Pos.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.ACP.RRU_Pos.Counter, t);
                     break;
                 case BGNET_CHN_41_STW:
                     // calculate the new STW
@@ -2466,9 +2477,9 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     }
                     break;
                 case BGNET_CHN_49_HEADING:
-                    pCtrl->BGNET.ACP.Compass.value.nLong = ntohs(pCH->s.cv.uW[0]);
-                    pCtrl->BGNET.ACP.Compass.source = BGN_SOURCE_BGNET;
-                    CounterUp(&pCtrl->BGNET.ACP.Compass.Counter, t);
+                    pCtrl->BGNET.ACP.CompassM.value.nLong = ntohs(pCH->s.cv.uW[0]);
+                    pCtrl->BGNET.ACP.CompassM.source = BGN_SOURCE_BGNET;
+                    CounterUp(&pCtrl->BGNET.ACP.CompassM.Counter, t);
                     break;
                 case BGNET_CHN_4A_COMP_RAW:
                     pCtrl->BGNET.ACP.CompassRaw.value.nLong = ntohs(pCH->s.cv.uW[0]);
@@ -2560,7 +2571,7 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
             // when Import/Export is enabled, do what has to be done
             switch(pCtrl->pCHNDT[pCH->s.CH].iImpExpEnable) {
                 case BGNET_CHN_IMPEXP_NONE:
-                    // value not designed to be import/exportable
+                    // value not enabled for import/export
                     break;
                 case BGNET_CHN_IMPEXP_NMEA:
                     // because we are here processing channels from the BGN interface, we are going to export it
@@ -2569,14 +2580,16 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     // we do not need to lock/unlock it, as NMEA already does that and will cancel us out anyway
                     switch(pCH->s.CH) {
                         case BGNET_CHN_0B_RRU:
-                            if ((g_n2kdata.boat.rudder.source == BGN_SOURCE_NMEA) | (g_n2kdata.boat.rudder.source == BGN_SOURCE_SIGNALK)) {
-                                // is was already written by NMEA/SIGNALK interface; do not overwrite
-                            } else {
-                                // BGN sends rudder position in angle/degrees (signed, -45/+45). NMEA stores rudder
-                                // position as radian. Multiply by PI/180 to get radians
-                                g_n2kdata.boat.rudder.value.dValue = BGNET_ITOD(pCtrl->BGNET.ACP.Rudder.value.nLong) * BGNET_PI/180;
-                                g_n2kdata.boat.rudder.source = BGN_SOURCE_BGNET;
-                                CounterUp(&g_n2kdata.boat.rudder.Counter, t);
+                            switch (g_n2kdata.boat.rudderpos.source) {
+                                case BGN_SOURCE_NMEA:
+                                case BGN_SOURCE_SIGNALK:
+                                    // do not overwrite
+                                    break;
+                                default:
+                                    g_n2kdata.boat.rudderpos.value.dValue = BGNET_DEG2RAD(BGNET_ITOD(pCtrl->BGNET.ACP.RRU_Pos.value.nLong));
+                                    g_n2kdata.boat.rudderpos.source = BGN_SOURCE_BGNET;
+                                    CounterUp(&g_n2kdata.boat.rudderpos.Counter, t);
+                                    break;
                             }
                             break;
                     }
@@ -2588,14 +2601,16 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     // we do not need to lock/unlock it, as SIGNAL already does that and will cancel us out anyway
                     switch(pCH->s.CH) {
                         case BGNET_CHN_0B_RRU:
-                            if ((g_n2kdata.boat.rudder.source == BGN_SOURCE_NMEA) | (g_n2kdata.boat.rudder.source == BGN_SOURCE_SIGNALK)) {
-                                // is was already written by NMEA/SIGNAL interface; do not overwrite
-                            } else {
-                                // BGN sends rudder position in angle/degrees (signed, -45/+45). NMEA stores rudder
-                                // position as radian. Multiply by PI/180 to get radians
-                                g_n2kdata.boat.rudder.value.dValue = BGNET_ITOD((int16_t)(ntohs(pCH->s.cv.sW[0]))) * BGNET_PI/180;
-                                g_n2kdata.boat.rudder.source = BGN_SOURCE_BGNET;
-                                CounterUp(&g_n2kdata.boat.rudder.Counter, t);
+                            switch (g_n2kdata.boat.rudderpos.source) {
+                                case BGN_SOURCE_NMEA:
+                                case BGN_SOURCE_SIGNALK:
+                                    // do not overwrite
+                                    break;
+                                default:
+                                    g_n2kdata.boat.rudderpos.value.dValue = BGNET_DEG2RAD(BGNET_ITOD(pCtrl->BGNET.ACP.RRU_Pos.value.nLong));
+                                    g_n2kdata.boat.rudderpos.source = BGN_SOURCE_BGNET;
+                                    CounterUp(&g_n2kdata.boat.rudderpos.Counter, t);
+                                    break;
                             }
                             break;
                     }
@@ -4150,7 +4165,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                         pCtrl->BGNET.ACP.MEM_CRSE1.source = BGN_SOURCE_BGNET;
                                                                         CounterUp(&pCtrl->BGNET.ACP.MEM_CRSE1.Counter, t);
                                                                         // initialize CTS from current heading (to avoid course change due to AP going into AUTO)
-                                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.Compass.value.nLong;
+                                                                        pCtrl->BGNET.ACP.CTS.value.nLong = pCtrl->BGNET.ACP.CompassM.value.nLong;
                                                                         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_BGNET;
                                                                         CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
                                                                         // set the MEM bit
@@ -4227,7 +4242,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                         CounterUp(&pCtrl->CHN[pCHRx->s.CH].x00.CounterRx, t);
                                                         switch (pCHRx->s.cv.uB[1]) {
                                                             case 1:
-                                                                pCtrl->BGNET.ACP.COMMIS.RDP.value.nLong = pCtrl->BGNET.ACP.Rudder.value.nLong;
+                                                                pCtrl->BGNET.ACP.COMMIS.RDP.value.nLong = pCtrl->BGNET.ACP.RRU_Pos.value.nLong;
                                                                 pCtrl->BGNET.ACP.COMMIS.RDP.source = BGN_SOURCE_BGNET;
                                                                 CounterUp(&pCtrl->BGNET.ACP.COMMIS.RDP.Counter, t);
                                                                 break;
