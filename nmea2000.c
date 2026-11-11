@@ -172,7 +172,7 @@ static void parse_pgn_127245(BGNET_CTRL *pCtrl, const struct can_frame *f)
     //log_debug("N2K 127245: rudder %d, Order/Dir= %x, Order/Pos= %d, Actual/Pos %d [deg]", f->data[0], (f->data[1] & 0x03), (int)BGNET_RAD2DEG(order_rad), (int)BGNET_RAD2DEG(rudder_rad));
 }
 
-/* 127250 - Heading
+/* 127250 - Compass
  */
 static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
 {
@@ -183,7 +183,7 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
     double compass = 0.0;
     double deviation = 0.0;
     double variation = 0.0;
-    
+
     if (compass_raw == 0xFFFF) {
         // no data do not update
     } else {
@@ -232,8 +232,8 @@ static void parse_pgn_127250(BGNET_CTRL *pCtrl, const struct can_frame *f)
             }
         }
 
+        log_debug("N2K 127250: Compass= %d, Deviation= %d, Variation= %d", BGNET_DTOIROUND(BGNET_RAD2DEG(compass)), BGNET_DTOIROUND(BGNET_RAD2DEG(deviation)), BGNET_DTOIROUND(BGNET_RAD2DEG(variation)));
     }
-    log_debug("N2K 127250: Compass= %d, Deviation= %d, Variation= %d", BGNET_DTOIROUND(BGNET_RAD2DEG(compass)), BGNET_DTOIROUND(BGNET_RAD2DEG(deviation)), BGNET_DTOIROUND(BGNET_RAD2DEG(variation)));
 }
 
 /* 128259 - Speed, Water Referenced (Speed Through Water)

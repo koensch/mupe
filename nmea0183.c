@@ -14,9 +14,55 @@
 
 #include "bgnet.h"
 
-static int set_interface_attribs(char *chPort, int *fd, struct termios *ptty, int speed, int databits, int stopbits, const char *parity)
+// return a string with the recognized and supported NMEA sentences
+static char *strSentences(char *cBuffer, unsigned char ucNav) {
+    int i, j;    
+
+    // supported sentences by PILOT
+    char pilot_sentence[7][4] = {"APA", "APB", "RMB", "XTE", "VTG", "BWR", "BWC"};  
+    char pilot_mask[7] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC};
+
+    strcpy(cBuffer, ""); // clear return buffer
+    j = 0;
+    for (i=0; i<7; i++) {
+        if (ucNav & pilot_mask[i]) {
+            if (j>0) {
+                strcat(cBuffer, ", ");
+            }
+            strcat(cBuffer, pilot_sentence[i]);
+            j++;
+        } else {
+            // not present
+        }
+    }
+    return(cBuffer);
+}
+
+static unsigned char set_interface_pilot(char *cNav)
+{
+    int i;
+    unsigned char r; 
+
+    // supported sentences by PILOT
+    char pilot_sentence[7][4] = {"APA", "APB", "RMB", "XTE", "VTG", "BWR", "BWC"};  
+    char pilot_mask[7] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC};  
+
+    // identify selected sentences
+    r  = BGNET_NMEA0183_OFF;
+    for (i=0; i<7; i++) {
+        if (strstr(cNav, pilot_sentence[i]) == NULL) {
+            // not present
+        } else {
+            r |= pilot_mask[i]; // set bit for this type of sentence
+        }
+    }
+    return(r);
+}
+
+static int set_interface_attribs(unsigned char ucEnable, char *chPort, int *fd, struct termios *ptty, int speed, int databits, int stopbits, const char *parity)
 {
     int r;
+    char strWork[128];
 
     // get existing Terminal Control block
     r = ioctl(*fd, TCGETS, ptty);
@@ -80,7 +126,7 @@ static int set_interface_attribs(char *chPort, int *fd, struct termios *ptty, in
 
     r = ioctl(*fd, TCSETS, ptty);
     if (r == 0) {
-        log_info("NMEA0183 serial settings: port %s, %d baud, %d databits, %d stopbits, %s parity", chPort, speed, databits, stopbits, parity);
+        log_info("NMEA0183 serial settings: port %s, %d baud, %d databits, %d stopbits, %s parity (%s)", chPort, speed, databits, stopbits, parity, strSentences(strWork, ucEnable));
     } else {
         log_error("NMEA0183 serial settings: ioctl error %d", r);
         return -1;
@@ -91,27 +137,6 @@ static int set_interface_attribs(char *chPort, int *fd, struct termios *ptty, in
     fcntl(*fd, F_SETFL, flags & ~O_NONBLOCK);
 
     return 0;
-}
-
-static int set_interface_pilot(char * cNav)
-{
-    int r, i;
-
-    // supported sentences by PILOT
-    char pilot_sentence[7][4] = {"APA", "APB", "RMB", "XTE", "VTG", "BWR", "BWC"};  
-    char pilot_mask[7] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC};  
-
-    // identify selected sentences
-    r  = BGNET_NMEA0183_OFF;
-    for (i=0; i<7; i++) {
-        if (strstr(cNav, pilot_sentence[i]) == NULL) {
-            // not present
-        } else {
-            r |= pilot_mask[i]; // set bit for this type of sentence
-        log_info("ID= %s, state= %02X", pilot_sentence[i], r);
-        }
-    }
-    return(r);
 }
 
 static void interface_handler(int fd, int *g_lenRx, unsigned char *g_dataRx, int *g_lenTx, unsigned char *g_dataTx)
@@ -176,17 +201,17 @@ void *nmea0183_thread(void *arg)
             log_error("NMEA0183 serial port1: open(): %s", strerror(errno));
         }
 
-        if (set_interface_attribs(pCtrl->pCfg->nmea0183.port1.port, &fd1, &tty1, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
-            log_error("NMEA0183 serial port1: set_interface_attribs(): %s", strerror(errno));
-            close(fd1);
-        }
-
         // enable NMEA1083 sentences for this port
         pCtrl->pCfg->nmea0183.port1.enable = set_interface_pilot(pCtrl->pCfg->nmea0183.port1.nav);
         if (pCtrl->pCfg->nmea0183.port1.enable == BGNET_NMEA0183_OFF) {
             // no sentences selected
             log_error("NMEA0183 serial port1: no valid NMEA0183 sentences selected");
             close(fd1);
+        } else {
+            if (set_interface_attribs(pCtrl->pCfg->nmea0183.port1.enable, pCtrl->pCfg->nmea0183.port1.port, &fd1, &tty1, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
+                log_error("NMEA0183 serial port1: set_interface_attribs(): %s", strerror(errno));
+                close(fd1);
+            }
         }
     }
 
@@ -200,17 +225,17 @@ void *nmea0183_thread(void *arg)
             log_error("NMEA0183 serial port2: open(): %s", strerror(errno));
         }
 
-        if (set_interface_attribs(pCtrl->pCfg->nmea0183.port2.port, &fd2, &tty2, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
-            log_error("NMEA0183 serial port2: set_interface_attribs(): %s", strerror(errno));
-            close(fd2);
-        }
-
         // enable NMEA1083 sentences for this port
         pCtrl->pCfg->nmea0183.port2.enable = set_interface_pilot(pCtrl->pCfg->nmea0183.port2.nav);
         if (pCtrl->pCfg->nmea0183.port2.enable == BGNET_NMEA0183_OFF) {
             // no sentences selected
             log_error("NMEA0183 serial port2: no valid NMEA0183 sentences selected");
             close(fd2);
+        } else {
+            if (set_interface_attribs(pCtrl->pCfg->nmea0183.port2.enable, pCtrl->pCfg->nmea0183.port2.port, &fd2, &tty2, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
+                log_error("NMEA0183 serial port2: set_interface_attribs(): %s", strerror(errno));
+                close(fd2);
+            }
         }
     }
     // only proceed if we have port1 and/or port2 configured
