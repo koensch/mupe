@@ -4,6 +4,7 @@
 #include "app_state.h"
 #include "logger.h"
 #include "bgnet.h"
+#include "nmea0183.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -40,7 +41,7 @@ static void ws_add_client(int fd)
 }
 
 char* strSource(char* buffer, size_t nSource) {
-    char cSOURCE[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","ACP",""};
+    char cSOURCE[8][8] = {"NONE","API","BGNET","NMEA","SIGNALK","MIXED","ACP","???"};
     if (nSource > 8) {
         strcpy(buffer, cSOURCE[0]);
     } else {
@@ -802,10 +803,11 @@ static char* html_interface_top(char *Buffer) {
 }
 static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
     char cLine[512];
+    char cWork[128];
     const char *cInfRowFastnet =
         "<tr><td>%s</td><td>RS232 (inverted Rx/Tx)</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>%s</td><td>%s</td><td>0x%02X</td><td>%s</td></tr>\r\n";
     const char *cInfRowNMEA =
-        "<tr><td>%s</td><td>RS232</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>%s</td><td>NMEA0183 (V1.5)</td><td></td><td>0x%02X</td><td></td></tr>\r\n";
+        "<tr><td>%s</td><td>RS232</td><td>Baudrate: %d, Parity: %s, Databits: %d, Stopbits: %d</td><td>writeonly</td><td>NMEA0183 (V1.5)</td><td></td><td>0x%02X</td><td>%s</td></tr>\r\n";
     snprintf(cLine, sizeof(cLine), cInfRowFastnet,
                                             pCtrl->pCfg->fastnet.port,
                                             pCtrl->pCfg->fastnet.baudrate,
@@ -827,8 +829,8 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->nmea0183.parity,
                                             pCtrl->pCfg->nmea0183.databits,
                                             pCtrl->pCfg->nmea0183.stopbits,
-                                            pCtrl->pCfg->nmea0183.port1.nav,
-                                            pCtrl->pCfg->nmea0183.port1.enable
+                                            pCtrl->pCfg->nmea0183.port1.enable,
+                                            strSentences(cWork, pCtrl->pCfg->nmea0183.port1.enable)
                                         );
 
         strcat(Buffer, cLine);
@@ -841,8 +843,8 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->nmea0183.parity,
                                             pCtrl->pCfg->nmea0183.databits,
                                             pCtrl->pCfg->nmea0183.stopbits,
-                                            pCtrl->pCfg->nmea0183.port2.nav,
-                                            pCtrl->pCfg->nmea0183.port2.enable
+                                            pCtrl->pCfg->nmea0183.port2.enable,
+                                            strSentences(cWork, pCtrl->pCfg->nmea0183.port2.enable)
                                         );
 
         strcat(Buffer, cLine);
@@ -1191,32 +1193,33 @@ static char* html_NMEA_row(char *Buffer) {
     char cSource[32];
 
     time_t t;
-    const char *cNMEARow = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>\r\n";
+    const char *cNMEARowD2 = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>\r\n";
+    const char *cNMEARowD6 = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%010.6f</td></tr>\r\n";
  
     strcpy(cLine, "");
     strcpy(Buffer, "");
     time(&t);
 
-    snprintf(cLine, sizeof(cLine), cNMEARow, "LATITUDE", "DD.MMMMMM North(+) or South(-) of the equator, usually from GPS [-90/+90 Deg]", g_n2kdata.pos.lat.Counter.iCounter, (t - g_n2kdata.pos.lat.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lat.source), g_n2kdata.pos.lat.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD6, "LATITUDE", "DD.MMMMMM North(+) or South(-) of the equator, usually from GPS [-90/+90 Deg]", g_n2kdata.pos.lat.Counter.iCounter, (t - g_n2kdata.pos.lat.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lat.source), g_n2kdata.pos.lat.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "LONGITUDE", "DDD.MMMMMM East(+) or West(-) of the prime meridian, usually from GPS [-180/+180 Deg]", g_n2kdata.pos.lon.Counter.iCounter, (t - g_n2kdata.pos.lon.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lon.source), g_n2kdata.pos.lon.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD6, "LONGITUDE", "DDD.MMMMMM East(+) or West(-) of the prime meridian, usually from GPS [-180/+180 Deg]", g_n2kdata.pos.lon.Counter.iCounter, (t - g_n2kdata.pos.lon.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.lon.source), g_n2kdata.pos.lon.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "ALTITUDE", "Distance above 'Mean Sea Level', usually from GPS [M] (for surface ships normally ignored)", g_n2kdata.pos.alt.Counter.iCounter, (t - g_n2kdata.pos.alt.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.alt.source), g_n2kdata.pos.alt.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "ALTITUDE", "Distance above 'Mean Sea Level', usually from GPS [M] (for surface ships normally ignored)", g_n2kdata.pos.alt.Counter.iCounter, (t - g_n2kdata.pos.alt.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.alt.source), g_n2kdata.pos.alt.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "COG", "Course Over Ground, usually from GPS [0-359 DegT]", g_n2kdata.pos.cog.Counter.iCounter, (t - g_n2kdata.pos.cog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.cog.source), g_n2kdata.pos.cog.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "COG", "Course Over Ground, usually from GPS [0-359 DegT]", g_n2kdata.pos.cog.Counter.iCounter, (t - g_n2kdata.pos.cog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.cog.source), g_n2kdata.pos.cog.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "SOG", "Speed Over Ground, usually from GPS [KT]", g_n2kdata.pos.sog.Counter.iCounter, (t - g_n2kdata.pos.sog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.sog.source), g_n2kdata.pos.sog.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "SOG", "Speed Over Ground, usually from GPS [KT]", g_n2kdata.pos.sog.Counter.iCounter, (t - g_n2kdata.pos.sog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.sog.source), g_n2kdata.pos.sog.value.dValue);
     strcat(Buffer, cLine);
 
-    snprintf(cLine, sizeof(cLine), cNMEARow, "STW", "Speed Through Water, usually from a speed sensor [KT]", g_n2kdata.boat.stw.Counter.iCounter, (t - g_n2kdata.boat.stw.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.stw.source), g_n2kdata.boat.stw.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "STW", "Speed Through Water, usually from a speed sensor [KT]", g_n2kdata.boat.stw.Counter.iCounter, (t - g_n2kdata.boat.stw.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.stw.source), g_n2kdata.boat.stw.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "DEPTH", "Water depth, usually corrected for the sensor depth [M]", g_n2kdata.boat.depth.Counter.iCounter, (t - g_n2kdata.boat.depth.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.depth.source), g_n2kdata.boat.depth.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "DEPTH", "Water depth, usually corrected for the sensor depth [M]", g_n2kdata.boat.depth.Counter.iCounter, (t - g_n2kdata.boat.depth.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.depth.source), g_n2kdata.boat.depth.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "SEATEMP", "Temperature of the seawater at sensor depth [DegC]", g_n2kdata.boat.seatemp.Counter.iCounter, (t - g_n2kdata.boat.seatemp.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.seatemp.source), g_n2kdata.boat.seatemp.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "SEATEMP", "Temperature of the seawater at sensor depth [DegC]", g_n2kdata.boat.seatemp.Counter.iCounter, (t - g_n2kdata.boat.seatemp.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.seatemp.source), g_n2kdata.boat.seatemp.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "RUDDER", "Rudder position, starboard(+) or port(-) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudderpos.Counter.iCounter, (t - g_n2kdata.boat.rudderpos.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudderpos.source), g_n2kdata.boat.rudderpos.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "RUDDER", "Rudder position, starboard(+) or port(-) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudderpos.Counter.iCounter, (t - g_n2kdata.boat.rudderpos.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudderpos.source), g_n2kdata.boat.rudderpos.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARow, "COMPASS", "Compass reading [0-359 DegM]", g_n2kdata.boat.compass.Counter.iCounter, (t - g_n2kdata.boat.compass.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.compass.source), g_n2kdata.boat.compass.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "COMPASS", "Compass reading [0-359 DegM]", g_n2kdata.boat.compass.Counter.iCounter, (t - g_n2kdata.boat.compass.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.compass.source), g_n2kdata.boat.compass.value.dValue);
     strcat(Buffer, cLine);
 
     return(Buffer);

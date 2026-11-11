@@ -15,7 +15,7 @@
 #include "bgnet.h"
 
 // return a string with the recognized and supported NMEA sentences
-static char *strSentences(char *cBuffer, unsigned char ucNav) {
+char *strSentences(char *cBuffer, unsigned char ucNav) {
     int i, j;    
 
     // supported sentences by PILOT
@@ -27,7 +27,7 @@ static char *strSentences(char *cBuffer, unsigned char ucNav) {
     for (i=0; i<7; i++) {
         if (ucNav & pilot_mask[i]) {
             if (j>0) {
-                strcat(cBuffer, ", ");
+                strcat(cBuffer, ",");
             }
             strcat(cBuffer, pilot_sentence[i]);
             j++;

@@ -3,6 +3,7 @@
 
 #include "config.h"
 
-void *nmea0183_thread(void *arg);
+void *nmea0183_thread(void *);
+char *strSentences(char *, unsigned char);
 
 #endif
