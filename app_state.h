@@ -8,11 +8,11 @@
 // the lower the usleep, the higher the CPU load. 1000 (1 msec) works Ok, 5000 (5 msec) also works OK,
 // but 10000 (10 msec) no longer works. Use this to balance behaviour/performance vs resources.
 // for the time being, i'll leave it to 2500 (2.5 msec). Lowered it to 1500 because of collisions when ACP is present 
-#define MSEC1           1500     // usleep 1.5 msec
+#define MSEC1           1500    // usleep 1.5 msec
 // for the NMEA2000 pacemaker 
-#define MSEC10          10000    // usleep 10 msec
+#define MSEC10          10000   // usleep 10 msec
 // for the NMEA0183 pacemaker, i do'n want to send data too fast. 
-#define MSEC2500        250000  // usleep 2500 msec
+#define SEC2            2       // sleep 2 sec
 // for the main() 
 #define SEC5            5       // sleep 5 sec
 

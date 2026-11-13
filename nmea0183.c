@@ -1,31 +1,37 @@
-#include "nmea0183.h"
-#include "app_state.h"
-#include "logger.h"
-
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
-
 #include <termios.h>
-
 #include <string.h>
 #include <errno.h>
 
+//#include <time.h>
+//#include <limits.h>
+//#include <string.h>
+//#include <stdlib.h>
+//#include <arpa/inet.h>
+
+#include "app_state.h"
+#include "config.h"
+#include "logger.h"
 #include "bgnet.h"
 
+#include "nmea0183.h"
+
+
 // return a string with the recognized and supported NMEA sentences
-char *strSentences(char *cBuffer, unsigned char ucNav) {
+char *bgnet_nmea_sentences(char *cBuffer, uint8_t ucEnable) {
     int i, j;    
 
     // supported sentences by PILOT
-    char pilot_sentence[7][4] = {"APA", "APB", "RMB", "XTE", "VTG", "BWR", "BWC"};  
-    char pilot_mask[7] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC};
+    char pilot_sentence[BGNET_NMEA0183_NOS][4] = {"APA", "APB", "RMB", "XTE", "VTG", "BWR", "BWC", "VHW"};  
+    uint8_t pilot_mask[BGNET_NMEA0183_NOS] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC, BGNET_NMEA0183_VHW};
 
     strcpy(cBuffer, ""); // clear return buffer
     j = 0;
-    for (i=0; i<7; i++) {
-        if (ucNav & pilot_mask[i]) {
+    for (i=0; i<BGNET_NMEA0183_NOS; i++) {
+        if (ucEnable & pilot_mask[i]) {
             if (j>0) {
                 strcat(cBuffer, ",");
             }
@@ -44,12 +50,12 @@ static unsigned char set_interface_pilot(char *cNav)
     unsigned char r; 
 
     // supported sentences by PILOT
-    char pilot_sentence[7][4] = {"APA", "APB", "RMB", "XTE", "VTG", "BWR", "BWC"};  
-    char pilot_mask[7] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC};  
+    char pilot_sentence[BGNET_NMEA0183_NOS][4] = {"APA", "APB", "RMB", "XTE", "VTG", "BWR", "BWC", "VHW"};  
+    uint8_t pilot_mask[BGNET_NMEA0183_NOS] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC, BGNET_NMEA0183_VHW};  
 
     // identify selected sentences
     r  = BGNET_NMEA0183_OFF;
-    for (i=0; i<7; i++) {
+    for (i=0; i<BGNET_NMEA0183_NOS; i++) {
         if (strstr(cNav, pilot_sentence[i]) == NULL) {
             // not present
         } else {
@@ -58,6 +64,52 @@ static unsigned char set_interface_pilot(char *cNav)
     }
     return(r);
 }
+
+// initialize the NMEA control block
+void bgnet_nmea_ctrl_init(BGNET_NMEA_CTRL *pNMEA, uint8_t enable, time_t t) {
+    int i;
+    uint8_t pilot_mask[BGNET_NMEA0183_NOS] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC, BGNET_NMEA0183_VHW};  
+
+    // initialize counter
+    CounterInit(&pNMEA->Counter, t);
+    // for every possible sentence set the typebits in the typelist
+    // (this allows us, at runtime, to parse through the typelist and select the next configured sentence for this port)
+    for (i=0; i<BGNET_NMEA0183_NOS; i++) {
+        if (enable & pilot_mask[i]) {
+            pNMEA->TypeList[i] = pilot_mask[i]; // enabled sentence for this port
+        } else {
+            pNMEA->TypeList[i] = 0; // disabled sentence for this port
+        }
+    }
+}
+// pop the next sentence type from the list
+uint8_t bgnet_nmea_ctrl_pop(BGNET_NMEA_CTRL *pNMEA, time_t t) {
+    size_t i;
+    uint8_t r;
+    // get start counter
+    i = pNMEA->Counter.iCounter;
+    r = BGNET_NMEA0183_OFF;
+    while (1) { // endless loop
+        if (i < BGNET_NMEA0183_NOS) {
+            // should be ok
+        } else {
+            // wrap-back to 0
+            i = 0;
+        }
+        if (pNMEA->TypeList[i] == BGNET_NMEA0183_OFF) {
+            // skip this one, try next
+            i++;
+        } else {
+            // got one! save current counter and return sentencetype from list
+            pNMEA->Counter.iCounter = i;
+            pNMEA->Counter.tTimestamp = t;
+            r = pNMEA->TypeList[i];
+            break; // exit loop
+        }
+    }
+    return(r);
+}
+
 
 static int set_interface_attribs(unsigned char ucEnable, char *chPort, int *fd, struct termios *ptty, int speed, int databits, int stopbits, const char *parity)
 {
@@ -126,7 +178,7 @@ static int set_interface_attribs(unsigned char ucEnable, char *chPort, int *fd, 
 
     r = ioctl(*fd, TCSETS, ptty);
     if (r == 0) {
-        log_info("NMEA0183 serial settings: port %s, %d baud, %d databits, %d stopbits, %s parity (%s)", chPort, speed, databits, stopbits, parity, strSentences(strWork, ucEnable));
+        log_info("NMEA0183 serial settings: port %s, %d baud, %d databits, %d stopbits, %s parity (%s)", chPort, speed, databits, stopbits, parity, bgnet_nmea_sentences(strWork, ucEnable));
     } else {
         log_error("NMEA0183 serial settings: ioctl error %d", r);
         return -1;
@@ -145,9 +197,12 @@ static void interface_handler(int fd, int *g_lenRx, unsigned char *g_dataRx, int
     unsigned char TxBuf[BGNET_RXTXRAW_SIZE];
     ssize_t nRx, nTx, nWx;
 
+    log_debug("NMEA0183 - interface_handler(),fd= %X, g_lenRx= %d, g_lenTx= %d", fd, *g_lenRx, *g_lenTx);
+
     // get input (if any) into our local buffer. we do not expect RxD data, but we leave
     // this structure intact for other situations
     nRx = read(fd, RxBuf, sizeof(RxBuf));
+    log_debug("NMEA0183 - nRx= %d", nRx);
     if (nRx > 0) {
         // we do not expect any RxD data, we do this to prevent compiler warnings because of unused arguments
         if (*g_lenRx > 0) {
@@ -190,7 +245,6 @@ void *nmea0183_thread(void *arg)
     int fd1 = 0, fd2 = 0;
     struct termios tty1, tty2;
 
-
     // configure port1
     pCtrl->pCfg->nmea0183.port1.enable = BGNET_NMEA0183_OFF;
     if (strlen(pCtrl->pCfg->nmea0183.port1.port) > 0) {
@@ -214,6 +268,7 @@ void *nmea0183_thread(void *arg)
             }
         }
     }
+    log_debug("NMEA0183 serial port1: fd1= 0x%X", fd1);
 
     // configure port2
     pCtrl->pCfg->nmea0183.port2.enable = BGNET_NMEA0183_OFF;
@@ -238,24 +293,34 @@ void *nmea0183_thread(void *arg)
             }
         }
     }
+    log_debug("NMEA0183 serial port1: fd2= 0x%X", fd2);
+
     // only proceed if we have port1 and/or port2 configured
     if ((pCtrl->pCfg->nmea0183.port1.enable == BGNET_NMEA0183_OFF) & (pCtrl->pCfg->nmea0183.port2.enable == BGNET_NMEA0183_OFF)) {
-        log_error("NMEA0183 serial: no port configured");
-        return NULL;
+        log_error("NMEA0183 serial: no port configured, exit thread");
+    } else {
+        // initialize for a clean start
+        pthread_mutex_lock(&g_data_mutex);
+        g_nmea0183_data_lenRx1 = 0;
+        g_nmea0183_data_lenTx1 = 0;
+        g_nmea0183_data_lenRx2 = 0;
+        g_nmea0183_data_lenTx2 = 0;
+        pthread_mutex_unlock(&g_data_mutex);
+
+        while (g_running) {
+            if (fd1 == 0) {
+                // port not configured
+            } else {
+                interface_handler(fd1, &g_nmea0183_data_lenRx1, g_last_nmea0183_dataRx1, &g_nmea0183_data_lenTx1, g_last_nmea0183_dataTx1);
+            }
+            if (fd2 == 0) {
+                // port not configured
+            } else {
+                interface_handler(fd2, &g_nmea0183_data_lenRx2, g_last_nmea0183_dataRx2, &g_nmea0183_data_lenTx2, g_last_nmea0183_dataTx2);
+            }
+            sleep(SEC2); // 2 seconds between sentences
+        }
     }
-
-    // initialize for a clean start
-    pthread_mutex_lock(&g_data_mutex);
-    g_nmea0183_data_lenRx1 = 0;
-    g_nmea0183_data_lenRx2 = 0;
-    pthread_mutex_unlock(&g_data_mutex);
-
-    while (g_running) {
-        interface_handler(fd1, &g_nmea0183_data_lenRx1, g_last_nmea0183_dataRx1, &g_nmea0183_data_lenTx1, g_last_nmea0183_dataTx1);
-        interface_handler(fd2, &g_nmea0183_data_lenRx2, g_last_nmea0183_dataRx2, &g_nmea0183_data_lenTx2, g_last_nmea0183_dataTx2);
-        usleep(MSEC2500);
-    }
-
     close(fd1);
     close(fd2);
     log_info("NMEA0183 serial: thread exiting");

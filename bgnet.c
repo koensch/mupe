@@ -668,9 +668,9 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
 
-        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString, "M1234567890");
-        pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source = BGN_SOURCE_ACP;
-        CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter, t);
+        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString, "M1234567890");
+        pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter, t);
 
         pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue = 9.876;
         pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source = BGN_SOURCE_ACP;
@@ -1937,7 +1937,7 @@ size_t makePILOTresponseNAV(BGNET_CTRL *pCtrl, unsigned char *payload) {
     puCH->s.CH = c;
     puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
     puCH->s.FMT = BGN_FMT_0A;
-    switch (strlen(pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString)) {
+    switch (strlen(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString)) {
         case 0:
             puCH->s.cv.uB[0] = BGNET_ASC_QUEST;
             puCH->s.cv.uB[1] = BGNET_ASC_QUEST;
@@ -1945,27 +1945,27 @@ size_t makePILOTresponseNAV(BGNET_CTRL *pCtrl, unsigned char *payload) {
             puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
             break;
         case 1:
-            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[0];
+            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[0];
             puCH->s.cv.uB[1] = BGNET_ASC_SPACE;
             puCH->s.cv.uB[2] = BGNET_ASC_SPACE;
             puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
             break;
         case 2:
-            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[0];
-            puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[1];
+            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[0];
+            puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[1];
             puCH->s.cv.uB[2] = BGNET_ASC_SPACE;
             puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
             break;
         case 3:
-            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[0];
-            puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[1];
+            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[0];
+            puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[1];
             puCH->s.cv.uB[2] = BGNET_ASC_SPACE;
             puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
             break;
         default:
             // warning: if there are 'non-standard characters in this channel, QUAD is going to beep
-            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[0];
-            puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString[1];
+            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[0];
+            puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[1];
             puCH->s.cv.uB[2] = BGNET_ASC_SPACE;
             puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
             break;

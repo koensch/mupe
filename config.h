@@ -30,7 +30,8 @@ typedef struct {
     } ethernet;
 
     // In our test setup, only PILOT has NMEA input capabilities. It accepts a limited set of sentences
-    // We use a bitpattern to select for 1 or both ports. Leave the 'nav' field empty to disable the port
+    // We use a bitpattern to select for 1 or or more for each port.
+    // Leave the 'portx' or 'navx' field empty to disable the port
     #define BGNET_NMEA0183_OFF          0x00
     #define BGNET_NMEA0183_APA          0x01
     #define BGNET_NMEA0183_APB          0x02
@@ -39,6 +40,7 @@ typedef struct {
     #define BGNET_NMEA0183_VTG          0x10
     #define BGNET_NMEA0183_BWR          0x20
     #define BGNET_NMEA0183_BWC          0x40
+    #define BGNET_NMEA0183_VHW          0x80
     struct {
         int   baudrate;
         int   databits;

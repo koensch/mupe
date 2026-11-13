@@ -614,7 +614,7 @@ BGNET_FMTDT FMTDT[16] = {       {BGN_FMT_00, 2, "0 data bytes, odd one (found on
                             };
 
 // if you screwed up you can disable one (or more) threads so you can get a clue in what subsystem your screwup is hiding
-#define BGN_ENABLE_SERIAL
+#define BGN_ENABLE_FASTNET
 #define BGN_ENABLE_ETHERNET
 #define BGN_ENABLE_TIMER
 #define BGN_ENABLE_WEB
@@ -667,7 +667,7 @@ int main(void)
     pthread_t th_serial, th_ethernet, th_timer, th_web, th_nmea0183, th_nmea2000;
     if (
            (
-#ifdef BGN_ENABLE_SERIAL
+#ifdef BGN_ENABLE_FASTNET
             pthread_create(&th_serial,  NULL, fastnet_thread, pBGNET_ctrl) != 0 ||
 #endif
 #ifdef BGN_ENABLE_ETHERNET
@@ -685,7 +685,7 @@ int main(void)
 #ifdef BGN_ENABLE_NMEA2000
             pthread_create(&th_nmea2000,    NULL, nmea2000_thread, pBGNET_ctrl) != 0 ||
 #endif
-            (0 != 0))
+            (0 != 0)) // this is to prevent compilation errors when you disabled every thread
             ) {
         // not all threads could be started, close the ones that did start and shutdown with error
         log_error("Failed to create threads");
@@ -702,7 +702,7 @@ int main(void)
     }
 
     // deactivate threads
-#ifdef BGN_ENABLE_SERIAL
+#ifdef BGN_ENABLE_FASTNET
     pthread_join(th_serial, NULL);
 #endif
 #ifdef BGN_ENABLE_ETHERNET

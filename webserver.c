@@ -830,7 +830,7 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->nmea0183.databits,
                                             pCtrl->pCfg->nmea0183.stopbits,
                                             pCtrl->pCfg->nmea0183.port1.enable,
-                                            strSentences(cWork, pCtrl->pCfg->nmea0183.port1.enable)
+                                            bgnet_nmea_sentences(cWork, pCtrl->pCfg->nmea0183.port1.enable)
                                         );
 
         strcat(Buffer, cLine);
@@ -844,7 +844,7 @@ static char* html_interface_row(char *Buffer, BGNET_CTRL *pCtrl) {
                                             pCtrl->pCfg->nmea0183.databits,
                                             pCtrl->pCfg->nmea0183.stopbits,
                                             pCtrl->pCfg->nmea0183.port2.enable,
-                                            strSentences(cWork, pCtrl->pCfg->nmea0183.port2.enable)
+                                            bgnet_nmea_sentences(cWork, pCtrl->pCfg->nmea0183.port2.enable)
                                         );
 
         strcat(Buffer, cLine);
@@ -961,7 +961,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     ptmInfo = localtime (&pCtrl->BGNET.SERVICE.NetworkTime.value.tTime); //
     strftime(asciibuffer, sizeof(asciibuffer), BGNET_TIME_FMT, ptmInfo);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Timestamp (set when received via NMEA, API or SignalK)", pCtrl->BGNET.SERVICE.NetworkTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.NetworkTime.source), asciibuffer);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "ACP: Network Time", "Timestamp (received via NMEA 2000, API or SignalK)", pCtrl->BGNET.SERVICE.NetworkTime.Counter.iCounter, t-pCtrl->BGNET.SERVICE.NetworkTime.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.SERVICE.NetworkTime.source), asciibuffer);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSX, "ACP: ID", "ACP Firmware ID (send at POWERUP)", pCtrl->BGNET.ACP.ID.Counter.iCounter, t-pCtrl->BGNET.ACP.ID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.ID.source), pCtrl->BGNET.ACP.ID.value.nLong);
     strcat(Buffer, cLine);
@@ -1115,7 +1115,7 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/XTE", "Cross Track Error, XTE< =Port(negative), XTE> =Starboard (positive) [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/NMEA/RMB/WP", "Destination WayPoint (text, max 11/NMEA or 4/BGNET characters)", pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID.value.cString);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/NMEA/RMB/WP", "Destination WayPoint (text, max 11/NMEA or 4/BGNET characters)", pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/WPD", "WayPoint Distance [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue);
     strcat(Buffer, cLine);

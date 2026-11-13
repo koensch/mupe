@@ -20,8 +20,8 @@
   "nmea0183": {
     "comment": "Serial interface NMEA 0183 v1.5 (APA, APB, RMB, XTE, VTG, BWR, BWC) output to PILOT",
     "port1": "/dev/ttyUSB1",
-    "nav1": "RMB, VTG",
-    "port2": "/dev/ttyUSB2",
+    "nav1": "RMB, VTG, VHW",
+    "port2": "",
     "nav2": "XTE, BWC",
     "baudrate": 4800,
     "databits": 8,

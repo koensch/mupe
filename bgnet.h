@@ -163,6 +163,12 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
     uint8_t payload[BGNET_FRAME_PAYLOAD_MAX + BGNET_FRAME_TAIL_CS];  // payload (variable size) + CSP byte
 } FRAME_H;
 
+// buffer size for sentence itself
+#define BGNET_NMEA0183_SIZE            128
+// maximum number of sentences we allow (and are supported by PILOT)
+// number of supported sentences
+#define BGNET_NMEA0183_NOS              8
+
 // maximum number of possible devices. B&G advises a maximum of around 20 devices on the same network. Because
 // for us it's much faster to use the address as the index to the device, we use 0xFF as the maximum
 #define BGNET_DEVICE_MAX                0x0100 // 0x00-0xFF, both included
@@ -623,6 +629,11 @@ typedef struct {
     char cLabel[BGNET_CMD_LABEL_MAX];   // the label, variable name
 } BGNET_CMDDT;
 
+typedef struct {
+    BGNET_COUNT Counter;                    // Counter to cycle through every configured sentence
+    uint16_t TypeList[BGNET_NMEA0183_NOS];  // list of configured types
+} BGNET_NMEA_CTRL;
+
 #define BGN_FRAME_SIZE    120       // a BGNET frame usually does not exceed 120 characters
 
 // register device statistics
@@ -841,13 +852,17 @@ typedef struct {
             NMEA2K_VALUE SLW;  // speed SLW x10
         } SPEED;
         struct {
+            // For NMEA0183 output we have to send a pattern of different sentences.
+            // We want to optimize the execution, so we use a controlblock with some initialization
+            BGNET_NMEA_CTRL PORT1;
+            BGNET_NMEA_CTRL PORT2;
             struct {
                 NMEA2K_VALUE SOG;       // Speed Over Ground, VTG#5 [KT]
                 NMEA2K_VALUE VTG_SEL;   // when VTG messages are being received, SOG is present/available
             } VTG;
             struct {
                 NMEA2K_VALUE XTE;       // Cross Track Error, RMB#2 [NM]
-                NMEA2K_VALUE WPID;      // TO WaypointID, RMB#4 [ASCII text, 11 characters + NULL]
+                NMEA2K_VALUE WPID_TO;   // TO WaypointID, RMB#4 [ASCII text, 11 characters + NULL]
                 NMEA2K_VALUE WPD;       // Waypoint Distance, RMB#10 [NM]
                 NMEA2K_VALUE WPB;       // Waypoint Bearing, RMB#11 [DegT]
                 NMEA2K_VALUE RMB_SEL;   // when CHN_98 is received, navigation data is present/available
@@ -1004,5 +1019,6 @@ void ALARM_On(BGNET_ALARM *, time_t);
 void ALARM_Edge(BGNET_ALARM *, unsigned char, time_t);
 void ALARM_Off(BGNET_ALARM *);
 size_t ALARM_CHN(BGNET_CTRL *, union CH *, BGNET_ALARM *, time_t);
+size_t intMakeSentenceNMEA(BGNET_CTRL *, char *, unsigned char);
 
-    #endif
+#endif
