@@ -6,6 +6,7 @@
 #include "app_state.h"
 #include "logger.h"
 #include "bgnet.h"
+#include "nmea0183.h"
 
 void *timer_thread(void *arg)
 {
@@ -156,8 +157,35 @@ void *timer_thread(void *arg)
             g_fastnet_data_lenTx = TxBufLen;
             pthread_mutex_unlock(&g_data_mutex);
           }
-        }
 
+        }
+#ifdef KOEN
+        // ===== NMEA0183 processing
+        // here we place NMEA sentences into the port handler output buffer.
+        int TxBufLen = 0;
+        uint8_t uiSentenceID;
+        // port 1
+        if (pCtrl->pCfg->nmea0183.port1.enable == BGNET_NMEA0183_OFF) {
+          // port 1 not enabled
+        } else {
+        }
+        // port 2
+        if (pCtrl->pCfg->nmea0183.port2.enable == BGNET_NMEA0183_OFF) {
+          // port 2 not enabled
+        } else {
+          // get ID of next NMEA sentence from the list
+          uiSentenceID = BGNET_NMEA0183_VTG;
+          //uiSentenceID = bgnet_nmea_ctrl_pop(&pCtrl->BGNET.PILOT.NMEA.PORT2, t);
+          //TxBufLen = intMakeSentenceNMEA(pCtrl, NMEA2_Tx, uiSentenceID);
+          log_info("NMEA port2: %s, sentenceID: 0x%02X", NMEA2_Tx, uiSentenceID);
+          if (TxBufLen) {
+            //pthread_mutex_lock(&g_data_mutex);
+            //memcpy(g_last_nmea0183_dataTx2, &NMEA2_Tx, TxBufLen);
+            //g_nmea0183_data_lenTx2 = TxBufLen;
+            //pthread_mutex_unlock(&g_data_mutex);
+          }
+        }
+#endif
         // no racing allowed, use the configured timer interval, but protect against someone entering 0        
         usleep(BGNET_MIN(pCtrl->pCfg->timer.timer_interval_ms * 1000, MSEC1));
     }

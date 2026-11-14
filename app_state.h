@@ -48,7 +48,11 @@
 
 // ASCII characters
 #define BGNET_ASC_NULL                  0x00
+#define BGNET_ASC_LF                    0x0A
+#define BGNET_ASC_CR                    0x0D
 #define BGNET_ASC_SPACE                 0x20
+#define BGNET_ASC_DOLLAR                0x24
+#define BGNET_ASC_ASTERIX               0x2A
 #define BGNET_ASC_PERIOD                0x2E
 #define BGNET_ASC_0                     0x30
 #define BGNET_ASC_1                     0x31
@@ -89,10 +93,6 @@ extern unsigned char g_last_fastnet_dataRx[BGNET_RXTXRAW_SIZE];
 extern unsigned char g_last_fastnet_dataTx[BGNET_RXTXRAW_SIZE];
 extern char g_last_ethernet_data[BGNET_RXTXRAW_SIZE];
 extern char g_last_signalk_delta[BGNET_RXTXRAW_SIZE];
-extern unsigned char g_last_nmea0183_dataRx1[BGNET_RXTXRAW_SIZE];
-extern unsigned char g_last_nmea0183_dataTx1[BGNET_RXTXRAW_SIZE];
-extern unsigned char g_last_nmea0183_dataRx2[BGNET_RXTXRAW_SIZE];
-extern unsigned char g_last_nmea0183_dataTx2[BGNET_RXTXRAW_SIZE];
 
 /* Serial Protocol timing */
 #define SerialCounter_Reset     0
@@ -105,11 +105,6 @@ extern int  g_fastnet_data_counter;    // receive counter
 #define BGN_FASTNET_MODE_RW      1
 #define BGN_FASTNET_MODE_PASSIVE 2
 extern int  g_fastnet_mode;
-
-extern int  g_nmea0183_data_lenRx1;      // number of bytes in serial buffer nmea0183
-extern int  g_nmea0183_data_lenTx1;      // number of bytes in serial buffer nmea0183
-extern int  g_nmea0183_data_lenRx2;      // number of bytes in serial buffer nmea0183
-extern int  g_nmea0183_data_lenTx2;      // number of bytes in serial buffer nmea0183
 
 // NMEA2K value definition. We keep a timestamp for every individual value as we can not predict
 // that all parameters come from a sensor at the same time, from the same sensor, or how the sensor

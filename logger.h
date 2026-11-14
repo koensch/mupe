@@ -18,4 +18,7 @@ void log_warn(const char *fmt, ...);
 void log_info(const char *fmt, ...);
 void log_debug(const char *fmt, ...);
 
+int16_t hex2bin(unsigned char); // convert a single HEX/ASCII character ('0' ... 'F') into the binary equivalent (0-15 or -1 if the characters is not HEX)
+int16_t bin2hex(unsigned char); // convert a binary value (0-15) into the HEX/ASCII quivalent ('0' ... 'F')
+
 #endif

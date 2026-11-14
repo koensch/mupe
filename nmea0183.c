@@ -6,12 +6,6 @@
 #include <string.h>
 #include <errno.h>
 
-//#include <time.h>
-//#include <limits.h>
-//#include <string.h>
-//#include <stdlib.h>
-//#include <arpa/inet.h>
-
 #include "app_state.h"
 #include "config.h"
 #include "logger.h"
@@ -20,7 +14,7 @@
 #include "nmea0183.h"
 
 
-// return a string with the recognized and supported NMEA sentences
+// return a string with the recognized and by PILOT supported NMEA sentences
 char *bgnet_nmea_sentences(char *cBuffer, uint8_t ucEnable) {
     int i, j;    
 
@@ -44,7 +38,7 @@ char *bgnet_nmea_sentences(char *cBuffer, uint8_t ucEnable) {
     return(cBuffer);
 }
 
-static unsigned char set_interface_pilot(char *cNav)
+static unsigned char set_interface_pilot(BGNET_NMEA_CTRL *pNMEA, char *cNav)
 {
     int i;
     unsigned char r; 
@@ -53,61 +47,117 @@ static unsigned char set_interface_pilot(char *cNav)
     char pilot_sentence[BGNET_NMEA0183_NOS][4] = {"APA", "APB", "RMB", "XTE", "VTG", "BWR", "BWC", "VHW"};  
     uint8_t pilot_mask[BGNET_NMEA0183_NOS] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC, BGNET_NMEA0183_VHW};  
 
-    // identify selected sentences
+    // identify selected sentences and put data in the TypeList
     r  = BGNET_NMEA0183_OFF;
-    for (i=0; i<BGNET_NMEA0183_NOS; i++) {
+    for (i = 0; i < BGNET_NMEA0183_NOS; i++) {
         if (strstr(cNav, pilot_sentence[i]) == NULL) {
             // not present
+            pNMEA->TypeList[i] = BGNET_NMEA0183_OFF;
         } else {
+            pNMEA->TypeList[i] = pilot_mask[i];
             r |= pilot_mask[i]; // set bit for this type of sentence
         }
     }
     return(r);
 }
 
-// initialize the NMEA control block
-void bgnet_nmea_ctrl_init(BGNET_NMEA_CTRL *pNMEA, uint8_t enable, time_t t) {
-    int i;
-    uint8_t pilot_mask[BGNET_NMEA0183_NOS] = {BGNET_NMEA0183_APA, BGNET_NMEA0183_APB, BGNET_NMEA0183_RMB, BGNET_NMEA0183_XTE, BGNET_NMEA0183_VTG, BGNET_NMEA0183_BWR, BGNET_NMEA0183_BWC, BGNET_NMEA0183_VHW};  
-
-    // initialize counter
-    CounterInit(&pNMEA->Counter, t);
-    // for every possible sentence set the typebits in the typelist
-    // (this allows us, at runtime, to parse through the typelist and select the next configured sentence for this port)
-    for (i=0; i<BGNET_NMEA0183_NOS; i++) {
-        if (enable & pilot_mask[i]) {
-            pNMEA->TypeList[i] = pilot_mask[i]; // enabled sentence for this port
-        } else {
-            pNMEA->TypeList[i] = 0; // disabled sentence for this port
-        }
-    }
-}
 // pop the next sentence type from the list
 uint8_t bgnet_nmea_ctrl_pop(BGNET_NMEA_CTRL *pNMEA, time_t t) {
-    size_t i;
     uint8_t r;
-    // get start counter
-    i = pNMEA->Counter.iCounter;
     r = BGNET_NMEA0183_OFF;
     while (1) { // endless loop
-        if (i < BGNET_NMEA0183_NOS) {
-            // should be ok
+        if (pNMEA->Counter.iCounter < BGNET_NMEA0183_NOS) {
+            // should be ok (in range between 0-NOS)
         } else {
             // wrap-back to 0
-            i = 0;
+            pNMEA->Counter.iCounter = 0;
         }
-        if (pNMEA->TypeList[i] == BGNET_NMEA0183_OFF) {
+        if (pNMEA->TypeList[pNMEA->Counter.iCounter] == BGNET_NMEA0183_OFF) {
             // skip this one, try next
-            i++;
+            pNMEA->Counter.iCounter++;
         } else {
             // got one! save current counter and return sentencetype from list
-            pNMEA->Counter.iCounter = i;
+            r = pNMEA->TypeList[pNMEA->Counter.iCounter];
+            pNMEA->Counter.iCounter++;
             pNMEA->Counter.tTimestamp = t;
-            r = pNMEA->TypeList[i];
             break; // exit loop
         }
     }
     return(r);
+}
+// a typical NMEA0183 sentence looks like this, where the checksum varies by the contents between $ and * (not included):
+//  "$GPAPA,A,A,0.10,R,N,V,V,011,M,DEST,011,M*zz"
+// 1 - first character must be "$" (is skipped for checksum calculation)
+// 2 - the separator between the sentence and the checksum is a "*" (is skipped for checksum calculation)
+// 3 - maximum length of the whole sentence (including the "$" and the "*zz") shall not be bigger that 128 characters
+uint16_t bgnet_checksum_nmea0183_calc(char *cNMEA, int iStart, int iLen) {
+    uint16_t uCS = 0x00;
+    int i;
+    for (i = iStart; i < (iStart+iLen); i ++) {
+        uCS ^= cNMEA[i];
+    }
+    return(uCS);
+}
+char *bgnet_checksum_nmea0183(char *cNMEA) {
+    uint16_t uiCS = 0xFF, ucCS;
+    int iLen = 0;
+    // we need 6 characters to add, make sure our sentence remains within the 128 character limit
+    iLen = strlen(cNMEA);
+    if ((cNMEA[0] == BGNET_ASC_DOLLAR) & (iLen < 128-6) & (cNMEA[iLen-1] == BGNET_ASC_ASTERIX)) {
+        // calculate CS, skip the 1st character ($) and the last character (*)
+        uiCS = bgnet_checksum_nmea0183_calc(cNMEA, 1, iLen-1-1);
+        // convert the CS (0-0xFF) to 2-bytes HEX/ASCII
+        ucCS = bin2hex(uiCS);
+        // append the CS characters
+        cNMEA[iLen-1+0] = BGNET_ASC_ASTERIX;
+        cNMEA[iLen-1+1] = (char)((ucCS & 0xFF00) >> 8);
+        cNMEA[iLen-1+2] = (char)(ucCS & 0x00FF);
+        cNMEA[iLen-1+3] = BGNET_ASC_CR;
+        cNMEA[iLen-1+4] = BGNET_ASC_LF;
+        cNMEA[iLen-1+5] = BGNET_ASC_NULL; // string terminator
+    } else {
+        // not a valid NMEA sentence
+        strcpy(cNMEA, "$GPZZZ,not,a,valid,nmea,string*ZZ");
+    }
+    return(cNMEA);
+}
+// return a string with the NMEA sentence of your choice (single sentence only!)
+// we expect only EXTERNAL data (from NMEA 2000, SignalK or API) as a source.
+size_t intMakeSentenceNMEA(BGNET_CTRL *pCtrl, char *cBuffer, unsigned char ucMask) {
+    switch (ucMask) {
+        case BGNET_NMEA0183_APA:
+            strcpy(cBuffer, "$GPAPA,A,A,0.10,R,N,V,V,011,M,DEST,011,M*");
+            break;
+        case BGNET_NMEA0183_APB:
+            strcpy(cBuffer, "$AGAPB,A,A,1.23,L,N,,,184.2,T,D1,194.2,T,174.2,T*");
+            break;
+        case BGNET_NMEA0183_RMB:
+            strcpy(cBuffer, "$GNRMB,A,1.56,R,M1,M2,3526.624914,N,13241.976383,E,11.22,276.5,-22.2,*");
+            break;
+        case BGNET_NMEA0183_XTE:
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$GPXTE,A,A,%5.2f,R,N,A*", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
+            break;
+        case BGNET_NMEA0183_VTG:
+            strcpy(cBuffer, "$AGVTG,28.3,T,28.3,M,4.6,N,8.5,K*");
+            break;
+        case BGNET_NMEA0183_BWR:
+            strcpy(cBuffer, "$GPBWR,225444,4917.24,N,01309.57,E,051.9,T,031.6,M,001.3,N,004*");
+            break;
+        case BGNET_NMEA0183_BWC:
+            strcpy(cBuffer, "$GPBWC,125444,4917.24,N,02309.57,W,051.9,T,031.6,M,001.3,N,004*");
+            break;
+        case BGNET_NMEA0183_VHW:
+            // not documented in the user manual, but it appears to work
+            strcpy(cBuffer, "$IIVHW,15.8,T,15.8,M,5.0,N,9.3,K*");
+            break;
+        default:
+            // this should never happen
+            log_error("Unknown NMEA0183 idetifier used: 0x%02X (should never happen)", ucMask);
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$GPERR,unsupported sentence type 0x%02X*", ucMask);
+            break;
+    }
+    bgnet_checksum_nmea0183(cBuffer); // append Checksum to sentence
+    return(strlen(cBuffer));
 }
 
 
@@ -191,49 +241,36 @@ static int set_interface_attribs(unsigned char ucEnable, char *chPort, int *fd, 
     return 0;
 }
 
-static void interface_handler(int fd, int *g_lenRx, unsigned char *g_dataRx, int *g_lenTx, unsigned char *g_dataTx)
-{
-    unsigned char RxBuf[BGNET_RXTXRAW_SIZE];
-    unsigned char TxBuf[BGNET_RXTXRAW_SIZE];
-    ssize_t nRx, nTx, nWx;
-
-    log_debug("NMEA0183 - interface_handler(),fd= %X, g_lenRx= %d, g_lenTx= %d", fd, *g_lenRx, *g_lenTx);
-
+static void interface_handler(int fd, size_t *pRx, char *RxBuf, size_t *pTx, char *TxBuf) {
     // get input (if any) into our local buffer. we do not expect RxD data, but we leave
     // this structure intact for other situations
-    nRx = read(fd, RxBuf, sizeof(RxBuf));
-    log_debug("NMEA0183 - nRx= %d", nRx);
+    int nRx = *pRx;
+    size_t nTx = *pTx;
+    nRx = read(fd, RxBuf, BGNET_NMEA0183_SIZE);
     if (nRx > 0) {
-        // we do not expect any RxD data, we do this to prevent compiler warnings because of unused arguments
-        if (*g_lenRx > 0) {
-            // get message from common storage into local storage
-            pthread_mutex_lock(&g_data_mutex);
-            memcpy(&RxBuf, g_dataRx, *g_lenRx);
-            nRx = *g_lenRx;
-            *g_lenRx = 0; // release common storage
-            pthread_mutex_unlock(&g_data_mutex);
+        // we do not expect any RxD data
+        if (nRx > 0) {
+            // we have received someting. This should not be possible, because our PILOT is readonly (so it won't write to us)
+            // do not process incoming data, just reset buffer. Note: if you ever want to re-purpose this handler to handle 
+            // incoming NMEA 0183 sentences, this is the place to do that.
+            log_error("NMEA0183 serial read: unexpected input %s (%d characters)", RxBuf, nRx);
+            nRx = 0; 
         }
     } else if (nRx < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             log_error("NMEA0183 serial read: %s", strerror(errno));
-        } else {
-            if (*g_lenTx > 0) {
-                // get message from common storage into local storage
-                pthread_mutex_lock(&g_data_mutex);
-                memcpy(&TxBuf, g_dataTx, *g_lenTx);
-                nTx = *g_lenTx;
-                *g_lenTx = 0; // release common storage
-                pthread_mutex_unlock(&g_data_mutex);
-
-                // write content
-                nWx = write(fd, TxBuf, nTx);
-                if (nWx == nTx) {
-                    // nothing wrong here, everything was written
-                    //log_info("NMEA0183 serial write: %d bytes output", nTx);
-                } else {
-                    // for some obscure reason we we unable to write all data
-                    log_error("NMEA0183 serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), nTx, nWx);
-                }
+        }
+    } else {
+        // nothing read, no error, check if there is someting to send
+        if (*pTx > 0) {
+            // there is someting in the output buffer, write it out
+            nTx = write(fd, TxBuf, *pTx);
+            if (nTx == *pTx) {
+                // nothing wrong here, everything was written
+                *pTx = 0; // reset output buffer; data was send
+            } else {
+                // for some obscure reason we we unable to write all data
+                log_error("NMEA0183 serial write: %s (bytes to send= %d, actually send= %d)", strerror(errno), *pTx, nTx);
             }
         }
     }
@@ -249,14 +286,13 @@ void *nmea0183_thread(void *arg)
     pCtrl->pCfg->nmea0183.port1.enable = BGNET_NMEA0183_OFF;
     if (strlen(pCtrl->pCfg->nmea0183.port1.port) > 0) {
         log_info("NMEA0183 opening port 1: %s", pCtrl->pCfg->nmea0183.port1.port);
-
         fd1 = open(pCtrl->pCfg->nmea0183.port1.port, O_RDWR | O_NOCTTY | O_NONBLOCK);
         if (fd1 < 0) {
             log_error("NMEA0183 serial port1: open(): %s", strerror(errno));
         }
 
         // enable NMEA1083 sentences for this port
-        pCtrl->pCfg->nmea0183.port1.enable = set_interface_pilot(pCtrl->pCfg->nmea0183.port1.nav);
+        pCtrl->pCfg->nmea0183.port1.enable = set_interface_pilot(&pCtrl->BGNET.PILOT.NMEA.PORT1, pCtrl->pCfg->nmea0183.port1.nav);
         if (pCtrl->pCfg->nmea0183.port1.enable == BGNET_NMEA0183_OFF) {
             // no sentences selected
             log_error("NMEA0183 serial port1: no valid NMEA0183 sentences selected");
@@ -268,7 +304,6 @@ void *nmea0183_thread(void *arg)
             }
         }
     }
-    log_debug("NMEA0183 serial port1: fd1= 0x%X", fd1);
 
     // configure port2
     pCtrl->pCfg->nmea0183.port2.enable = BGNET_NMEA0183_OFF;
@@ -281,7 +316,7 @@ void *nmea0183_thread(void *arg)
         }
 
         // enable NMEA1083 sentences for this port
-        pCtrl->pCfg->nmea0183.port2.enable = set_interface_pilot(pCtrl->pCfg->nmea0183.port2.nav);
+        pCtrl->pCfg->nmea0183.port2.enable = set_interface_pilot(&pCtrl->BGNET.PILOT.NMEA.PORT2, pCtrl->pCfg->nmea0183.port2.nav);
         if (pCtrl->pCfg->nmea0183.port2.enable == BGNET_NMEA0183_OFF) {
             // no sentences selected
             log_error("NMEA0183 serial port2: no valid NMEA0183 sentences selected");
@@ -293,30 +328,41 @@ void *nmea0183_thread(void *arg)
             }
         }
     }
-    log_debug("NMEA0183 serial port1: fd2= 0x%X", fd2);
 
-    // only proceed if we have port1 and/or port2 configured
+    // if both ports are not configured, we exit the thread. It has no use of continue
     if ((pCtrl->pCfg->nmea0183.port1.enable == BGNET_NMEA0183_OFF) & (pCtrl->pCfg->nmea0183.port2.enable == BGNET_NMEA0183_OFF)) {
         log_error("NMEA0183 serial: no port configured, exit thread");
     } else {
-        // initialize for a clean start
-        pthread_mutex_lock(&g_data_mutex);
-        g_nmea0183_data_lenRx1 = 0;
-        g_nmea0183_data_lenTx1 = 0;
-        g_nmea0183_data_lenRx2 = 0;
-        g_nmea0183_data_lenTx2 = 0;
-        pthread_mutex_unlock(&g_data_mutex);
+
+        uint8_t uiSentenceID;
+        char NMEA_Rx1[BGNET_NMEA0183_SIZE], NMEA_Tx1[BGNET_NMEA0183_SIZE], NMEA_Rx2[BGNET_NMEA0183_SIZE], NMEA_Tx2[BGNET_NMEA0183_SIZE];
+        memset(NMEA_Rx1, 0, BGNET_NMEA0183_SIZE);
+        memset(NMEA_Tx1, 0, BGNET_NMEA0183_SIZE);
+        memset(NMEA_Rx2, 0, BGNET_NMEA0183_SIZE);
+        memset(NMEA_Tx2, 0, BGNET_NMEA0183_SIZE);
+        size_t nRx1 = 0, nTx1 = 0, nRx2 = 0, nTx2 = 0;
 
         while (g_running) {
             if (fd1 == 0) {
                 // port not configured
             } else {
-                interface_handler(fd1, &g_nmea0183_data_lenRx1, g_last_nmea0183_dataRx1, &g_nmea0183_data_lenTx1, g_last_nmea0183_dataTx1);
+                interface_handler(fd1, &nRx1, NMEA_Rx1, &nTx1, NMEA_Tx1);
+                if (nTx1 == 0) {
+                    uiSentenceID = bgnet_nmea_ctrl_pop(&pCtrl->BGNET.PILOT.NMEA.PORT1, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                    //uiSentenceID = BGNET_NMEA0183_RMB;
+                    nTx1 = intMakeSentenceNMEA(pCtrl, NMEA_Tx1, uiSentenceID);
+                    log_debug("NMEA port1: %s, sentenceID: 0x%02X, %d characters written", NMEA_Tx1, uiSentenceID, nTx1);
+                }
             }
             if (fd2 == 0) {
                 // port not configured
             } else {
-                interface_handler(fd2, &g_nmea0183_data_lenRx2, g_last_nmea0183_dataRx2, &g_nmea0183_data_lenTx2, g_last_nmea0183_dataTx2);
+                interface_handler(fd2, &nRx2, NMEA_Rx2, &nTx2, NMEA_Tx2);
+                if (nTx2 == 0) {
+                    uiSentenceID = bgnet_nmea_ctrl_pop(&pCtrl->BGNET.PILOT.NMEA.PORT2, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+                    nTx2 = intMakeSentenceNMEA(pCtrl, NMEA_Tx2, uiSentenceID);
+                    log_debug("NMEA port2: %s, sentenceID: 0x%02X, %d characters written", NMEA_Tx2, uiSentenceID, nTx2);
+                }
             }
             sleep(SEC2); // 2 seconds between sentences
         }

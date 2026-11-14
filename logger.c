@@ -111,7 +111,7 @@ int16_t hex2bin(unsigned char ucHex) {
         case BGNET_ASC_7:
         case BGNET_ASC_8:
         case BGNET_ASC_9:
-            r = ucHex - BGNET_ASC_0;
+            r = (ucHex - BGNET_ASC_0);
             break;
         case BGNET_ASC_A:
         case BGNET_ASC_B:
@@ -119,7 +119,7 @@ int16_t hex2bin(unsigned char ucHex) {
         case BGNET_ASC_D:
         case BGNET_ASC_E:
         case BGNET_ASC_F:
-            r = ucHex - BGNET_ASC_A + 10;
+            r = (ucHex - BGNET_ASC_A) + 10;
             break;
         case BGNET_ASC_a:
         case BGNET_ASC_b:
@@ -127,12 +127,17 @@ int16_t hex2bin(unsigned char ucHex) {
         case BGNET_ASC_d:
         case BGNET_ASC_e:
         case BGNET_ASC_f:
-            r = ucHex - BGNET_ASC_a + 10;
+            r = (ucHex - BGNET_ASC_a) + 10;
             break;
         default:
             r = -1;
     }
     return(r);
+}
+// convert 1 byte binary into 2 bytes HEX characters
+int16_t bin2hex(unsigned char ucBin) {
+    char hex[17] = {"0123456789ABCDEF"}; // 1 extra for the null character
+    return ((hex[((ucBin & 0xF0) >> 4)] << 8) | hex[(ucBin & 0x0F)]);
 } 
 
 int16_t ascii2byte(unsigned char *OutByte, char *InString, size_t size) {
