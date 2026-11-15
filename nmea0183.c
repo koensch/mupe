@@ -5,6 +5,7 @@
 #include <termios.h>
 #include <string.h>
 #include <errno.h>
+#include <math.h>
 
 #include "app_state.h"
 #include "config.h"
@@ -112,43 +113,64 @@ char *bgnet_checksum_nmea0183(char *cNMEA) {
         cNMEA[iLen-1+0] = BGNET_ASC_ASTERIX;
         cNMEA[iLen-1+1] = (char)((ucCS & 0xFF00) >> 8);
         cNMEA[iLen-1+2] = (char)(ucCS & 0x00FF);
-        cNMEA[iLen-1+3] = BGNET_ASC_CR;
-        cNMEA[iLen-1+4] = BGNET_ASC_LF;
-        cNMEA[iLen-1+5] = BGNET_ASC_NULL; // string terminator
+        //cNMEA[iLen-1+3] = BGNET_ASC_CR;
+        cNMEA[iLen-1+3] = BGNET_ASC_LF;
+        cNMEA[iLen-1+4] = BGNET_ASC_NULL; // string terminator
     } else {
         // not a valid NMEA sentence
         strcpy(cNMEA, "$GPZZZ,not,a,valid,nmea,string*ZZ");
     }
     return(cNMEA);
 }
+// return the 'Steer To RIGHT/LEFT character, depending on the value
+char *strSteerTo(char *cBuffer, double dValue) {
+    if (dValue < 0) {
+        cBuffer[0] = BGNET_ASC_R;
+        cBuffer[1] = BGNET_ASC_NULL;
+    } else {
+        cBuffer[0] = BGNET_ASC_L;
+        cBuffer[1] = BGNET_ASC_NULL;
+    }
+    return(cBuffer);
+}
 // return a string with the NMEA sentence of your choice (single sentence only!)
-// we expect only EXTERNAL data (from NMEA 2000, SignalK or API) as a source.
+// we shall only use EXTERNAL data (from NMEA 2000, SignalK or API) as a source for these sentences.
+// realise that via PILOT, these same values will end up in the INTERNAL data structures (via DATA
+// command send by PILOT). Do not make a circular loop with this data!
+//
+// FAA mode indicator for:  RMC, RMB, VTG, GLL, BWC, XTE, we always use 'E' (=Estimate) to distingish from other fields using A/V
+// GLL was introduced with NMEA 3.0
+// we use "II" as "Talker Identifier"
 size_t intMakeSentenceNMEA(BGNET_CTRL *pCtrl, char *cBuffer, unsigned char ucMask) {
+    char szWork[128];
     switch (ucMask) {
-        case BGNET_NMEA0183_APA:
-            strcpy(cBuffer, "$GPAPA,A,A,0.10,R,N,V,V,011,M,DEST,011,M*");
+        case BGNET_NMEA0183_APA: // the APA sentence is replaced by the APB; we use the same variables (but just some less variables)
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIAPA,A,A,%.2f,R,N,V,V,011,T,WP03*", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
             break;
-        case BGNET_NMEA0183_APB:
-            strcpy(cBuffer, "$AGAPB,A,A,1.23,L,N,,,184.2,T,D1,194.2,T,174.2,T*");
+        case BGNET_NMEA0183_APB: // APB is the 'fixed' version of APA. You should not be using APA
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIAPB,A,A,%.2f,L,N,A,A,184.2,T,WP04,194.2,T,174.2,T*", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
+            break;
+        case BGNET_NMEA0183_VTG: // PILOT only uses SOG [KT] $AGVTG,28.3,T,28.3,M,4.6,N,8.5,K*50
+            //snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIVTG,,,,,%.1f,N,,,*", pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue);
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIVTG,,,,,%.1f,N,,*", g_n2kdata.pos.sog.value.dValue);
             break;
         case BGNET_NMEA0183_RMB:
-            strcpy(cBuffer, "$GNRMB,A,1.56,R,M1,M2,3526.624914,N,13241.976383,E,11.22,276.5,-22.2,*");
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIRMB,A,%.2f,%s,M11,M12,3526.624914,N,13241.976383,E,11.22,276.5,8.6,A,E*",
+                                                    fabs(g_n2kdata.pos.xte.value.dValue),  // should be a absolute value
+                                                    strSteerTo(szWork, g_n2kdata.pos.xte.value.dValue)
+                                                    );
             break;
         case BGNET_NMEA0183_XTE:
-            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$GPXTE,A,A,%5.2f,R,N,A*", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
-            break;
-        case BGNET_NMEA0183_VTG:
-            strcpy(cBuffer, "$AGVTG,28.3,T,28.3,M,4.6,N,8.5,K*");
-            break;
-        case BGNET_NMEA0183_BWR:
-            strcpy(cBuffer, "$GPBWR,225444,4917.24,N,01309.57,E,051.9,T,031.6,M,001.3,N,004*");
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIXTE,A,A,%.2f,R,N,E*", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
             break;
         case BGNET_NMEA0183_BWC:
-            strcpy(cBuffer, "$GPBWC,125444,4917.24,N,02309.57,W,051.9,T,031.6,M,001.3,N,004*");
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIBWC,125444,4917.24,N,02309.57,W,051.9,T,031.6,M,001.3,N,M21,E*");
             break;
-        case BGNET_NMEA0183_VHW:
-            // not documented in the user manual, but it appears to work
-            strcpy(cBuffer, "$IIVHW,15.8,T,15.8,M,5.0,N,9.3,K*");
+        case BGNET_NMEA0183_BWR:
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIBWR,225444,4917.24,N,01309.57,E,051.9,T,031.6,M,001.3,N,M31,E4*");
+            break;
+        case BGNET_NMEA0183_VHW: // not documented in the user manual, but it appears to work
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIVHW,15.8,T,17.3,M,5.0,N,9.3,K*");
             break;
         default:
             // this should never happen
@@ -157,9 +179,9 @@ size_t intMakeSentenceNMEA(BGNET_CTRL *pCtrl, char *cBuffer, unsigned char ucMas
             break;
     }
     bgnet_checksum_nmea0183(cBuffer); // append Checksum to sentence
-    return(strlen(cBuffer));
+    //strcpy(cBuffer, "$GNRMB,A,1.56,R,M1,M2,3526.624914,N,13241.976383,E,11.22,276.5,-22.2,*73");
+    return(strlen(cBuffer)); // strlen does not include the NULL terminator
 }
-
 
 static int set_interface_attribs(unsigned char ucEnable, char *chPort, int *fd, struct termios *ptty, int speed, int databits, int stopbits, const char *parity)
 {
@@ -187,9 +209,11 @@ static int set_interface_attribs(unsigned char ucEnable, char *chPort, int *fd, 
     switch (speed) {
         case 4800:
             cfsetispeed(ptty, B4800);
+            cfsetospeed(ptty, B4800);
             break;
         case 9600:
             cfsetispeed(ptty, B9600);
+            cfsetospeed(ptty, B9600);
             break;
         default:
             log_error("NMEA0183 serial settings: unsupported baudrate: %d", speed);
@@ -285,22 +309,25 @@ void *nmea0183_thread(void *arg)
     // configure port1
     pCtrl->pCfg->nmea0183.port1.enable = BGNET_NMEA0183_OFF;
     if (strlen(pCtrl->pCfg->nmea0183.port1.port) > 0) {
-        log_info("NMEA0183 opening port 1: %s", pCtrl->pCfg->nmea0183.port1.port);
+        log_info("NMEA0183 opening port1: %s", pCtrl->pCfg->nmea0183.port1.port);
         fd1 = open(pCtrl->pCfg->nmea0183.port1.port, O_RDWR | O_NOCTTY | O_NONBLOCK);
         if (fd1 < 0) {
             log_error("NMEA0183 serial port1: open(): %s", strerror(errno));
-        }
-
-        // enable NMEA1083 sentences for this port
-        pCtrl->pCfg->nmea0183.port1.enable = set_interface_pilot(&pCtrl->BGNET.PILOT.NMEA.PORT1, pCtrl->pCfg->nmea0183.port1.nav);
-        if (pCtrl->pCfg->nmea0183.port1.enable == BGNET_NMEA0183_OFF) {
-            // no sentences selected
-            log_error("NMEA0183 serial port1: no valid NMEA0183 sentences selected");
-            close(fd1);
         } else {
-            if (set_interface_attribs(pCtrl->pCfg->nmea0183.port1.enable, pCtrl->pCfg->nmea0183.port1.port, &fd1, &tty1, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
-                log_error("NMEA0183 serial port1: set_interface_attribs(): %s", strerror(errno));
+            // enable NMEA1083 sentences for this port
+            pCtrl->pCfg->nmea0183.port1.enable = set_interface_pilot(&pCtrl->BGNET.PILOT.NMEA.PORT1, pCtrl->pCfg->nmea0183.port1.nav);
+            if (pCtrl->pCfg->nmea0183.port1.enable == BGNET_NMEA0183_OFF) {
+                // no sentences selected
+                log_error("NMEA0183 serial port1: no valid NMEA0183 sentences selected");
                 close(fd1);
+            } else {
+                if (set_interface_attribs(pCtrl->pCfg->nmea0183.port1.enable, pCtrl->pCfg->nmea0183.port1.port, &fd1, &tty1, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
+                    log_error("NMEA0183 serial port1: set_interface_attribs(): %s", strerror(errno));
+                    close(fd1);
+                    pCtrl->pCfg->nmea0183.port1.enable = BGNET_NMEA0183_OFF;
+                } else {
+                    log_info("NMEA0183 port1 %s ready, enable= 0x%02X", pCtrl->pCfg->nmea0183.port1.port, pCtrl->pCfg->nmea0183.port1.enable);
+                }
             }
         }
     }
@@ -308,23 +335,25 @@ void *nmea0183_thread(void *arg)
     // configure port2
     pCtrl->pCfg->nmea0183.port2.enable = BGNET_NMEA0183_OFF;
     if (strlen(pCtrl->pCfg->nmea0183.port2.port) > 0) {
-        log_info("NMEA0183 opening port 2: %s", pCtrl->pCfg->nmea0183.port2.port);
-
+        log_info("NMEA0183 opening port2: %s", pCtrl->pCfg->nmea0183.port2.port);
         fd2 = open(pCtrl->pCfg->nmea0183.port2.port, O_RDWR | O_NOCTTY | O_NONBLOCK);
         if (fd2 < 0) {
             log_error("NMEA0183 serial port2: open(): %s", strerror(errno));
-        }
-
-        // enable NMEA1083 sentences for this port
-        pCtrl->pCfg->nmea0183.port2.enable = set_interface_pilot(&pCtrl->BGNET.PILOT.NMEA.PORT2, pCtrl->pCfg->nmea0183.port2.nav);
-        if (pCtrl->pCfg->nmea0183.port2.enable == BGNET_NMEA0183_OFF) {
-            // no sentences selected
-            log_error("NMEA0183 serial port2: no valid NMEA0183 sentences selected");
-            close(fd2);
         } else {
-            if (set_interface_attribs(pCtrl->pCfg->nmea0183.port2.enable, pCtrl->pCfg->nmea0183.port2.port, &fd2, &tty2, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
-                log_error("NMEA0183 serial port2: set_interface_attribs(): %s", strerror(errno));
+            // enable NMEA1083 sentences for this port
+            pCtrl->pCfg->nmea0183.port2.enable = set_interface_pilot(&pCtrl->BGNET.PILOT.NMEA.PORT2, pCtrl->pCfg->nmea0183.port2.nav);
+            if (pCtrl->pCfg->nmea0183.port2.enable == BGNET_NMEA0183_OFF) {
+                // no sentences selected
+                log_error("NMEA0183 serial port2: no valid NMEA0183 sentences selected");
                 close(fd2);
+            } else {
+                if (set_interface_attribs(pCtrl->pCfg->nmea0183.port2.enable, pCtrl->pCfg->nmea0183.port2.port, &fd2, &tty2, pCtrl->pCfg->nmea0183.baudrate, pCtrl->pCfg->nmea0183.databits,pCtrl->pCfg->nmea0183.stopbits, pCtrl->pCfg->nmea0183.parity) != 0) {
+                    log_error("NMEA0183 serial port2: set_interface_attribs(): %s", strerror(errno));
+                    close(fd2);
+                    pCtrl->pCfg->nmea0183.port2.enable = BGNET_NMEA0183_OFF;
+                } else {
+                    log_info("NMEA0183 port2 %s ready, enable= 0x%02X", pCtrl->pCfg->nmea0183.port2.port, pCtrl->pCfg->nmea0183.port2.enable);
+                }
             }
         }
     }
@@ -349,7 +378,6 @@ void *nmea0183_thread(void *arg)
                 interface_handler(fd1, &nRx1, NMEA_Rx1, &nTx1, NMEA_Tx1);
                 if (nTx1 == 0) {
                     uiSentenceID = bgnet_nmea_ctrl_pop(&pCtrl->BGNET.PILOT.NMEA.PORT1, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
-                    //uiSentenceID = BGNET_NMEA0183_RMB;
                     nTx1 = intMakeSentenceNMEA(pCtrl, NMEA_Tx1, uiSentenceID);
                     log_debug("NMEA port1: %s, sentenceID: 0x%02X, %d characters written", NMEA_Tx1, uiSentenceID, nTx1);
                 }
@@ -364,7 +392,7 @@ void *nmea0183_thread(void *arg)
                     log_debug("NMEA port2: %s, sentenceID: 0x%02X, %d characters written", NMEA_Tx2, uiSentenceID, nTx2);
                 }
             }
-            sleep(SEC2); // 2 seconds between sentences
+            sleep(SEC1); // 2 seconds between sentences
         }
     }
     close(fd1);

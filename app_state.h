@@ -12,7 +12,7 @@
 // for the NMEA2000 pacemaker 
 #define MSEC10          10000   // usleep 10 msec
 // for the NMEA0183 pacemaker, i do'n want to send data too fast. 
-#define SEC2            2       // sleep 2 sec
+#define SEC1            1       // sleep 1 sec
 // for the main() 
 #define SEC5            5       // sleep 5 sec
 
@@ -43,6 +43,8 @@
 #define BGNET_DEG2RAD(d)                    ((d * BGNET_PI)/180.0)
 // convert from K to DegC
 #define BGNET_K2C(k)                        ((double)k + 273.15)
+// convert m/s to KT
+#define BGNET_MS2KT(m)                      (1.94384449 * m)
 
 #define BGNET_RXTXRAW_SIZE              1024    // max size read/write buffer (ethernet, fastnet) to hold the complete frames
 
@@ -71,10 +73,13 @@
 #define BGNET_ASC_D                     0x44
 #define BGNET_ASC_E                     0x45
 #define BGNET_ASC_F                     0x46
+#define BGNET_ASC_L                     0x4C
 #define BGNET_ASC_M                     0x4D
 #define BGNET_ASC_N                     0x4E
 #define BGNET_ASC_O                     0x4F
 #define BGNET_ASC_P                     0x50
+#define BGNET_ASC_Q                     0x51
+#define BGNET_ASC_R                     0x52
 #define BGNET_ASC_W                     0x57
 #define BGNET_ASC_X                     0x58
 #define BGNET_ASC_a                     0x61
@@ -155,6 +160,7 @@ typedef struct {
     NMEA2K_VALUE alt;
     NMEA2K_VALUE cog;
     NMEA2K_VALUE sog;
+    NMEA2K_VALUE xte;
 } NMEA2K_POSITION;
 typedef struct {
     NMEA2K_VALUE stw;

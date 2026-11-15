@@ -63,6 +63,7 @@ void app_state_init(void)
     NMEAinit(&g_n2kdata.pos.alt, t);
     NMEAinit(&g_n2kdata.pos.cog, t);
     NMEAinit(&g_n2kdata.pos.sog, t);
+    NMEAinit(&g_n2kdata.pos.xte, t);
 
     NMEAinit(&g_n2kdata.boat.stw, t);
     NMEAinit(&g_n2kdata.boat.depth, t);

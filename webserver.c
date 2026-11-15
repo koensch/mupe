@@ -267,7 +267,8 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *longitude = cJSON_GetObjectItem(root, "longitude"); // longitude +=East of prime meridian, -=West of prime meridian
     cJSON *altitude  = cJSON_GetObjectItem(root, "altitude");  // altitude [M], 0=boat, +=airplane, -=submarine
     cJSON *cog       = cJSON_GetObjectItem(root, "cog");       // course over ground [degree] (0-359)
-    cJSON *sog       = cJSON_GetObjectItem(root, "sog");       // speed over ground [M/S]
+    cJSON *sog       = cJSON_GetObjectItem(root, "sog");       // speed over ground [m/s]
+    cJSON *xte       = cJSON_GetObjectItem(root, "xte");       // Cross Track Error [NM]
     // boat measured parameters
     cJSON *stw       = cJSON_GetObjectItem(root, "stw");       // speed through water [M/S] (boatspeed)
     cJSON *depth     = cJSON_GetObjectItem(root, "depth");     // water depth below transducer [M]
@@ -349,6 +350,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         g_n2kdata.pos.cog.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.cog.Counter, t);
     }
+    // curl --data "{\"sog\":6.2}" http://localhost:8080/api/update
     if (sog) {
         g_n2kdata.pos.sog.value.dValue = sog->valuedouble;
         g_n2kdata.pos.sog.source = BGN_SOURCE_API;
@@ -361,6 +363,22 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = sog->valuedouble;
                 pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_API;
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, t);
+                break;
+        }
+    }
+    // curl --data "{\"xte\":-0.34}" http://localhost:8080/api/update
+    if (xte) {
+        g_n2kdata.pos.xte.value.dValue = xte->valuedouble;
+        g_n2kdata.pos.xte.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.xte.Counter, t);
+        switch (pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source) {
+            case BGN_SOURCE_BGNET:
+            case BGN_SOURCE_NMEA:
+                break;
+            default:
+                pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue = xte->valuedouble;
+                pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_API;
+                CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
                 break;
         }
     }

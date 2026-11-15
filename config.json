@@ -1,12 +1,12 @@
 {
   "fastnet": {
     "comment": "Serial interface B&G NETWORK series",
-    "port": "/dev/ttyUSB0",
+    "port": "/dev/ttyUSB2",
     "baudrate": 11008,
     "databits": 8,
     "stopbits": 2,
     "parity": "odd",
-    "mode": "readonly",
+    "mode": "readwrite",
     "protocol": "netio"
   },
   "ethernet": {
@@ -20,9 +20,9 @@
   "nmea0183": {
     "comment": "Serial interface NMEA 0183 v1.5 (APA, APB, RMB, XTE, VTG, BWR, BWC) output to PILOT",
     "port1": "/dev/ttyUSB1",
-    "nav1": "RMB, VTG, VHW",
+    "nav1": "RMB",
     "port2": "",
-    "nav2": "XTE, BWC",
+    "nav2": "RMB, VTG, XTE, BWC, VWH",
     "baudrate": 4800,
     "databits": 8,
     "stopbits": 1,

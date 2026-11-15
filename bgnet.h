@@ -179,7 +179,8 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 #define BGNET_ACP_ID                    0xBA9E // the code send with the POWERUP message. Everytime an ACP sends a POWERUP, the ID is different
 
 #define BGNET_TYPE_MASK                 0xF0 // mask the node type from the address
-#define BGNET_TYPE_UNDEFINED            0x00 // undefined
+#define BGNET_TYPE_ANYACP               0x00 // Used by PILOT if no previous ACP address is known
+#define BGNET_TYPE_UNDEFINED            0x00 // also used to initialize
 #define BGNET_TYPE_NETDEPTH             0x10 //?
 #define BGNET_TYPE_NETACP               0x12 // this seems to be the ACP, as the PILOT is sending it's HELLO message to (and is happy with the reply)
 #define BGNET_TYPE_COMPASS              0x20 // used by COMPASS? (unconfirmed)

@@ -339,15 +339,14 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
         g_n2kdata.pos.cog.source = BGN_SOURCE_NMEA;
         CounterUp(&g_n2kdata.pos.cog.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
-        //log_debug("N2K 129026: COG=%.4f rad", cog);
     }
 
     if (sog_raw == 0xFFFF) {
         // no data do not update
     } else {
-        double sog = sog_raw * 0.01; /* m/s */
+        double sog_KT = BGNET_MS2KT(sog_raw * 0.01); /* 0.01 m/s */
         pthread_mutex_lock(&g_data_mutex);
-        g_n2kdata.pos.sog.value.dValue = sog;
+        g_n2kdata.pos.sog.value.dValue = sog_KT;
         g_n2kdata.pos.sog.source = BGN_SOURCE_NMEA;
         CounterUp(&g_n2kdata.pos.sog.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         pthread_mutex_unlock(&g_data_mutex);
@@ -356,11 +355,10 @@ static void parse_pgn_129026(BGNET_CTRL *pCtrl, const struct can_frame *f)
             case BGN_SOURCE_NONE:
             case BGN_SOURCE_ACP:
             case BGN_SOURCE_NMEA:
-                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = ((sog / 1.94384) * 10.0); // convert m/s to KT
+                pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue = sog_KT; // convert m/s to KT
                 pCtrl->BGNET.PILOT.NMEA.VTG.SOG.source = BGN_SOURCE_NMEA;
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
         }
-        //log_debug("N2K 129026: SOG=%.2f m/s", sog);
     }
 
 }
@@ -390,7 +388,29 @@ static void parse_pgn_129029(BGNET_CTRL *pCtrl, const struct can_frame *f)
         //log_debug("N2K 129029: ALT=%.4f M", alt);
     }
 }
+/* 129283 - Cross Track Error
+ * byte 0       SID   Sequence ID to group 'fast packages'
+ * byte 1       0-3 = XTE Mode (0=Autonomous, 1= Differential, 2=Estimated, 3=Simulated, 4=Manual)
+ *              4-5 = NMEA reserved (typically set to 0x03)
+ *              6-7 = Navigation Terminated (0=No, 1=Yes, 2=Error, 3= Not)
+ * byte 2-5     XTE (int32, 0.01m, <0= Steer RIGHT, >0= Steer LEFT)
+ * byte 6-7     NMEA Reserved (uint16, typically 0xFFFF)
+ */
+static void parse_pgn_129283(BGNET_CTRL *pCtrl, const struct can_frame *f)
+{
+    int32_t xte_raw = (int32_t)n2k_u32(f->data[2], f->data[3], f->data[4], f->data[5]);
 
+    if (xte_raw == 0x7FFF) {
+        // no data do not update
+    } else{
+        double xte = xte_raw * 1e-2;
+        pthread_mutex_lock(&g_data_mutex);
+        g_n2kdata.pos.xte.value.dValue = xte;
+        g_n2kdata.pos.xte.source = BGN_SOURCE_NMEA;
+        CounterUp(&g_n2kdata.pos.xte.Counter, pCtrl->BGNET.SERVICE.SystemTime.value.tTime);
+        pthread_mutex_unlock(&g_data_mutex);
+    }
+}
 /* 130306 - Wind Data
  * Wind speed: 0.01 m/s
  * Wind angle: 0.0001 rad
@@ -550,6 +570,7 @@ void *nmea2000_thread(void *arg)
                         case 129025: parse_pgn_129025(pCtrl, &frame); break;   // GPS - LAT/LON (can not be handled by NETWORK devices, used for NMEA0183 output)
                         case 129026: parse_pgn_129026(pCtrl, &frame); break;   // GPS - COG/SOG (only SOG handled by NETWORK, others also used for NMEA0183 output)
                         case 129029: parse_pgn_129029(pCtrl, &frame); break;   // GNSS - DATE/TIME/LON/LAT/ALT (can not be handled by NETWORK devices, used for NMEA0183 output)
+                        case 129283: parse_pgn_129283(pCtrl, &frame); break;   // XTE
                         case 130306: parse_pgn_130306(pCtrl, &frame); break;   // Wind - AWS/AWA/TWS/TWA
                         case 130316: parse_pgn_130316(pCtrl, &frame); break;   // Temperature (seawater, wind)
                         default:
