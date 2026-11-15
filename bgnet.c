@@ -212,10 +212,10 @@ int bgnet_deviceindex(BGNET_CTRL *pCtrl, unsigned char ucDevAddr) {
     return(r);
 }
 // safe copy WayPointID and alarm texts with a maximum array size of 12, last usable index=11
-void bgnet_safecopy(char *pOut, char *pIn) {
+char *bgnet_safecopy(char *pOut, char *pIn) {
     strncpy(pOut, pIn, (BGNET_SAFECOPY_MAX-1));
     pOut[(BGNET_SAFECOPY_MAX-1)] = BGNET_ASC_NULL;
-    return;
+    return(pOut);
 }
 // initialize a counter
 void CounterInit(BGNET_COUNT *Counter, time_t t) {
@@ -668,7 +668,11 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
 
-        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString, "M1234567890");
+        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.value.cString, "M1234567890");
+        pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.source = BGN_SOURCE_ACP;
+        CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.Counter, t);
+
+        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString, "M2345678901");
         pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter, t);
 

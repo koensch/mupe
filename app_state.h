@@ -161,6 +161,10 @@ typedef struct {
     NMEA2K_VALUE cog;
     NMEA2K_VALUE sog;
     NMEA2K_VALUE xte;
+    NMEA2K_VALUE wpid_from;
+    NMEA2K_VALUE wpid_to;
+    NMEA2K_VALUE wpb;
+    NMEA2K_VALUE wpd;
 } NMEA2K_POSITION;
 typedef struct {
     NMEA2K_VALUE stw;

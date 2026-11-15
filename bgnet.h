@@ -863,6 +863,7 @@ typedef struct {
             } VTG;
             struct {
                 NMEA2K_VALUE XTE;       // Cross Track Error, RMB#2 [NM]
+                NMEA2K_VALUE WPID_FROM; // FROM WaypointID [ASCII text, 11 characters + NULL]
                 NMEA2K_VALUE WPID_TO;   // TO WaypointID, RMB#4 [ASCII text, 11 characters + NULL]
                 NMEA2K_VALUE WPD;       // Waypoint Distance, RMB#10 [NM]
                 NMEA2K_VALUE WPB;       // Waypoint Bearing, RMB#11 [DegT]
@@ -972,6 +973,7 @@ typedef struct {
 void log_debug_buffer(unsigned char *, size_t);
 void log_debug_frame(FRAME_H *);
 
+char *bgnet_safecopy(char *, char *);
 size_t bgnet_decode_frame(BGNET_CTRL *, unsigned char *, size_t);
 size_t bgnet_process(BGNET_CTRL *, unsigned char *, size_t);
 void bgnet_initialize_reset(BGNET_CTRL *);

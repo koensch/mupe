@@ -269,6 +269,10 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *cog       = cJSON_GetObjectItem(root, "cog");       // course over ground [degree] (0-359)
     cJSON *sog       = cJSON_GetObjectItem(root, "sog");       // speed over ground [m/s]
     cJSON *xte       = cJSON_GetObjectItem(root, "xte");       // Cross Track Error [NM]
+    cJSON *wpidfrom  = cJSON_GetObjectItem(root, "wpidfrom");  // WP ID [text]
+    cJSON *wpidto    = cJSON_GetObjectItem(root, "wpidto");    // WP ID [text]
+    cJSON *wpb       = cJSON_GetObjectItem(root, "wpb");       // WP Bearing [DegM]
+    cJSON *wpd       = cJSON_GetObjectItem(root, "wpd");       // WP Distance [NM]
     // boat measured parameters
     cJSON *stw       = cJSON_GetObjectItem(root, "stw");       // speed through water [M/S] (boatspeed)
     cJSON *depth     = cJSON_GetObjectItem(root, "depth");     // water depth below transducer [M]
@@ -379,6 +383,70 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue = xte->valuedouble;
                 pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_API;
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
+                break;
+        }
+    }
+    // curl --data "{\"wpidfrom\":\"WP01\"}" http://localhost:8080/api/update
+    if (wpidfrom) {
+        bgnet_safecopy(g_n2kdata.pos.wpid_from.value.cString, wpidfrom->valuestring);
+        g_n2kdata.pos.wpid_from.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.wpid_from.Counter, t);
+        switch (pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.source) {
+            case BGN_SOURCE_BGNET:
+            case BGN_SOURCE_NMEA:
+                break;
+            default:
+                bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.value.cString, wpidfrom->valuestring);
+                pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.source = BGN_SOURCE_API;
+                CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.Counter, t);
+                break;
+        }
+    }
+    // curl --data "{\"wpidto\":\"WP02\"}" http://localhost:8080/api/update
+    if (wpidto) {
+        bgnet_safecopy(g_n2kdata.pos.wpid_to.value.cString, wpidto->valuestring);
+        g_n2kdata.pos.wpid_to.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.wpid_to.Counter, t);
+        switch (pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.source) {
+            case BGN_SOURCE_BGNET:
+            case BGN_SOURCE_NMEA:
+                break;
+            default:
+                bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString, wpidto->valuestring);
+                pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.source = BGN_SOURCE_API;
+                CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter, t);
+                break;
+        }
+    }
+    // curl --data "{\"wpb\":053.8}" http://localhost:8080/api/update
+    if (wpb) {
+        g_n2kdata.pos.wpb.value.dValue = wpb->valuedouble;
+        g_n2kdata.pos.wpb.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.wpb.Counter, t);
+        switch (pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source) {
+            case BGN_SOURCE_BGNET:
+            case BGN_SOURCE_NMEA:
+                break;
+            default:
+                pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.dValue = wpb->valuedouble;
+                pCtrl->BGNET.PILOT.NMEA.RMB.WPB.source = BGN_SOURCE_API;
+                CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter, t);
+                break;
+        }
+    }
+    // curl --data "{\"wpd\":6.54}" http://localhost:8080/api/update
+    if (wpd) {
+        g_n2kdata.pos.wpd.value.dValue = wpd->valuedouble;
+        g_n2kdata.pos.wpd.source = BGN_SOURCE_API;
+        CounterUp(&g_n2kdata.pos.wpd.Counter, t);
+        switch (pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source) {
+            case BGN_SOURCE_BGNET:
+            case BGN_SOURCE_NMEA:
+                break;
+            default:
+                pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue = wpd->valuedouble;
+                pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source = BGN_SOURCE_API;
+                CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter, t);
                 break;
         }
     }
@@ -1133,7 +1201,9 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/XTE", "Cross Track Error, XTE< =Port(negative), XTE> =Starboard (positive) [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source), pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/NMEA/RMB/WP", "Destination WayPoint (text, max 11/NMEA or 4/BGNET characters)", pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/NMEA/RMB/WPID_FROM", "Origin WayPoint (text, max 11/NMEA or 4/BGNET characters)", pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.value.cString);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSS, "PILOT/NMEA/RMB/WPID_TO", "Destination WayPoint (text, max 11/NMEA or 4/BGNET characters)", pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSF, "PILOT/NMEA/RMB/WPD", "WayPoint Distance [NM]", pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.iCounter, t-pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.PILOT.NMEA.RMB.WPD.source), pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue);
     strcat(Buffer, cLine);
@@ -1213,6 +1283,7 @@ static char* html_NMEA_row(char *Buffer) {
     time_t t;
     const char *cNMEARowD2 = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%.2f</td></tr>\r\n";
     const char *cNMEARowD6 = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%010.6f</td></tr>\r\n";
+    const char *cNMEARowS = "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>\r\n";
  
     strcpy(cLine, "");
     strcpy(Buffer, "");
@@ -1228,6 +1299,16 @@ static char* html_NMEA_row(char *Buffer) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARowD2, "SOG", "Speed Over Ground, usually from GPS [KT]", g_n2kdata.pos.sog.Counter.iCounter, (t - g_n2kdata.pos.sog.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.sog.source), g_n2kdata.pos.sog.value.dValue);
     strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "XTE", "Cross Track Error (negative= Steer RIGHT, positive= Steer LEFT) [NM]", g_n2kdata.pos.xte.Counter.iCounter, (t - g_n2kdata.pos.xte.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.xte.source), g_n2kdata.pos.xte.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARowS,  "WPID_FROM", "Waypoint ID (Origin) [max 11 characters]", g_n2kdata.pos.wpid_from.Counter.iCounter, (t - g_n2kdata.pos.wpid_from.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.wpid_from.source), g_n2kdata.pos.wpid_from.value.cString);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARowS,  "WPID_TO", "Waypoint ID (Destination) [max 11 characters]", g_n2kdata.pos.wpid_to.Counter.iCounter, (t - g_n2kdata.pos.wpid_to.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.wpid_to.source), g_n2kdata.pos.wpid_to.value.cString);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "WPB", "Waypoint Bearing (from current position) [DegM]", g_n2kdata.pos.wpb.Counter.iCounter, (t - g_n2kdata.pos.wpb.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.wpb.source), g_n2kdata.pos.wpb.value.dValue);
+    strcat(Buffer, cLine);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "WPD", "Waypoint Distance (from current position) [NM] ", g_n2kdata.pos.wpd.Counter.iCounter, (t - g_n2kdata.pos.wpd.Counter.tTimestamp), strSource(cSource, g_n2kdata.pos.wpd.source), g_n2kdata.pos.wpd.value.dValue);
+    strcat(Buffer, cLine);
 
     snprintf(cLine, sizeof(cLine), cNMEARowD2, "STW", "Speed Through Water, usually from a speed sensor [KT]", g_n2kdata.boat.stw.Counter.iCounter, (t - g_n2kdata.boat.stw.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.stw.source), g_n2kdata.boat.stw.value.dValue);
     strcat(Buffer, cLine);
@@ -1235,7 +1316,7 @@ static char* html_NMEA_row(char *Buffer) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARowD2, "SEATEMP", "Temperature of the seawater at sensor depth [DegC]", g_n2kdata.boat.seatemp.Counter.iCounter, (t - g_n2kdata.boat.seatemp.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.seatemp.source), g_n2kdata.boat.seatemp.value.dValue);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cNMEARowD2, "RUDDER", "Rudder position, starboard(+) or port(-) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudderpos.Counter.iCounter, (t - g_n2kdata.boat.rudderpos.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudderpos.source), g_n2kdata.boat.rudderpos.value.dValue);
+    snprintf(cLine, sizeof(cLine), cNMEARowD2, "RUDDER", "Rudder position (negative= turn left, positive= turn right) [-0.78/+0.78 radian (45xPI/180)]", g_n2kdata.boat.rudderpos.Counter.iCounter, (t - g_n2kdata.boat.rudderpos.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.rudderpos.source), g_n2kdata.boat.rudderpos.value.dValue);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cNMEARowD2, "COMPASS", "Compass reading [0-359 DegM]", g_n2kdata.boat.compass.Counter.iCounter, (t - g_n2kdata.boat.compass.Counter.tTimestamp), strSource(cSource, g_n2kdata.boat.compass.source), g_n2kdata.boat.compass.value.dValue);
     strcat(Buffer, cLine);

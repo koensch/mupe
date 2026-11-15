@@ -123,15 +123,8 @@ char *bgnet_checksum_nmea0183(char *cNMEA) {
     return(cNMEA);
 }
 // return the 'Steer To RIGHT/LEFT character, depending on the value
-char *strSteerTo(char *cBuffer, double dValue) {
-    if (dValue < 0) {
-        cBuffer[0] = BGNET_ASC_R;
-        cBuffer[1] = BGNET_ASC_NULL;
-    } else {
-        cBuffer[0] = BGNET_ASC_L;
-        cBuffer[1] = BGNET_ASC_NULL;
-    }
-    return(cBuffer);
+char *strSteerTo(double dValue) {
+    return((dValue < 0)?"R":"L");
 }
 // return a string with the NMEA sentence of your choice (single sentence only!)
 // we shall only use EXTERNAL data (from NMEA 2000, SignalK or API) as a source for these sentences.
@@ -142,7 +135,7 @@ char *strSteerTo(char *cBuffer, double dValue) {
 // GLL was introduced with NMEA 3.0
 // we use "II" as "Talker Identifier"
 size_t intMakeSentenceNMEA(BGNET_CTRL *pCtrl, char *cBuffer, unsigned char ucMask) {
-    char szWork[128];
+    char szWork1[128];
     switch (ucMask) {
         case BGNET_NMEA0183_APA: // the APA sentence is replaced by the APB; we use the same variables (but just some less variables)
             snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIAPA,A,A,%.2f,R,N,V,V,011,T,WP03*", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
@@ -155,9 +148,13 @@ size_t intMakeSentenceNMEA(BGNET_CTRL *pCtrl, char *cBuffer, unsigned char ucMas
             snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIVTG,,,,,%.1f,N,,*", g_n2kdata.pos.sog.value.dValue);
             break;
         case BGNET_NMEA0183_RMB:
-            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIRMB,A,%.2f,%s,M11,M12,3526.624914,N,13241.976383,E,11.22,276.5,8.6,A,E*",
+            // BGNET only used WPID_TO, not WPID_FROM
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIRMB,A,%.2f,%s,%s,,,,,,%.2f,%.1f,,A*",
                                                     fabs(g_n2kdata.pos.xte.value.dValue),  // should be a absolute value
-                                                    strSteerTo(szWork, g_n2kdata.pos.xte.value.dValue)
+                                                    strSteerTo(g_n2kdata.pos.xte.value.dValue),
+                                                    bgnet_safecopy(szWork1, g_n2kdata.pos.wpid_to.value.cString),
+                                                    g_n2kdata.pos.wpd.value.dValue,
+                                                    g_n2kdata.pos.wpb.value.dValue
                                                     );
             break;
         case BGNET_NMEA0183_XTE:
