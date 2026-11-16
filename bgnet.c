@@ -668,11 +668,11 @@ void bgnet_initialize(BGNET_CTRL *pCtrl) {
         pCtrl->BGNET.PILOT.NMEA.RMB.XTE.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
 
-        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.value.cString, "M1234567890");
+        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.value.cString, BGNET_WPID_FROM_INIT);
         pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.Counter, t);
 
-        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString, "M2345678901");
+        bgnet_safecopy(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString, BGNET_WPID_TO_INIT);
         pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.source = BGN_SOURCE_ACP;
         CounterInit(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter, t);
 
@@ -1913,98 +1913,6 @@ size_t makeACPresponseALARM(BGNET_CTRL *pCtrl, unsigned char *payload) {
     return(r);
 }
 
-size_t makePILOTresponseNAV(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    size_t r = 0;
-    unsigned char c;
-    union CH *puCH;
-
-    // Appearently, PILOT transmits 0xFB/WPID when received navigation input via NMEA and also includes the WPID.
-    // But.... when we transmit navigation data (XTE, WPD, WPD and WPID) over the network, PILOT displays XTE, WPD and WPB
-    // but NOT WPID.
-    // It looks like PILOT detects a 'next leg' by receiving a different WPID. It appears that PILOT only accepts the WPID
-    // from the NMEA input, but ignores it when receiving via BGNET.
-    // I have been doing some experiments by simulating a '2nd PILOT', making the pilot to split NAV into NAV1 and NAV2, but
-    // sofar i have not been able to make the PILOT accept navigation data via the BGNET.
-    // 
-    // Parculiar observation:
-    // When we transmit the 0xFB/WPID channel, the specifications tells us that it displays the first 4 characters of the WPID
-    // received from the NMEA/RMB sentence. NMEA has no field limit, but has a maximum of 82 characters for the whole sentence
-    // However... when the 0xFB/WPID channel contains more that 2 displayable characters, QUAD starts to beep. Funny, but if we use
-    // 2 characters + 2 spaces QUAD seems OK. Also 4 characters and the 3rd one being a space also seems OK.
-    // For the timebeing i will only use the first 2 characters to avoid QUAD issues.
-    //
-    // i will put in some more efforts to emulate a 2nd PILOT on the network and hopefully make PILOT accept waypoint information
-    // via the NETWORK.
-
-    puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_FB_WPID;
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.FMT = BGN_FMT_0A;
-    switch (strlen(pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString)) {
-        case 0:
-            puCH->s.cv.uB[0] = BGNET_ASC_QUEST;
-            puCH->s.cv.uB[1] = BGNET_ASC_QUEST;
-            puCH->s.cv.uB[2] = BGNET_ASC_SPACE;
-            puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
-            break;
-        case 1:
-            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[0];
-            puCH->s.cv.uB[1] = BGNET_ASC_SPACE;
-            puCH->s.cv.uB[2] = BGNET_ASC_SPACE;
-            puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
-            break;
-        case 2:
-            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[0];
-            puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[1];
-            puCH->s.cv.uB[2] = BGNET_ASC_SPACE;
-            puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
-            break;
-        case 3:
-            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[0];
-            puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[1];
-            puCH->s.cv.uB[2] = BGNET_ASC_SPACE;
-            puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
-            break;
-        default:
-            // warning: if there are 'non-standard characters in this channel, QUAD is going to beep
-            puCH->s.cv.uB[0] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[0];
-            puCH->s.cv.uB[1] = pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.value.cString[1];
-            puCH->s.cv.uB[2] = BGNET_ASC_SPACE;
-            puCH->s.cv.uB[3] = BGNET_ASC_SPACE;
-            break;
-    }
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);    
-
-    puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_DE_WPB;
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(pCtrl->BGNET.PILOT.NMEA.RMB.WPB.value.nLong);
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_E8_WPD;
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.sW[0] = htons(BGNET_DTOIROUND(pCtrl->BGNET.PILOT.NMEA.RMB.WPD.value.dValue * 100.0));
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    puCH = (union CH *)&(payload[r]);
-    c = BGNET_CHN_EE_XTE;
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    // always shows 2 digits <1.23 or >1.23. any value > 9.99 is shown as 9.99
-    // (if you are soo far off-track, it does not matter if it's 9.99, 15.9 or 2.3 NM)
-    // do not use encode_channel_double(() with autoscaling does not work here
-    // negative is displayed as "<0.12" (XTE to port, drifted to the left, steer right), positive value 
-    // is displayed as ">0.12" (XTE to starboard, drifted to the right, steer left)
-    puCH->s.cv.sW[0] = htons(BGNET_DTOIROUND(pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue * 100.0));
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    return(r);
-}
-
 // timer channel (FMT_03, channel 0x75 only)
 union CH *encode_value_timer(union CH *pCH, unsigned char ucCH, unsigned char ucFMT, uint8_t HH, uint8_t MM, uint8_t SS) {
     pCH->s.CH = ucCH;
@@ -2031,22 +1939,6 @@ union CH *encode_value_ascii(union CH *pCH, unsigned char ucCH, unsigned char uc
             break;
     }
     return(pCH);
-}
-
-size_t makeRESPresponse(BGNET_CTRL *pCtrl, unsigned char *payload) {
-    size_t r = 0;
-    unsigned char c;
-    union CH *puCH;
-
-    c = BGNET_CHN_A6_AP_TARGET; // RESP selector
-    puCH = (union CH *)&(payload[r]);
-    puCH->s.CH = c;
-    puCH->s.FMT = pCtrl->pCHNDT[c].ucFMT;
-    puCH->s.cv.uB[0] = 0;
-    puCH->s.cv.uB[1] = pCtrl->BGNET.ACP.SETUP.RESP.value.nByte;
-    r = r + bgnet_sizeof_channel(pCtrl, puCH);
-
-    return (r);
 }
 
 // This is the "device processor", called from the timer thread
@@ -2213,38 +2105,6 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
             CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
         //}
 
-        // we want to be able to enable/disable navigation data in our reverse engineering efforts
-        switch (pCtrl->BGNET.PILOT.ucNAV_SIM & BGNET_TYPE_MASK) {
-            case (BGNET_TYPE_NETPILOT & BGNET_TYPE_MASK):
-                payload[0] = BGNET_CHN_98_NMEA_RMB;
-                payload[1] = BGN_FMT_00; // is this gets bigger than 0x0F, QUAD starts to beep
-                len_pl = 2;
-                len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, pCtrl->BGNET.PILOT.ucNAV_SIM, BGNET_CMD_01_DATA, payload, len_pl);
-                register_DATA_frame(pCtrl, pFTx);
-                // put it for transmission
-                memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
-                r = r + len_msg; // increment byte counter in TX buffer
-
-                // update statistics
-                memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-                CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-                memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
-                CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
-
-                len_pl = makePILOTresponseNAV(pCtrl, payload);
-                len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, pCtrl->BGNET.PILOT.ucNAV_SIM, BGNET_CMD_01_DATA, payload, len_pl);
-                register_DATA_frame(pCtrl, pFTx);
-                // put it for transmission
-                memcpy(&buffer[r], pFTx, len_msg); // put output message in write buffer
-                r = r + len_msg; // increment byte counter in TX buffer
-
-                // update statistics
-                memcpy(&pCtrl->CMD[BGNET_CMD_01_DATA].Tx.ucFrame, pFTx, len_msg);
-                CounterUp(&pCtrl->CMD[BGNET_CMD_01_DATA].CounterTx, t);
-                memcpy(pCtrl->DEV[pFTx->FROM].Tx.ucFrame, pFTx, len_msg);
-                CounterUp(&pCtrl->DEV[pFTx->FROM].CounterTx, t);
-                break;
-        }
     }
 
     // stage 5 - check if we are allowed to send output
@@ -2258,9 +2118,9 @@ size_t bgnet_process(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t size) {
         r = 0; // destroy what we have in the buffer; sorry for the wasted efforts, but this is much easier
     }
 
-#define KOEN
+#define KOEN_COMPASS
 // in this case we want to send something experimental when we are in readonly mode
-#ifdef KOEN
+#ifdef KOEN_COMPASS
     if (pCtrl->BGNET.iTest == BGNET_TEST_COMPASS) {
         len_pl = makeCOMPASSresponse(pCtrl, payload);
         len_msg = bgnet_encode_frame(pFTx, BGNET_TYPE_ALL, BGNET_TYPE_MUPE, BGNET_CMD_01_DATA, payload, len_pl);
@@ -2399,7 +2259,7 @@ size_t register_DATA_frame(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     return(z); // return number of channels
 }
 
-// routine to process values in the body. A body might contain multiple values
+// routine to process values in the payload of a DATA command
 int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
     int y,z;
     unsigned char *pBuf;
@@ -2497,7 +2357,7 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
                     break;
                 case BGNET_CHN_98_NMEA_RMB:
                     // the RMB channel (no data) is send by a PILOT that is receiving NMEA 0183 navigation messages (like RMB)
-                    // letting everone knoe that NAV data available (not all systems have that feature, not all systems have that feature active).
+                    // letting everone know that NAV data available (not all systems have that feature, not all systems have that feature active).
                     // the RMB_SEL is switched 'on' when receiving this channel; it is switched 'off' when it expires (60 seconds after
                     // the last receipt)
                     // When we receive this channel, we set the selector (reset is done elsewhere)
@@ -2567,9 +2427,11 @@ int decode_command_DATA(BGNET_CTRL *pCtrl, FRAME_H *pF) {
             if ((t-pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter.tTimestamp) < 60) {
                 // channel data is recently received
             } else {
-                pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte = BGNET_RMB_OFF;
-                pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.source = BGN_SOURCE_BGNET;
-                CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter, t);                                                                
+#ifdef KOEN_CHN_98
+                //pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.value.nByte = BGNET_RMB_OFF;
+                //pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.source = BGN_SOURCE_BGNET;
+                //CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.RMB_SEL.Counter, t);
+#endif                                                              
             }
 
             // when Import/Export is enabled, do what has to be done

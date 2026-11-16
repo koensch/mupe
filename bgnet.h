@@ -164,7 +164,7 @@ typedef struct {        // for the FRAME header we use a pointer and respect the
 } FRAME_H;
 
 // buffer size for sentence itself
-#define BGNET_NMEA0183_SIZE            128
+#define BGNET_NMEA0183_SIZE            82
 // maximum number of sentences we allow (and are supported by PILOT)
 // number of supported sentences
 #define BGNET_NMEA0183_NOS              8

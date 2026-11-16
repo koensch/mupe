@@ -1,6 +1,8 @@
 #include "app_state.h"
 #include <string.h>
 
+char *bgnet_safecopy(char *, char *);
+
 volatile int g_running = 1;
 
 pthread_mutex_t g_data_mutex;
@@ -64,8 +66,11 @@ void app_state_init(void)
     NMEAinit(&g_n2kdata.pos.cog, t);
     NMEAinit(&g_n2kdata.pos.sog, t);
     NMEAinit(&g_n2kdata.pos.xte, t);
+    // note: if WPID_TO is empty, NMEA sentence is not processed by PILOT
     NMEAinit(&g_n2kdata.pos.wpid_from, t);
+    bgnet_safecopy(g_n2kdata.pos.wpid_from.value.cString, BGNET_WPID_FROM_INIT);
     NMEAinit(&g_n2kdata.pos.wpid_to, t);
+    bgnet_safecopy(g_n2kdata.pos.wpid_to.value.cString, BGNET_WPID_TO_INIT);
     NMEAinit(&g_n2kdata.pos.wpb, t);
     NMEAinit(&g_n2kdata.pos.wpd, t);
 

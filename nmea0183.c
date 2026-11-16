@@ -90,7 +90,7 @@ uint8_t bgnet_nmea_ctrl_pop(BGNET_NMEA_CTRL *pNMEA, time_t t) {
 //  "$GPAPA,A,A,0.10,R,N,V,V,011,M,DEST,011,M*zz"
 // 1 - first character must be "$" (is skipped for checksum calculation)
 // 2 - the separator between the sentence and the checksum is a "*" (is skipped for checksum calculation)
-// 3 - maximum length of the whole sentence (including the "$" and the "*zz") shall not be bigger that 128 characters
+// 3 - maximum length of the whole sentence (including the "$" and the "*zz") shall not be bigger that 82 characters
 uint16_t bgnet_checksum_nmea0183_calc(char *cNMEA, int iStart, int iLen) {
     uint16_t uCS = 0x00;
     int i;
@@ -102,23 +102,27 @@ uint16_t bgnet_checksum_nmea0183_calc(char *cNMEA, int iStart, int iLen) {
 char *bgnet_checksum_nmea0183(char *cNMEA) {
     uint16_t uiCS = 0xFF, ucCS;
     int iLen = 0;
-    // we need 6 characters to add, make sure our sentence remains within the 128 character limit
+    // we need 5 characters to add + terminating null byte (to satisfy C), make sure our sentence remains within the character limit
     iLen = strlen(cNMEA);
-    if ((cNMEA[0] == BGNET_ASC_DOLLAR) & (iLen < 128-6) & (cNMEA[iLen-1] == BGNET_ASC_ASTERIX)) {
-        // calculate CS, skip the 1st character ($) and the last character (*)
-        uiCS = bgnet_checksum_nmea0183_calc(cNMEA, 1, iLen-1-1);
-        // convert the CS (0-0xFF) to 2-bytes HEX/ASCII
-        ucCS = bin2hex(uiCS);
-        // append the CS characters
-        cNMEA[iLen-1+0] = BGNET_ASC_ASTERIX;
-        cNMEA[iLen-1+1] = (char)((ucCS & 0xFF00) >> 8);
-        cNMEA[iLen-1+2] = (char)(ucCS & 0x00FF);
-        //cNMEA[iLen-1+3] = BGNET_ASC_CR;
-        cNMEA[iLen-1+3] = BGNET_ASC_LF;
-        cNMEA[iLen-1+4] = BGNET_ASC_NULL; // string terminator
+    if (iLen>0) {
+        if ((cNMEA[0] == BGNET_ASC_DOLLAR) & (iLen < (BGNET_NMEA0183_SIZE-5)) & (cNMEA[iLen-1] == BGNET_ASC_ASTERIX)) {
+            // calculate CS, skip the 1st character ($) and the last character (*)
+            uiCS = bgnet_checksum_nmea0183_calc(cNMEA, 1, iLen-1-1);
+            // convert the CS (0-0xFF) to 2-bytes HEX/ASCII
+            ucCS = bin2hex(uiCS);
+            // append the CS characters
+            cNMEA[iLen-1+0] = BGNET_ASC_ASTERIX;
+            cNMEA[iLen-1+1] = (char)((ucCS & 0xFF00) >> 8);
+            cNMEA[iLen-1+2] = (char)(ucCS & 0x00FF);
+            cNMEA[iLen-1+3] = BGNET_ASC_CR;
+            cNMEA[iLen-1+4] = BGNET_ASC_LF;
+            cNMEA[iLen-1+5] = BGNET_ASC_NULL; // string terminator
+        } else {
+            // not a valid NMEA sentence
+            strcpy(cNMEA, "$GPZZZ,not,a,valid,nmea,string*ZZ");
+        }
     } else {
-        // not a valid NMEA sentence
-        strcpy(cNMEA, "$GPZZZ,not,a,valid,nmea,string*ZZ");
+        // it's a null string, skip it
     }
     return(cNMEA);
 }
@@ -126,39 +130,79 @@ char *bgnet_checksum_nmea0183(char *cNMEA) {
 char *strSteerTo(double dValue) {
     return((dValue < 0)?"R":"L");
 }
-// return a string with the NMEA sentence of your choice (single sentence only!)
+// check is a value is 'live'
+int bLive(BGNET_CTRL *pCtrl, NMEA2K_VALUE *pN) {
+    log_debug("KOEN: %d-%d= %d", pCtrl->BGNET.SERVICE.SystemTime.value.tTime, pN->Counter.tTimestamp, (pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pN->Counter.tTimestamp));
+    if ((pN->Counter.iCounter > 0) & ((pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pN->Counter.tTimestamp) < 60)) {
+        return(1);
+    } else {
+        return(0);
+    }
+}
+// return a string with the NMEA sentence of your choice (single sentence only)
 // we shall only use EXTERNAL data (from NMEA 2000, SignalK or API) as a source for these sentences.
-// realise that via PILOT, these same values will end up in the INTERNAL data structures (via DATA
+// realise that via PILOT, these same values will end up in the INTERNAL/BGNET data structures (via DATA
 // command send by PILOT). Do not make a circular loop with this data!
 //
-// FAA mode indicator for:  RMC, RMB, VTG, GLL, BWC, XTE, we always use 'E' (=Estimate) to distingish from other fields using A/V
-// GLL was introduced with NMEA 3.0
-// we use "II" as "Talker Identifier"
+// FAA mode indicator for:  RMC, RMB, VTG, GLL, BWC, XTE, was added in NMEA v3.0 and is not being used by PILOT
+//
+// NMEA Talker ID: we use "II" as "Talker Identifier"
+//
+// realize that the maximum sentence length is 82 characters (this is smaller than it appears)
+//
+// This is the way to get navigation data into PILOT (and let PILOT send it onto the NETWORK. PILOT does not
+// accept new Waypoints other than via NMEA input.
 size_t intMakeSentenceNMEA(BGNET_CTRL *pCtrl, char *cBuffer, unsigned char ucMask) {
-    char szWork1[128];
+    char szWork[128];
+    int iTest = 0;
+    strcpy(cBuffer, "");
+    iTest = 1; // enable 
     switch (ucMask) {
         case BGNET_NMEA0183_APA: // the APA sentence is replaced by the APB; we use the same variables (but just some less variables)
-            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIAPA,A,A,%.2f,R,N,V,V,011,T,WP03*", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
+            if ((iTest==1) | (bLive(pCtrl, &g_n2kdata.pos.xte) & bLive(pCtrl, &g_n2kdata.pos.wpb) & bLive(pCtrl, &g_n2kdata.pos.wpid_to))) {
+                snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIAPA,A,A,%.2f,%s,N,V,V,%.1f,M,%s*",
+                                                        fabs(g_n2kdata.pos.xte.value.dValue),
+                                                        strSteerTo(g_n2kdata.pos.xte.value.dValue),
+                                                        g_n2kdata.pos.wpb.value.dValue,
+                                                        bgnet_safecopy(szWork, g_n2kdata.pos.wpid_to.value.cString)
+                                                        );
+            }
             break;
         case BGNET_NMEA0183_APB: // APB is the 'fixed' version of APA. You should not be using APA
-            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIAPB,A,A,%.2f,L,N,A,A,184.2,T,WP04,194.2,T,174.2,T*", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
+            if ((iTest==1) | (bLive(pCtrl, &g_n2kdata.pos.xte) & bLive(pCtrl, &g_n2kdata.pos.wpid_to) & bLive(pCtrl, &g_n2kdata.pos.wpb))) {
+                snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIAPB,A,A,%.2f,%s,N,A,A,,M,%s,%.1f,M,,M*",
+                                                        fabs(g_n2kdata.pos.xte.value.dValue),
+                                                        strSteerTo(g_n2kdata.pos.xte.value.dValue),
+                                                        bgnet_safecopy(szWork, g_n2kdata.pos.wpid_to.value.cString),
+                                                        g_n2kdata.pos.wpb.value.dValue
+                                                        );
+            }
             break;
-        case BGNET_NMEA0183_VTG: // PILOT only uses SOG [KT] $AGVTG,28.3,T,28.3,M,4.6,N,8.5,K*50
-            //snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIVTG,,,,,%.1f,N,,,*", pCtrl->BGNET.PILOT.NMEA.VTG.SOG.value.dValue);
-            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIVTG,,,,,%.1f,N,,*", g_n2kdata.pos.sog.value.dValue);
+        case BGNET_NMEA0183_VTG: // PILOT only uses SOG [KT]
+            if ((iTest==1) | (bLive(pCtrl, &g_n2kdata.pos.sog))) {
+                snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIVTG,,,,,%.1f,N,,*",
+                                                        g_n2kdata.pos.sog.value.dValue
+                                                        );
+            }                                                    
             break;
-        case BGNET_NMEA0183_RMB:
-            // BGNET only used WPID_TO, not WPID_FROM
-            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIRMB,A,%.2f,%s,%s,,,,,,%.2f,%.1f,,A*",
-                                                    fabs(g_n2kdata.pos.xte.value.dValue),  // should be a absolute value
-                                                    strSteerTo(g_n2kdata.pos.xte.value.dValue),
-                                                    bgnet_safecopy(szWork1, g_n2kdata.pos.wpid_to.value.cString),
-                                                    g_n2kdata.pos.wpd.value.dValue,
-                                                    g_n2kdata.pos.wpb.value.dValue
-                                                    );
+        case BGNET_NMEA0183_RMB: // PILOT (in NAV mode)
+            if ((iTest==1) | (bLive(pCtrl, &g_n2kdata.pos.xte) & bLive(pCtrl, &g_n2kdata.pos.wpid_to) & bLive(pCtrl, &g_n2kdata.pos.wpd) & bLive(pCtrl, &g_n2kdata.pos.wpb))) {
+                snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIRMB,A,%.2f,%s,,%s,,,,,%.2f,%.1f,,,*",
+                                                        fabs(g_n2kdata.pos.xte.value.dValue),
+                                                        strSteerTo(g_n2kdata.pos.xte.value.dValue),
+                                                        bgnet_safecopy(szWork, g_n2kdata.pos.wpid_to.value.cString),
+                                                        g_n2kdata.pos.wpd.value.dValue,
+                                                        g_n2kdata.pos.wpb.value.dValue
+                                                        );
+            }
             break;
         case BGNET_NMEA0183_XTE:
-            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIXTE,A,A,%.2f,R,N,E*", pCtrl->BGNET.PILOT.NMEA.RMB.XTE.value.dValue);
+            if ((iTest==1) | (bLive(pCtrl, &g_n2kdata.pos.xte))) {
+                snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIXTE,A,A,%.2f,%s,N,*",
+                                                        fabs(g_n2kdata.pos.xte.value.dValue),
+                                                        strSteerTo(g_n2kdata.pos.xte.value.dValue)
+                                                        );
+            }
             break;
         case BGNET_NMEA0183_BWC:
             snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIBWC,125444,4917.24,N,02309.57,W,051.9,T,031.6,M,001.3,N,M21,E*");
@@ -167,7 +211,7 @@ size_t intMakeSentenceNMEA(BGNET_CTRL *pCtrl, char *cBuffer, unsigned char ucMas
             snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIBWR,225444,4917.24,N,01309.57,E,051.9,T,031.6,M,001.3,N,M31,E4*");
             break;
         case BGNET_NMEA0183_VHW: // not documented in the user manual, but it appears to work
-            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIVHW,15.8,T,17.3,M,5.0,N,9.3,K*");
+            snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIVHW,15.8,T,17.3,M,5.0,N,9.3,K*"                                                    );
             break;
         default:
             // this should never happen
@@ -176,7 +220,6 @@ size_t intMakeSentenceNMEA(BGNET_CTRL *pCtrl, char *cBuffer, unsigned char ucMas
             break;
     }
     bgnet_checksum_nmea0183(cBuffer); // append Checksum to sentence
-    //strcpy(cBuffer, "$GNRMB,A,1.56,R,M1,M2,3526.624914,N,13241.976383,E,11.22,276.5,-22.2,*73");
     return(strlen(cBuffer)); // strlen does not include the NULL terminator
 }
 
@@ -361,11 +404,13 @@ void *nmea0183_thread(void *arg)
     } else {
 
         uint8_t uiSentenceID;
-        char NMEA_Rx1[BGNET_NMEA0183_SIZE], NMEA_Tx1[BGNET_NMEA0183_SIZE], NMEA_Rx2[BGNET_NMEA0183_SIZE], NMEA_Tx2[BGNET_NMEA0183_SIZE];
-        memset(NMEA_Rx1, 0, BGNET_NMEA0183_SIZE);
-        memset(NMEA_Tx1, 0, BGNET_NMEA0183_SIZE);
-        memset(NMEA_Rx2, 0, BGNET_NMEA0183_SIZE);
-        memset(NMEA_Tx2, 0, BGNET_NMEA0183_SIZE);
+
+        // buffers for NMEA sentences, max 82 characters, we add 1 for the null byte (internal only)
+        char NMEA_Rx1[BGNET_NMEA0183_SIZE+1], NMEA_Tx1[BGNET_NMEA0183_SIZE+1], NMEA_Rx2[BGNET_NMEA0183_SIZE+1], NMEA_Tx2[BGNET_NMEA0183_SIZE+1];
+        memset(NMEA_Rx1, 0, BGNET_NMEA0183_SIZE+1);
+        memset(NMEA_Tx1, 0, BGNET_NMEA0183_SIZE+1);
+        memset(NMEA_Rx2, 0, BGNET_NMEA0183_SIZE+1);
+        memset(NMEA_Tx2, 0, BGNET_NMEA0183_SIZE+1);
         size_t nRx1 = 0, nTx1 = 0, nRx2 = 0, nTx2 = 0;
 
         while (g_running) {
@@ -389,7 +434,8 @@ void *nmea0183_thread(void *arg)
                     log_debug("NMEA port2: %s, sentenceID: 0x%02X, %d characters written", NMEA_Tx2, uiSentenceID, nTx2);
                 }
             }
-            sleep(SEC1); // 2 seconds between sentences
+            //sleep(SEC1); // 2 seconds between sentences
+            usleep(MSEC500);
         }
     }
     close(fd1);
