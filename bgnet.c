@@ -1753,7 +1753,6 @@ size_t makeACPresponseSTATUSONLY(BGNET_CTRL *pCtrl, unsigned char *payload) {
 
                     // check if MEM bit is set, if so, MEMnnn is displayed for 5 sec and we need to send the memory channel)
                     if (pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MEM) {
-                        // COMP and NAV mode => show Course To Steer
                         puCH = (union CH *)&(payload[r]);
                         c = BGNET_CHN_A7_AP_WPB;
                         puCH->s.CH = c;
@@ -4036,7 +4035,7 @@ size_t bgnet_decode_frame(BGNET_CTRL *pCtrl, unsigned char *buffer, size_t len) 
                                                                         CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
                                                                         // set the MEM bit
                                                                         pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte | BGN_AP_MODE1_MEM);
-                                                                        // set the STBY to AUTO timer (5 seconds)
+                                                                        // set the STBY to AUTO timer (5 seconds), to clear the MEM bit by timer thread
                                                                         TimerSet(&pCtrl->BGNET.ACP.AUTO, t, 5);
                                                                         break;
                                                                     case BGN_AP_MODE2_VANE:

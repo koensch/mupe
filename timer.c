@@ -132,12 +132,18 @@ void *timer_thread(void *arg)
           pCtrl->iDeviceCounter = BGNET_CTRL_DEVCNTR_INIT;
 
           //timer(s)
-          int a = TimerDone(&pCtrl->BGNET.ACP.AUTO, t);
-          if (a < 0) {
-            // timer running
+          if (pCtrl->BGNET.ACP.STATE.value.nByte & BGN_AP_MODE1_MEM) {
+            int a = TimerDone(&pCtrl->BGNET.ACP.AUTO, t);
+            if (a < 0) {
+              // timer running
+            } else {
+              // timer expired, reset MEM bit
+              log_debug("pre  STATE = 0x%02X", pCtrl->BGNET.ACP.STATE.value.nByte);
+              pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & (~BGN_AP_MODE1_MEM));
+              log_debug("post STATE = 0x%02X", pCtrl->BGNET.ACP.STATE.value.nByte);
+            }
           } else {
-            // timer expired, reset MEM bit
-            pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & (!BGN_AP_MODE1_MEM));
+            // bit is not set, nothing to reset
           }
 
           // increment a run counter, wrap around to avoid overruns

@@ -132,7 +132,6 @@ char *strSteerTo(double dValue) {
 }
 // check is a value is 'live'
 int bLive(BGNET_CTRL *pCtrl, NMEA2K_VALUE *pN) {
-    log_debug("KOEN: %d-%d= %d", pCtrl->BGNET.SERVICE.SystemTime.value.tTime, pN->Counter.tTimestamp, (pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pN->Counter.tTimestamp));
     if ((pN->Counter.iCounter > 0) & ((pCtrl->BGNET.SERVICE.SystemTime.value.tTime - pN->Counter.tTimestamp) < 60)) {
         return(1);
     } else {

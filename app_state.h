@@ -12,7 +12,7 @@
 // for the NMEA2000 pacemaker 
 #define MSEC10          10000   // usleep 10 msec
 // for the NMEA0183 pacemaker
-#define MSEC500         150000  // usleep 200 msec
+#define MSEC250         250000  // usleep 250 msec
 // for the NMEA0183 pacemaker, i do'n want to send data too fast. 
 #define SEC1            1       // sleep 1 sec
 // for the main() 
@@ -97,10 +97,10 @@
 // NMEA 2000 has no text limit (apart from the frame limit)
 // mupe allows character strings up to 11 characters + null terminator (makes 12)
 // BGNET channel 0xFB allows up to 4 bytes
-// we have an initialisation string of 12 characters to demonstrate how the WP label
+// we have an initialisation string of 8 characters to demonstrate how the WP label
 // is communicated. Don't make it too long or you hit the 82 character limit  
-#define BGNET_WPID_FROM_INIT            "FRM-ABCDEFGHIJ"
-#define BGNET_WPID_TO_INIT              "TO-JIHGFEDCBA"
+#define BGNET_WPID_FROM_INIT            "WPFROM12"
+#define BGNET_WPID_TO_INIT              "WPTO1234"
 
 // thread control
 extern volatile int g_running;
