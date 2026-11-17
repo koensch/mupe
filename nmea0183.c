@@ -184,9 +184,11 @@ size_t intMakeSentenceNMEA(BGNET_CTRL *pCtrl, char *cBuffer, unsigned char ucMas
                                                         );
             }                                                    
             break;
+        // $GNRMB,A,1.56,R,M1,M2,3526.624914,N,13241.976383,E,11.22,276.5,-22.2,*73
         case BGNET_NMEA0183_RMB: // PILOT (in NAV mode)
             if ((iTest==1) | (bLive(pCtrl, &g_n2kdata.pos.xte) & bLive(pCtrl, &g_n2kdata.pos.wpid_to) & bLive(pCtrl, &g_n2kdata.pos.wpd) & bLive(pCtrl, &g_n2kdata.pos.wpb))) {
-                snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIRMB,A,%.2f,%s,,%s,,,,,%.2f,%.1f,,,*",
+//                snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIRMB,A,%.2f,%s,M1,%s,,,,,%.2f,%.1f,,,*",
+                snprintf(cBuffer, BGNET_NMEA0183_SIZE, "$IIRMB,A,%.2f,%s,M1,%s,3526.624914,N,13241.976383,E,%.2f,%.1f,1.23,A,E*",
                                                         fabs(g_n2kdata.pos.xte.value.dValue),
                                                         strSteerTo(g_n2kdata.pos.xte.value.dValue),
                                                         bgnet_safecopy(szWork, g_n2kdata.pos.wpid_to.value.cString),
@@ -433,8 +435,7 @@ void *nmea0183_thread(void *arg)
                     log_debug("NMEA port2: %s, sentenceID: 0x%02X, %d characters written", NMEA_Tx2, uiSentenceID, nTx2);
                 }
             }
-            //sleep(SEC1); // 2 seconds between sentences
-            usleep(MSEC500);
+            usleep(MSEC100);
         }
     }
     close(fd1);

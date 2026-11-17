@@ -12,9 +12,7 @@
 // for the NMEA2000 pacemaker 
 #define MSEC10          10000   // usleep 10 msec
 // for the NMEA0183 pacemaker
-#define MSEC250         250000  // usleep 250 msec
-// for the NMEA0183 pacemaker, i do'n want to send data too fast. 
-#define SEC1            1       // sleep 1 sec
+#define MSEC100         100000  // usleep 100 msec
 // for the main() 
 #define SEC5            5       // sleep 5 sec
 
