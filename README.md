@@ -9,6 +9,8 @@ Work in progress, still finding particularities every day. Do not expect a full-
 
 My ultimate goal is to allow the PILOT unit to work with PyPilot.
 
-This is what you get if an instrumentation and software specialist with a sailing hobby is retired.
+This is what you retire an instrumentation and software specialist with a sailing hobby.
 
 If you are interested, you are free to access the source code.
+
+There is a PDF in the repository where most findings and observations are described, and a little more background about this project.
