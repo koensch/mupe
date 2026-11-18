@@ -4,11 +4,11 @@
 // notes:
 // - The NETWORK series system by B&G was the pinnacle for marine instrumentation. Introduced somewhere
 //   around 1985 it was the bread-and-butter for B&G until the introduction of the H1000 system in
-//   2002. The network, part of this se// this is the first found ACPries was is the precursor of what later would be called 'fastnet'
+//   2002. The network, part of this series was is the precursor of what later would be called 'fastnet'
 //   as part of the H1000, H2000 and H3000 product line.
 // - At present, these hardware is totally obsolete. This reverse engineering was done, just because my boat
 //   (from 1982) matches the B&G product line, i got my hands on some dirt-cheap display units and (as a retired
-//   engineer) i had too much time to spare. If i only could have accomplish this 30 years a go, i would be one
+//   engineer) i had too much time to spare. If i only could have accomplish this 25 years a go, i would be one
 //   of the unknown hero's in the OpenSource community.
 // - It was a great help that i could find a lot of information on public sources that was compiled by lots of 
 //   people doing the groundwork for me. I'm only the guy who attemted to put it all together. Kudo's to all
@@ -17,7 +17,7 @@
 // - B&G NETWORK devices are of the following types:
 //   - Display WITH instrument input (QUAD, DEPTH, SPEED, WIND, COMPASS, ENGINE)
 //   - Display WITHOUT instrument input (DATA, TACK, QUAD-R), they use the data from other devices via the bus.
-//   - Navigational aids (NAV, GPS/GPSplus, LORAN, CHART), that also have sensor input
+//   - Navigational aids (NAV, GPS/GPSplus, LORAN, CHART, COMPASS), that also have sensor input
 //   - Autopilot (PILOT) connected to the ACP (Advanced Control Processor)
 //   - Communication (VHF), US-only
 // - some models have NMEA1083 Input/Output capabilities. We do not want to interface with the NMEA, but
@@ -25,7 +25,8 @@
 //   modern devices. I'm going for the propriatry bus, decode/encode data stream and inject what we can. 
 // - NET TACK: displays the magnified wind angle, Gets it's data from WIND and SPEED/QUAD via the bus
 // - NET WIND: only one should have a windsensors, up to 3 other units can be setup as 'repeater'.
-// - NET WIND: has a 'demo mode' (td). When in demo mode, only APP data is displayed (TRUE wind data is not displayed)
+// - NET WIND: has a 'demo mode' (td). When in demo mode, only APP data is displayed (TRUE wind data is only displayed
+//   when also SPEED data is available (via the bus)
 // - NET WIND: has a 'repeater mode' (tr) and a 'demo mode' (td)
 // - NET QUAD: has a 'repeater mode' (tYPEr)
 // - NET QUAD-R: does have NMEA output capabilities that the QUAD module has not. You can configure a QUAD as
@@ -39,23 +40,24 @@
 //          - configure QUAD mode:
 //              - press TIMER button until "LOG" is displayed
 //              - press SETUP, observe that there are now 3 options (TYPEr, TYPEd and TYPEt)
-//              - select TYPEd mode, power down/up, press ENTER
+//              - select TYPEd mode, press ENTER, power down/up.
 //          - observe demo mode is active 
 // - NET PILOT: has a 'demo mode' (TYPE D)
 // - NET PILOT: has a connector at the back for NMEA0183 input. Could be a 2-pin connector (use cable 612-OA-014)
 //   or a 3-pin connector (use cable 612-OA-053). Cables are no longer produced.
-//    - 2-pin cable: pin ?/blue = NMEA In-, pin 2/red = NMEA In+ (no info)
+//    - 2-pin cable: pin 1/blue = NMEA In-, pin 2/red = NMEA In+
 //    - 3-pin cable: pin 1/blue = NMEA In-, pin 3/red = NMEA In+
-//   A limited set of NMEA messages are supported, see user manual, that are outdated by now. Interconnectivity with modern
-//   equipment is not possible.
+//   It appears as if the 3-pin connector was later introduced to allow the use of shielded cables.
+//   A limited set of NMEA messages are supported, see user manual, that are outdated by now. Compatibility with modern
+//   equipment is not guarenteed.
 // - NET PILOT: Needs a connection with a ACP to work, unless it's in 'demo mode'
-// - NET PILOT: appears to use the address range 0x50-0x5F (at least the NETWORK series)
-// - NET PILOT: when it observes a duplicate address it immediately increments its own address (0x50-0x5F) and
-//   continues as normal
+// - NET PILOT: appears to use the address range 0x50-0x5F
+// - NET PILOT: when it observes a duplicate address it immediately adjusts its own address (0x50-0x5F) and
+//   continues as normal.
 // - NET PILOT: in demo mode sends 4 channels: 0x49/Heading, 0x0B/Rudder, 0x51/AWA and 0x41/Speed
 // - NET PILOT: at startup (without ACP), the message "No Pilot" is displayed and it only sends a 0x0E/HELLO command TO 0x00. This is
 //   repeated every 3.8sec. If a reply is not received (within 5sec), "No Pilot" is displayed.
-//   If the PILOT receives a DATA command with atleast 0xB5/AP_STATUS, the message "No Pilot" disappears. You might seeb some errors
+//   If the PILOT receives a DATA command with atleast 0xB5/AP_STATUS, the message "No Pilot" disappears. You might see some errors
 //    ("WND OFF", "NO COMP"), because some critical channels are not present at the PILOT.
 // - NET PILOT sends a CMD (3x) when a button is pressed:
 //    - AUTO or OFF button:   TO FROM 05 D3 CS 00 B5 01 00 00 CS
@@ -65,7 +67,7 @@
 //    received command shall be returned as confirmation. This number increments every time it is used and after powerup it's 0x00.
 //   The 2nd byte of the payload is a channel number of the affected channel. Observe that the FMT is different than used in DATA commands. If
 //   this is intentional or not could not be found out. DATA transmission use FMT_08, D3/D4/DC commands use FMT_01
-// - NET PILOT: WA (Watch Alarm) and OC (Off Course Alarm) seems a 'local alarm'. In only beeps on PILOT and can not be reset
+// - NET PILOT: WA (Watch Alarm) and OC (Off Course Alarm) seems a 'local alarm'. It only beeps on PILOT and can not be reset
 //   on other (even on 'alarm capable' units). No alarm data is send over the network
 // - NET PILOT: has a 2 (or 3) pins female connector at the backside for NMEA 0183/RS442/4800/N/8/1 interface. There is a limited set of supported
 //   sentences and is build against specification v1.5 (about 1985). Newer revisions have made the most important sentences incompatible and useless.
@@ -74,15 +76,15 @@
 //   it may take some 10-15 sec before the network retransmits is stopped.
 // - Sending NMEA sentences for testingi found the easiest way to make a textfile with sentences and send them via a command prompt:
 //   on a windows machine: ECHO {sentence}  > COM6
+//   Do not forget to use the MODE command to set the COM6 parameters
 // - NET PILOT: it has been observed that somtimes PILOT sends erroneous FRAME CHECKSUMs. resetting the PILOT cleared the phenomenon.
 // - NET PILOT: in some cases, after pressing a button, "ERR 18" is observed. This has found to be caused by incorrect CMD/ACK handling
-//   This may be due to incorrect programming by me (the PILOT does not receive the extected return) to Checksum errors, causing our
+//   This may be due to incorrect programming by me (the PILOT does not receive the expected return) to Checksum errors, causing our
 //   application to throw-out received commands (and thus never replying what was expected by PILOT)
 // - When a DATA or QUAD-r does not receive a value (every 10 seconds) it displays "OFF" 
 // - NET ACP: supports a joystick, directly connected to the ACP, engage/disengaged by a switch connected to the ACP. When engaged, the
 //   joystick controls the rudder directly. When engaged, the PILOT displays "JOYSTICK".
 // - after connection a message/error is displayed; press any button to resume
-// - a network shall contain at least 2 devices. A solo device starts beeping after 5-10 seconds
 // - the voltage level on the IO bus seems 5V, this means you can use TTL type interface and some RS232
 //   might not pickup the low voltages (RS232 is 5-12VDC). Make sure your RS232 transmitter is also set 5V
 // - the NET IO bus uses TTL lever signals (5V).The data is serial (like RS232), but with inverted Tx and Rx. FDTI chips based RS232
