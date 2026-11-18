@@ -5,6 +5,8 @@
 
 #include <stdint.h>
 
+// at present we only support the netio bus used by NETWORK series. we may open the door
+// for other protocols, like Fastnet to be added later.
 #define BGNET_HANDLER_UNDEF         0
 #define BGNET_HANDLER_NETIO         1
 #define BGNET_HANDLER_TYPE_NETIO    "netio"
@@ -41,6 +43,8 @@ typedef struct {
     #define BGNET_NMEA0183_BWR          0x20
     #define BGNET_NMEA0183_BWC          0x40
     #define BGNET_NMEA0183_VHW          0x80
+
+    // this is the strucure where we store the config parameters
     struct {
         int   baudrate;
         int   databits;
