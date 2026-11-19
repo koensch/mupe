@@ -6,7 +6,7 @@
     "databits": 8,
     "stopbits": 2,
     "parity": "odd",
-    "mode": "passive",
+    "mode": "readwrite",
     "protocol": "netio"
   },
   "ethernet": {
@@ -20,9 +20,9 @@
   "nmea0183": {
     "comment": "Serial interface NMEA 0183 v1.5 (APA, APB, BWR, BWC, RMB, VTG, XTE) output to PILOT",
     "port1": "/dev/ttyUSB1",
-    "nav1": "RMB",
+    "nav1": "",
     "port2": "/dev/ttyUSB0",
-    "nav2": "RMB",
+    "nav2": "",
     "baudrate": 4800,
     "databits": 8,
     "stopbits": 1,

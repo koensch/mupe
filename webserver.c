@@ -304,58 +304,71 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     cJSON *alarmoff  = cJSON_GetObjectItem(root, "alarmoff");   // set alarm OFF (WA, OC, SHAL, DEEP, ANCH)
     cJSON *wa        = cJSON_GetObjectItem(root, "wa");         // triggers WA alarm
     cJSON *oc        = cJSON_GetObjectItem(root, "oc");         // triggers OC alarm
-
-    pthread_mutex_lock(&g_data_mutex); 
  
     // System
 
     // curl --data "{\"test\":0}" http://localhost:8080/api/update
     if (test) {
+        pthread_mutex_lock(&g_data_mutex); 
         if ((test->valueint < 0) | (test->valueint > 9)) {
             // no action
         } else {
             pCtrl->BGNET.iTest = test->valueint;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"reset\":\"IKnowWhatIDo\"}" http://localhost:8080/api/update
     if (reset) {
+        pthread_mutex_lock(&g_data_mutex); 
         if (strcmp(reset->valuestring, "IKnowWhatIDo") == 0) {
             bgnet_initialize_reset(pCtrl);
             log_info("Initialisation request via API");
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"log\":\"error\"}" http://localhost:8080/api/update
     if (log) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.cfg.log_level.value.nByte = log_level(log->valuestring);
         g_n2kdata.cfg.log_level.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.cfg.log_level.Counter, t);
         log_info("LogLevel set to '%s' via API (%d)", log->valuestring, g_n2kdata.cfg.log_level.value.nByte);
+        pthread_mutex_unlock(&g_data_mutex);
     }
 
     // position information, usually from GPS
 
     if (latitude) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pos.lat.value.dValue = latitude->valuedouble;
         g_n2kdata.pos.lat.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.lat.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     } 
     if (longitude) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pos.lon.value.dValue = longitude->valuedouble;
         g_n2kdata.pos.lon.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.lon.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (altitude) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pos.alt.value.dValue = altitude->valuedouble;
         g_n2kdata.pos.alt.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.alt.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (cog) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pos.cog.value.dValue = cog->valuedouble;
         g_n2kdata.pos.cog.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.cog.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"sog\":6.2}" http://localhost:8080/api/update
     if (sog) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pos.sog.value.dValue = sog->valuedouble;
         g_n2kdata.pos.sog.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.sog.Counter, t);
@@ -369,9 +382,11 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.VTG.SOG.Counter, t);
                 break;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"xte\":-0.34}" http://localhost:8080/api/update
     if (xte) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pos.xte.value.dValue = xte->valuedouble;
         g_n2kdata.pos.xte.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.xte.Counter, t);
@@ -385,9 +400,11 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.XTE.Counter, t);
                 break;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"wpidfrom\":\"WP01\"}" http://localhost:8080/api/update
     if (wpidfrom) {
+        pthread_mutex_lock(&g_data_mutex); 
         bgnet_safecopy(g_n2kdata.pos.wpid_from.value.cString, wpidfrom->valuestring);
         g_n2kdata.pos.wpid_from.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.wpid_from.Counter, t);
@@ -401,9 +418,11 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID_FROM.Counter, t);
                 break;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"wpidto\":\"WP02\"}" http://localhost:8080/api/update
     if (wpidto) {
+        pthread_mutex_lock(&g_data_mutex); 
         bgnet_safecopy(g_n2kdata.pos.wpid_to.value.cString, wpidto->valuestring);
         g_n2kdata.pos.wpid_to.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.wpid_to.Counter, t);
@@ -417,9 +436,11 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.WPID_TO.Counter, t);
                 break;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"wpb\":053.8}" http://localhost:8080/api/update
     if (wpb) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pos.wpb.value.dValue = wpb->valuedouble;
         g_n2kdata.pos.wpb.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.wpb.Counter, t);
@@ -433,9 +454,11 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.WPB.Counter, t);
                 break;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"wpd\":6.54}" http://localhost:8080/api/update
     if (wpd) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pos.wpd.value.dValue = wpd->valuedouble;
         g_n2kdata.pos.wpd.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pos.wpd.Counter, t);
@@ -449,11 +472,13 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 CounterUp(&pCtrl->BGNET.PILOT.NMEA.RMB.WPD.Counter, t);
                 break;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
 
     // boat information from instruments onboard
 
     if (stw) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.boat.stw.value.dValue = stw->valuedouble;
         g_n2kdata.boat.stw.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.stw.Counter, t);
@@ -466,8 +491,10 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 CounterUp(&pCtrl->BGNET.SPEED.STW.Counter, t);
                 break;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (depth) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.boat.depth.value.dValue = depth->valuedouble;
         g_n2kdata.boat.depth.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.depth.Counter, t);
@@ -481,19 +508,25 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 CounterUp(&pCtrl->BGNET.DEPTH.Depth.Counter, t);
                 break;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (seatemp) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.boat.seatemp.value.dValue = seatemp->valuedouble;
         g_n2kdata.boat.seatemp.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.seatemp.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (rudder) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.boat.rudderpos.value.dValue = rudder->valuedouble;
         g_n2kdata.boat.rudderpos.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.rudderpos.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"compass\":123.4}" http://localhost:8080/api/update
     if (compass) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.boat.compass.value.dValue = compass->valuedouble;
         g_n2kdata.boat.compass.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.compass.Counter, t);
@@ -503,83 +536,104 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         pCtrl->BGNET.ACP.CompassRaw.value.nLong = BGNET_DTOIROUND((compass->valuedouble*USHRT_MAX)/360);
         pCtrl->BGNET.ACP.CompassRaw.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.ACP.CompassRaw.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"timer\":-60}" http://localhost:8080/api/update
     // timervalue set in minutes (+ is count up, -=count down)
     if (timer) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.boat.timer.value.nLong = timer->valueint;
         g_n2kdata.boat.timer.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.boat.timer.Counter, t);
         pCtrl->BGNET.SPEED.TIMER.value.tTime = pCtrl->BGNET.SERVICE.SystemTime.value.tTime - (timer->valueint * 60);
         pCtrl->BGNET.SPEED.TIMER.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.SPEED.TIMER.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
 
     // wind information from masttop sensor
 
     if (twa) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.wind.twa.value.dValue = twa->valuedouble;
         g_n2kdata.wind.twa.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.twa.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (tws) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.wind.tws.value.dValue = tws->valuedouble;
         g_n2kdata.wind.tws.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.tws.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"awa\":123}" http://localhost:8080/api/update
     if (awa) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.wind.awa.value.dValue = awa->valuedouble;
         g_n2kdata.wind.awa.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.awa.Counter, t);
         pCtrl->BGNET.WIND.AWA.value.nLong = BGNET_DTOIROUND(awa->valuedouble);
         pCtrl->BGNET.WIND.AWA.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.WIND.AWA.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (aws) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.wind.aws.value.dValue = aws->valuedouble;
         g_n2kdata.wind.aws.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.aws.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (airtemp) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.wind.airtemp.value.dValue = airtemp->valuedouble;
         g_n2kdata.wind.airtemp.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.airtemp.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (baro) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.wind.baro.value.dValue = baro->valuedouble;
         g_n2kdata.wind.baro.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.baro.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"vmg\":6.54}" http://localhost:8080/api/update
     if (vmg) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.wind.vmg.value.dValue = vmg->valuedouble;
         g_n2kdata.wind.vmg.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.wind.vmg.Counter, t);
         pCtrl->BGNET.WIND.VMG.value.nLong = BGNET_DTOIROUND(vmg->valuedouble);
         pCtrl->BGNET.WIND.VMG.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.WIND.VMG.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
 
     // PILOT navigation information
 
     // curl --data "{\"cts\":128.9}" http://localhost:8080/api/update
     if (cts) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pilot.cts.value.dValue = cts->valuedouble;
         g_n2kdata.pilot.cts.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pilot.cts.Counter, t);
         pCtrl->BGNET.ACP.CTS.value.nLong = BGNET_DTOIROUND(cts->valuedouble);
         pCtrl->BGNET.ACP.CTS.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.ACP.CTS.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"triplog\":294.6}" http://localhost:8080/api/update
     if (triplog) {
+        pthread_mutex_lock(&g_data_mutex); 
         g_n2kdata.pilot.triplog.value.dValue = triplog->valuedouble;
         g_n2kdata.pilot.triplog.source = BGN_SOURCE_API;
         CounterUp(&g_n2kdata.pilot.triplog.Counter, t);
         pCtrl->BGNET.SPEED.TripLogNM.value.dValue = triplog->valuedouble * BGNET_DIVISOR_TRIPLOG;
         pCtrl->BGNET.SPEED.TripLogNM.source = BGN_SOURCE_API;
         CounterUp(&pCtrl->BGNET.SPEED.TripLogNM.Counter, t);
+        pthread_mutex_unlock(&g_data_mutex);
     }
 
     // PILOT control
@@ -587,6 +641,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // curl --data "{\"ap_state\":\"off\"}" http://localhost:8080/api/update
     // curl --data "{\"ap_state\":\"auto\"}" http://localhost:8080/api/update
     if (ap_state) {
+        pthread_mutex_lock(&g_data_mutex); 
         if (strcmp(ap_state->valuestring, "auto") == 0) {
             pCtrl->BGNET.ACP.STATE.value.nByte = (pCtrl->BGNET.ACP.STATE.value.nByte & ~BGN_AP_MODE1_MASK_STATE) | (BGN_AP_MODE1_AUTO & BGN_AP_MODE1_MASK_STATE); // set AUTO/COMPASS state
             pCtrl->BGNET.ACP.STATE.source = BGN_SOURCE_API;
@@ -603,11 +658,13 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
             }
             // nothing to do
         }        
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"ap_mode\":\"nav\"}" http://localhost:8080/api/update
     // curl --data "{\"ap_mode\":\"vane\"}" http://localhost:8080/api/update
     // curl --data "{\"ap_mode\":\"comp\"}" http://localhost:8080/api/update
     if (ap_mode) {
+        pthread_mutex_lock(&g_data_mutex); 
         if (strcmp(ap_mode->valuestring, "comp") == 0) {
             pCtrl->BGNET.ACP.MODE.value.nByte = (pCtrl->BGNET.ACP.MODE.value.nByte & ~BGN_AP_MODE2_MASK_MODE) | BGN_AP_MODE2_COMP; // set COMP pattern
             pCtrl->BGNET.ACP.MODE.source = BGN_SOURCE_API;
@@ -628,10 +685,12 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
             }
             // nothing to do
         }        
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"ap_js\":\"on\"}" http://localhost:8080/api/update
     // curl --data "{\"ap_js\":\"off\"}" http://localhost:8080/api/update
     if (ap_js) {
+        pthread_mutex_lock(&g_data_mutex); 
         if (strcmp(ap_js->valuestring, "on") == 0) {
             pCtrl->BGNET.ACP.Joystick.value.nByte = BGN_JOYSTICK_ON;
             pCtrl->BGNET.ACP.Joystick.source = BGN_SOURCE_API;
@@ -649,6 +708,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         } else {
             // nothing to do
         }        
+        pthread_mutex_unlock(&g_data_mutex);
     }
 
     // NETWORK control
@@ -659,6 +719,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     int16_t r;
     size_t len_msg;
     if (lights) {
+        pthread_mutex_lock(&g_data_mutex); 
         switch (lights->valueint) {
             case 0:
             case 3:
@@ -678,6 +739,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 // we are already locked  pthread_mutex_unlock(&g_data_mutex);
                 break;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
 
     // curl --data "{\"frame\":\"FF0001C9000300\"}" http://localhost:8080/api/update
@@ -694,6 +756,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     // curl --data "{\"frame\":\"FF 70 20 01 70 8D 48 00 78 50 88 04 05 4E 88 00 00 51 01 00 64 52 08 00 00 57 88 05 D7 59 01 00 89 7F 88 FD 59 9B\"}" http://localhost:8080/api/update
     // The rest i will leave up to your imagination
     if (frame) {
+        pthread_mutex_lock(&g_data_mutex); 
         // convert the received ascii/hex bytes as a binary frame, check the validity (do not support subframes)
         r = ascii2frame(&FRx, frame->valuestring, NULL);
         if (r > 0) {
@@ -715,17 +778,20 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
             g_fastnet_data_lenTx = g_fastnet_data_lenTx + len_msg; // increment byte counter in TX buffer
             // we are already locked  pthread_mutex_unlock(&g_data_mutex);
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"nav\":\"50\"}" http://localhost:8080/api/update
     // curl --data "{\"nav\":\"00\"}" http://localhost:8080/api/update
     // enable (50-5F) the transmission of navigation channels with the source address of the PILOT
     // disable the transmission by entering and other number than a valid PILOT addres
     if (nav) {
+        pthread_mutex_lock(&g_data_mutex); 
         if (strlen(nav->valuestring) == 2) {
             pCtrl->BGNET.PILOT.ucNAV_SIM = ((hex2bin(nav->valuestring[0]) & 0x0F) << 4) | (hex2bin(nav->valuestring[1]) & 0x0F);
         } else {
             pCtrl->BGNET.PILOT.ucNAV_SIM = 0x00;
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
 
     // ALARMS
@@ -738,6 +804,7 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
     //  QUAD = as DATA, but does not display alarm text
     //  PILOT = beeping continues as long as alarm channel is transmitted, also when the BEEP bit is off
     if (alarmon) {
+        pthread_mutex_lock(&g_data_mutex); 
         if (strcmp(alarmon->valuestring, "WA") == 0) {
             ALARM_On(&pCtrl->BGNET.ACP.ALARM.WA, t);
         } else if ((strcmp(alarmon->valuestring, "OC") == 0)) {
@@ -749,8 +816,10 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         } else if ((strcmp(alarmon->valuestring, "ANCH") == 0)) {
             ALARM_On(&pCtrl->BGNET.DEPTH.ALARM.ANCH, t);
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     if (alarmoff) {
+        pthread_mutex_lock(&g_data_mutex); 
         if (strcmp(alarmoff->valuestring, "WA") == 0) {
             ALARM_Off(&pCtrl->BGNET.ACP.ALARM.WA);
         } else if ((strcmp(alarmoff->valuestring, "OC") == 0)) {
@@ -762,9 +831,11 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
         } else if ((strcmp(alarmoff->valuestring, "ANCH") == 0)) {
             ALARM_Off(&pCtrl->BGNET.DEPTH.ALARM.ANCH);
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"wa\":\"on\"}" http://localhost:8080/api/update
     if (wa) {
+        pthread_mutex_lock(&g_data_mutex); 
         if (strcmp(wa->valuestring, "on") == 0) {
             pCtrl->BGNET.ACP.SETUP.WA_STAT.value.nByte = 1;
         } else if ((strcmp(wa->valuestring, "off") == 0)) {
@@ -778,9 +849,11 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 pCtrl->BGNET.ACP.SETUP.WA_MIN.value.nLong = r;
             }
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
     // curl --data "{\"wa\":\"on\"}" http://localhost:8080/api/update
     if (oc) {
+        pthread_mutex_lock(&g_data_mutex); 
         if (strcmp(oc->valuestring, "on") == 0) {
             pCtrl->BGNET.ACP.SETUP.OC_STAT.value.nByte = 1;
         } else if ((strcmp(oc->valuestring, "off") == 0)) {
@@ -794,9 +867,8 @@ static void handle_api_update(BGNET_CTRL* pCtrl, int client_fd, const char *body
                 pCtrl->BGNET.ACP.SETUP.OC_DEG.value.nLong = r;
             }
         }
+        pthread_mutex_unlock(&g_data_mutex);
     }
-
-    pthread_mutex_unlock(&g_data_mutex);
 
     cJSON_Delete(root);
 
@@ -1063,9 +1135,9 @@ static char* html_ACP_row(char *Buffer, BGNET_CTRL *pCtrl) {
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (Magnetic, after damping) [0-359 DegM]", pCtrl->BGNET.ACP.CompassM.Counter.iCounter, t-pCtrl->BGNET.ACP.CompassM.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CompassM.source), pCtrl->BGNET.ACP.CompassM.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (Tue, after damping and variation/deviation) [0-359 DegT]", pCtrl->BGNET.ACP.CompassT.Counter.iCounter, t-pCtrl->BGNET.ACP.CompassT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CompassT.source), pCtrl->BGNET.ACP.CompassT.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (True, after damping and variation/deviation) [0-359 DegT]", pCtrl->BGNET.ACP.CompassT.Counter.iCounter, t-pCtrl->BGNET.ACP.CompassT.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CompassT.source), pCtrl->BGNET.ACP.CompassT.value.nLong);
     strcat(Buffer, cLine);
-    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (fuxgate sensor) [0-65.535]", pCtrl->BGNET.ACP.CompassRaw.Counter.iCounter, t-pCtrl->BGNET.ACP.CompassRaw.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CompassRaw.source), pCtrl->BGNET.ACP.CompassRaw.value.nLong);
+    snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Compass", "Compass reading (from fluxgate sensor) [0-65.535/0-359 Deg]", pCtrl->BGNET.ACP.CompassRaw.Counter.iCounter, t-pCtrl->BGNET.ACP.CompassRaw.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.CompassRaw.source), pCtrl->BGNET.ACP.CompassRaw.value.nLong);
     strcat(Buffer, cLine);
     snprintf(cLine, sizeof(cLine), cACPRowSSDSD, "ACP: Rudder", "Rudder position (from RRU) [-40/+40 Deg]", pCtrl->BGNET.ACP.RRU_Pos.Counter.iCounter, t-pCtrl->BGNET.ACP.RRU_Pos.Counter.tTimestamp, strSource(cSource, pCtrl->BGNET.ACP.RRU_Pos.source), pCtrl->BGNET.ACP.RRU_Pos.value.nLong);
     strcat(Buffer, cLine);
@@ -1692,7 +1764,7 @@ void *webserver_thread(void *arg)
                 handle_root_html(client_fd, pCtrl);
             }
         }
-        usleep(MSEC10);
+        usleep(MSEC100);
         close(client_fd);
     }
 

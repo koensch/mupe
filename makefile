@@ -5,9 +5,11 @@
 CC      = gcc
 GIT_VERSION = \"$(shell git describe --abbrev=4 --dirty --always --tags)\"
 
-#CFLAGS  = -Wall -Wextra -std=c11 -pthread
-CFLAGS  = -Wall -Wextra -std=gnu99 -pthread -D GIT_VER=$(GIT_VERSION)
-#LDFLAGS = -pthread -lcjson
+# compiler flags (debug version)
+CFLAGS  = -Wall -Wextra -std=gnu99 -pthread -D GIT_VER=$(GIT_VERSION) -g -O2
+# compiler flags (production version)
+#CFLAGS  = -Wall -Wextra -std=gnu99 -pthread -D GIT_VER=$(GIT_VERSION)
+#LDFLAGS = -pthread -lcjson -lcrypto
 LDFLAGS = -pthread -lcjson -lcrypto
 
 SRC = main.c \
