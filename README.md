@@ -1,5 +1,5 @@
 # Most Useless Project Ever!
-This project is all about the B&G NETWORK series product i could find. Build a C-coded application that can monitor, write and interact with ACP, PILOT, QUAD, WIND and DATA modules. I threw in a nice web-status page, an API interface (use curl to set/reset variables), and a connectivity with NMEA 2000 and Signal K.
+This project is all about the B&G NETWORK series product and fastnet i could find. Build a C-coded application that can monitor, write and interact with ACP, PILOT, QUAD, WIND and DATA modules. I threw in a nice web-status page, an API interface (use curl to set/reset variables), and a connectivity with NMEA 2000 and Signal K.
 
 This is history or nautical archeology. Stuff from 1985-2005. Nobody has this stuff on their boat. This is not 'Fastnet', no, it's the precursor of 'Fastnet', the 11000 baud serial bus. Some features might have been carried over to Fastnet, but i am no Fastnet specialist.
 
